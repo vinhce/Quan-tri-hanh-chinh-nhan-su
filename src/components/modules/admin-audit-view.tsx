@@ -29,9 +29,16 @@ const STATUS_BADGE: Record<
   AuditLogEntry['status'],
   { label: string; variant: 'success' | 'warning' | 'destructive' }
 > = {
-  SUCCESS: { label: 'Success', variant: 'success' },
-  WARNING: { label: 'Warning', variant: 'warning' },
-  BLOCKED: { label: 'Blocked', variant: 'destructive' },
+  SUCCESS: { label: 'Hợp lệ', variant: 'success' },
+  WARNING: { label: 'Cảnh báo', variant: 'warning' },
+  BLOCKED: { label: 'Đã chặn', variant: 'destructive' },
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Quản trị hệ thống',
+  HR_MANAGER: 'Trưởng phòng Nhân sự',
+  DEPT_MANAGER: 'Trưởng bộ phận',
+  EMPLOYEE: 'Nhân viên chính thức',
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -273,24 +280,24 @@ export function AdminAuditView() {
                 onValueChange={setActionFilter}
                 options={[
                   { label: 'Tất cả hành động', value: 'ALL' },
-                  { label: 'LOGIN', value: 'LOGIN' },
-                  { label: 'APPROVE', value: 'APPROVE' },
-                  { label: 'UPDATE_PERMISSION', value: 'UPDATE_PERMISSION' },
-                  { label: 'EXPORT_PAYROLL', value: 'EXPORT_PAYROLL' },
-                  { label: 'FAILED_LOGIN / BLOCKED', value: 'FAILED_LOGIN' },
-                  { label: 'AI_CV_SCREEN', value: 'AI_CV_SCREEN' },
-                  { label: 'CREATE_REQUEST', value: 'CREATE_REQUEST' },
+                  { label: 'Đăng nhập hệ thống', value: 'LOGIN' },
+                  { label: 'Phê duyệt đơn từ', value: 'APPROVE' },
+                  { label: 'Cập nhật phân quyền', value: 'UPDATE_PERMISSION' },
+                  { label: 'Xuất bảng lương', value: 'EXPORT_PAYROLL' },
+                  { label: 'Đăng nhập thất bại / Bị chặn', value: 'FAILED_LOGIN' },
+                  { label: 'AI chấm điểm CV', value: 'AI_CV_SCREEN' },
+                  { label: 'Tạo đơn mới', value: 'CREATE_REQUEST' },
                 ]}
               />
               <Select
                 value={roleFilter}
                 onValueChange={setRoleFilter}
                 options={[
-                  { label: 'Tất cả Role', value: 'ALL' },
-                  { label: 'SUPER_ADMIN', value: 'SUPER_ADMIN' },
-                  { label: 'HR_MANAGER', value: 'HR_MANAGER' },
-                  { label: 'DEPT_MANAGER', value: 'DEPT_MANAGER' },
-                  { label: 'EMPLOYEE', value: 'EMPLOYEE' },
+                  { label: 'Tất cả vai trò', value: 'ALL' },
+                  { label: 'Quản trị hệ thống', value: 'SUPER_ADMIN' },
+                  { label: 'Trưởng phòng Nhân sự', value: 'HR_MANAGER' },
+                  { label: 'Trưởng bộ phận', value: 'DEPT_MANAGER' },
+                  { label: 'Nhân viên chính thức', value: 'EMPLOYEE' },
                 ]}
               />
             </div>
@@ -301,12 +308,12 @@ export function AdminAuditView() {
             <table className="w-full min-w-[960px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
-                  <th className="whitespace-nowrap px-4 py-3">Timestamp</th>
+                  <th className="whitespace-nowrap px-4 py-3">Thời gian</th>
                   <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
                   <th className="px-4 py-3">Người thực hiện</th>
-                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Vai trò</th>
                   <th className="px-4 py-3">Hành động</th>
-                  <th className="px-4 py-3">Đối tượng (Target)</th>
+                  <th className="px-4 py-3">Đối tượng tác động</th>
                   <th className="whitespace-nowrap px-4 py-3">Địa chỉ IP</th>
                   <th className="px-4 py-3">Trạng thái</th>
                 </tr>
@@ -329,16 +336,16 @@ export function AdminAuditView() {
                         {log.actor_name}
                       </td>
                       <td className="px-4 py-3.5">
-                        <Badge variant="outline" className="font-mono text-[11px]">
-                          {log.actor_role}
+                        <Badge variant="outline" className="whitespace-nowrap text-xs">
+                          {ROLE_LABELS[log.actor_role] ?? log.actor_role}
                         </Badge>
                       </td>
                       <td className="px-4 py-3.5">
-                        <p className="font-mono text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                          {log.action}
-                        </p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
                           {ACTION_LABELS[log.action] ?? log.module}
+                        </p>
+                        <p className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {log.action}
                         </p>
                       </td>
                       <td className="max-w-xs px-4 py-3.5">

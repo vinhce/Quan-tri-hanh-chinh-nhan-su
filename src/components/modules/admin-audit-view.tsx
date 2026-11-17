@@ -12,7 +12,6 @@ import {
 import { useApp } from '@/context/app-context';
 import {
   AUDIT_UPDATED_EVENT,
-  clearRuntimeAuditLogs,
   getRuntimeAuditLogs,
 } from '@/lib/audit-logger';
 import { fetchAdminMock } from '@/lib/mock-fetcher';
@@ -26,6 +25,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -89,6 +96,7 @@ export function AdminAuditView() {
   const [actionFilter, setActionFilter] = useState<string>('ALL');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
 
   const loadData = useCallback(async (bypassCache = false) => {
     setIsLoading(true);
@@ -207,24 +215,10 @@ export function AdminAuditView() {
             Truy vết toàn bộ thao tác nhạy cảm, thay đổi phân quyền, xuất dữ liệu lương và cảnh báo truy cập trái phép.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {runtimeLogs.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                clearRuntimeAuditLogs();
-                showToast('Đã xóa log phiên', 'Các bản ghi thao tác trong phiên hiện tại đã được dọn dẹp.', 'default');
-              }}
-            >
-              Xóa log phiên ({runtimeLogs.length})
-            </Button>
-          )}
-          <Button variant="outline" onClick={handleExportCsv} className="shrink-0">
-            <Download className="h-4 w-4" strokeWidth={1.5} />
-            Xuất nhật ký CSV
-          </Button>
-        </div>
+        <Button variant="outline" onClick={handleExportCsv} className="shrink-0">
+          <Download className="h-4 w-4" strokeWidth={1.5} />
+          Xuất nhật ký CSV
+        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -372,7 +366,8 @@ export function AdminAuditView() {
                   return (
                     <tr
                       key={log.id}
-                      className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                      onClick={() => setSelectedLog(log)}
+                      className="cursor-pointer transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
                       <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
                         {formatTimestamp(log.timestamp)}
@@ -428,6 +423,88 @@ export function AdminAuditView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Immutable Read-Only Audit Log Detail Dialog */}
+      <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Chi tiết sự kiện kiểm toán (Chỉ đọc / Bất biến)</DialogTitle>
+            <DialogDescription>
+              Bản ghi nhật ký bảo mật được khóa chỉ đọc để đảm bảo tính toàn vẹn kiểm toán.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="mt-4 space-y-4 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                <div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Mã nhật ký</p>
+                  <p className="font-mono text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {selectedLog.log_code}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Thời gian ghi nhận</p>
+                  <p className="font-mono text-xs font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                    {formatTimestamp(selectedLog.timestamp)}
+                  </p>
+                </div>
+                <Badge variant={STATUS_BADGE[selectedLog.status].variant}>
+                  {STATUS_BADGE[selectedLog.status].label}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Người thực hiện</p>
+                  <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
+                    {selectedLog.actor_name}
+                  </p>
+                  <p className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {selectedLog.actor_employee_code}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Vai trò & Địa chỉ IP</p>
+                  <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
+                    {ROLE_LABELS[selectedLog.actor_role] ?? selectedLog.actor_role}
+                  </p>
+                  <p className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    IP: {selectedLog.ip_address}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Hành động & Phân hệ</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                    {ACTION_LABELS[selectedLog.action] ?? selectedLog.module}
+                  </span>
+                  <Badge variant="outline" className="font-mono text-[11px]">
+                    {selectedLog.action}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Đối tượng tác động</p>
+                <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                  {selectedLog.target_entity}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                  {selectedLog.detail}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setSelectedLog(null)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

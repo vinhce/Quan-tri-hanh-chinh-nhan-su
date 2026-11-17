@@ -247,6 +247,7 @@ export function RequestsView() {
   const [rejectTarget, setRejectTarget] = useState<LeaveOvertimeRequest | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [rejectError, setRejectError] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<LeaveOvertimeRequest | null>(null);
 
   const [formCategory, setFormCategory] = useState<RequestCategory>('ANNUAL_LEAVE');
   const [formStartDate, setFormStartDate] = useState('2026-11-25');
@@ -425,22 +426,23 @@ export function RequestsView() {
     );
   };
 
-  const handleCancelRequest = (req: LeaveOvertimeRequest) => {
-    if (!canCancelRequest(req)) return;
+  const handleConfirmCancel = () => {
+    if (!cancelTarget || !canCancelRequest(cancelTarget)) return;
     const nowIso = new Date().toISOString();
     const updatedReq: LeaveOvertimeRequest = {
-      ...req,
+      ...cancelTarget,
       status: 'CANCELLED',
       current_step_role: null,
       responded_at: nowIso,
     };
-    setRequests((prev) => prev.map((item) => (item.id === req.id ? updatedReq : item)));
-    setSelectedRequest((prev) => (prev && prev.id === req.id ? updatedReq : prev));
+    setRequests((prev) => prev.map((item) => (item.id === cancelTarget.id ? updatedReq : item)));
+    setSelectedRequest((prev) => (prev && prev.id === cancelTarget.id ? updatedReq : prev));
     showToast(
-      `Đã hủy đơn ${req.request_code}`,
+      `Đã hủy đơn ${cancelTarget.request_code}`,
       'Đơn đề xuất đã được rút lại.',
       'default'
     );
+    setCancelTarget(null);
   };
 
   const handleCategoryChange = (val: string) => {
@@ -843,14 +845,15 @@ export function RequestsView() {
                       )}
                       {canCancelHere && (
                         <Button
-                          variant="outline"
+                          variant="destructive"
                           size="sm"
+                          className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCancelRequest(req);
+                            setCancelTarget(req);
                           }}
                         >
-                          <Ban className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
+                          <Ban className="h-4 w-4" strokeWidth={1.5} />
                           Hủy đơn
                         </Button>
                       )}
@@ -1185,10 +1188,11 @@ export function RequestsView() {
                   </Button>
                   {canCancelModal && (
                     <Button
-                      variant="outline"
-                      onClick={() => handleCancelRequest(selectedRequest)}
+                      variant="destructive"
+                      className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
+                      onClick={() => setCancelTarget(selectedRequest)}
                     >
-                      <Ban className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
+                      <Ban className="h-4 w-4" strokeWidth={1.5} />
                       Hủy đơn
                     </Button>
                   )}
@@ -1273,6 +1277,39 @@ export function RequestsView() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận hủy đơn</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn hủy đơn{' '}
+              <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {cancelTarget?.request_code}
+              </span>{' '}
+              này không?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setCancelTarget(null)}>
+              Giữ lại
+            </Button>
+            <Button
+              variant="destructive"
+              type="button"
+              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
+              onClick={handleConfirmCancel}
+            >
+              Xác nhận hủy
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

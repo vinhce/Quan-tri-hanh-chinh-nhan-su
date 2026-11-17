@@ -27,7 +27,8 @@ import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApp } from '@/context/app-context';
 import { fetchPayrollMock, type PitTaxBracketItem } from '@/lib/mock-fetcher';
-import { formatVND } from '@/lib/utils';
+import { formatNumberVN, formatVND } from '@/lib/utils';
+import { calculateProgressivePitVnd } from '@/mock';
 import type { PayrollFormulaConfig, PayrollRecord } from '@/mock/types';
 
 function normalizeVietnamese(text: string): string {
@@ -86,7 +87,7 @@ function computePitBreakdown(
 }
 
 export function PayrollView() {
-  const { uiState, setUiState, showToast } = useApp();
+  const { role, uiState, setUiState, showToast } = useApp();
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [formula, setFormula] = useState<PayrollFormulaConfig | null>(null);
   const [pitBrackets, setPitBrackets] = useState<PitTaxBracketItem[]>([]);
@@ -94,6 +95,58 @@ export function PayrollView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | PayrollRecord['payment_status']>('ALL');
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
+  const [editKpiBonusDigits, setEditKpiBonusDigits] = useState('');
+  const [editPaymentStatus, setEditPaymentStatus] =
+    useState<PayrollRecord['payment_status']>('APPROVED');
+
+  const openPayrollModal = (rec: PayrollRecord) => {
+    setSelectedRecord(rec);
+    setEditKpiBonusDigits(String(rec.kpi_bonus_vnd));
+    setEditPaymentStatus(rec.payment_status);
+  };
+
+  const handleSavePayrollAdjustments = () => {
+    if (!selectedRecord) return;
+    const nextKpiBonus = Math.max(0, Number(editKpiBonusDigits) || 0);
+    const nextGross =
+      selectedRecord.prorated_base_salary_vnd +
+      selectedRecord.allowance_meal_vnd +
+      selectedRecord.allowance_transport_vnd +
+      selectedRecord.allowance_position_vnd +
+      selectedRecord.overtime_pay_vnd +
+      nextKpiBonus;
+    const nextTaxable = Math.max(
+      0,
+      nextGross -
+        selectedRecord.total_insurance_employee_vnd -
+        selectedRecord.personal_deduction_vnd -
+        selectedRecord.dependent_deduction_vnd
+    );
+    const nextPit = calculateProgressivePitVnd(nextTaxable);
+    const nextNet = nextGross - selectedRecord.total_insurance_employee_vnd - nextPit;
+
+    const updatedRec: PayrollRecord = {
+      ...selectedRecord,
+      kpi_bonus_vnd: nextKpiBonus,
+      gross_salary_vnd: nextGross,
+      taxable_income_vnd: nextTaxable,
+      pit_tax_vnd: nextPit,
+      net_salary_vnd: nextNet,
+      payment_status: editPaymentStatus,
+      paid_at:
+        editPaymentStatus === 'PAID'
+          ? selectedRecord.paid_at ?? new Date().toISOString()
+          : null,
+    };
+
+    setRecords((prev) => prev.map((item) => (item.id === updatedRec.id ? updatedRec : item)));
+    setSelectedRecord(updatedRec);
+    showToast(
+      `Đã cập nhật phiếu lương ${updatedRec.payslip_code}`,
+      `${updatedRec.full_name} — Thực lĩnh mới: ${formatVND(nextNet)}`,
+      'success'
+    );
+  };
 
   useEffect(() => {
     let active = true;
@@ -230,13 +283,13 @@ export function PayrollView() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
+        <Card className="h-full border-l-4 border-l-blue-500 dark:border-l-blue-400">
+          <CardContent className="flex h-full flex-col justify-between p-4">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng quỹ lương Gross
               </span>
-              <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
+              <Wallet className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
             </div>
             <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
               {formatVND(totals.gross)}
@@ -247,13 +300,13 @@ export function PayrollView() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-violet-500 dark:border-l-violet-400">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
+        <Card className="h-full border-l-4 border-l-violet-500 dark:border-l-violet-400">
+          <CardContent className="flex h-full flex-col justify-between p-4">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 Khấu trừ BHXH/YT/TN (10,5%)
               </span>
-              <ShieldCheck className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} />
+              <ShieldCheck className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" strokeWidth={1.5} />
             </div>
             <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-violet-600 dark:text-violet-400">
               {formatVND(totals.insurance)}
@@ -264,13 +317,13 @@ export function PayrollView() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
+        <Card className="h-full border-l-4 border-l-amber-500 dark:border-l-amber-400">
+          <CardContent className="flex h-full flex-col justify-between p-4">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng thuế TNCN
               </span>
-              <FileSpreadsheet className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+              <FileSpreadsheet className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
             </div>
             <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
               {formatVND(totals.pit)}
@@ -281,13 +334,13 @@ export function PayrollView() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
+        <Card className="h-full border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
+          <CardContent className="flex h-full flex-col justify-between p-4">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng thực lĩnh Net
               </span>
-              <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+              <Banknote className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
             </div>
             <p className="mt-2 font-mono text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
               {formatVND(totals.net)}
@@ -375,7 +428,7 @@ export function PayrollView() {
                     return (
                       <tr
                         key={rec.id}
-                        onClick={() => setSelectedRecord(rec)}
+                        onClick={() => openPayrollModal(rec)}
                         className="cursor-pointer transition-colors hover:bg-teal-50/40 dark:hover:bg-teal-950/20"
                       >
                         <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
@@ -632,6 +685,68 @@ export function PayrollView() {
                     {formatVND(selectedRecord.net_salary_vnd)}
                   </div>
                 </div>
+
+                {role === 'SUPER_ADMIN' && (
+                  <div className="space-y-3 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/60">
+                    <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                      Điều chỉnh phiếu lương (Quản trị viên)
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="edit-kpi-bonus"
+                          className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                        >
+                          Thưởng KPI tháng (VND)
+                        </label>
+                        <Input
+                          id="edit-kpi-bonus"
+                          type="text"
+                          inputMode="numeric"
+                          value={
+                            editKpiBonusDigits === ''
+                              ? ''
+                              : formatNumberVN(Number(editKpiBonusDigits))
+                          }
+                          onChange={(e) =>
+                            setEditKpiBonusDigits(e.target.value.replace(/\D/g, ''))
+                          }
+                          className="font-mono tabular-nums"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="edit-payment-status"
+                          className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                        >
+                          Trạng thái duyệt
+                        </label>
+                        <Select
+                          id="edit-payment-status"
+                          value={editPaymentStatus}
+                          onValueChange={(v) =>
+                            setEditPaymentStatus(v as PayrollRecord['payment_status'])
+                          }
+                          options={[
+                            { value: 'DRAFT_CALCULATED', label: 'Nháp tính toán' },
+                            { value: 'APPROVED', label: 'Đã duyệt lương' },
+                            { value: 'PAID', label: 'Đã phát hành' },
+                          ]}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSavePayrollAdjustments}
+                      >
+                        Lưu điều chỉnh lương
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="mt-0 flex shrink-0 items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">

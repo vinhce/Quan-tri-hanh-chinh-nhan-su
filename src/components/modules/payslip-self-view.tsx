@@ -14,7 +14,7 @@ import {
   Phone,
   User,
 } from 'lucide-react';
-import { useApp } from '@/context/app-context';
+import { useApp, type RoleCode } from '@/context/app-context';
 import {
   fetchAttendanceMock,
   fetchEmployeesMock,
@@ -60,8 +60,15 @@ function formatTimeNow(date: Date): string {
   }).format(date);
 }
 
+const ROLE_DEFAULT_EMPLOYEE_CODE: Record<RoleCode, string> = {
+  SUPER_ADMIN: 'NV-2024-001',
+  HR_MANAGER: 'NV-2024-002',
+  DEPT_MANAGER: 'NV-2024-003',
+  EMPLOYEE: 'NV-2024-004',
+};
+
 export function PayslipSelfView() {
-  const { showToast } = useApp();
+  const { role, currentUserProfile, showToast } = useApp();
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [leaveBalance, setLeaveBalance] = useState<AnnualLeaveBalance | null>(null);
@@ -69,30 +76,44 @@ export function PayslipSelfView() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadData = useCallback(async (bypassCache = false) => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const [empData, attData, payData] = await Promise.all([
-        fetchEmployeesMock({ bypassCache }),
-        fetchAttendanceMock({ bypassCache }),
-        fetchPayrollMock({ bypassCache }),
-      ]);
-      const foundEmp =
-        empData.MOCK_EMPLOYEES.find((e) => e.id === 'emp-004') ??
-        empData.MOCK_EMPLOYEES[0];
-      const foundBalance =
-        attData.MOCK_ANNUAL_LEAVE_BALANCES.find((b) => b.employee_id === 'emp-004') ??
-        attData.MOCK_ANNUAL_LEAVE_BALANCES[0];
-      setEmployee(foundEmp);
-      setLeaveBalance(foundBalance);
-      setPayslip(payData.MOCK_PERSONAL_PAYSLIP);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Không thể tải dữ liệu cá nhân.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const targetEmployeeCode =
+    currentUserProfile?.employee_code ?? ROLE_DEFAULT_EMPLOYEE_CODE[role];
+
+  const loadData = useCallback(
+    async (bypassCache = false) => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [empData, attData, payData] = await Promise.all([
+          fetchEmployeesMock({ bypassCache }),
+          fetchAttendanceMock({ bypassCache }),
+          fetchPayrollMock({ bypassCache }),
+        ]);
+        const foundEmp =
+          empData.MOCK_EMPLOYEES.find((e) => e.employee_code === targetEmployeeCode) ??
+          empData.MOCK_EMPLOYEES.find((e) => e.role_code === role) ??
+          empData.MOCK_EMPLOYEES[0];
+        const foundBalance =
+          attData.MOCK_ANNUAL_LEAVE_BALANCES.find(
+            (b) => b.employee_code === foundEmp.employee_code
+          ) ??
+          attData.MOCK_ANNUAL_LEAVE_BALANCES[0];
+        const foundPayslip =
+          payData.MOCK_PAYROLL_RECORDS.find(
+            (p) => p.employee_code === foundEmp.employee_code
+          ) ??
+          payData.MOCK_PERSONAL_PAYSLIP;
+        setEmployee(foundEmp);
+        setLeaveBalance(foundBalance);
+        setPayslip(foundPayslip);
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Không thể tải dữ liệu cá nhân.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [role, targetEmployeeCode]
+  );
 
   useEffect(() => {
     void loadData();

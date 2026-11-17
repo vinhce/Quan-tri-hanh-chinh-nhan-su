@@ -7,13 +7,23 @@ import {
   Clock,
   Download,
   Lock,
+  Pencil,
   Search,
   Timer,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -57,6 +67,66 @@ export function AttendanceView() {
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [shiftFilter, setShiftFilter] = useState('ALL');
   const [isMonthLocked, setIsMonthLocked] = useState(false);
+  const canEditAttendance = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+
+  const [editingRecord, setEditingRecord] = useState<MonthlyAttendanceSummary | null>(null);
+  const [editShiftCode, setEditShiftCode] = useState('HC-08:00');
+  const [editActualDays, setEditActualDays] = useState('22');
+  const [editLateCount, setEditLateCount] = useState('0');
+  const [editOtHours, setEditOtHours] = useState('0');
+  const [editStatus, setEditStatus] =
+    useState<MonthlyAttendanceSummary['attendance_status']>('VERIFIED');
+  const [deleteTarget, setDeleteTarget] = useState<MonthlyAttendanceSummary | null>(null);
+
+  const openEditModal = (row: MonthlyAttendanceSummary) => {
+    setEditingRecord(row);
+    setEditShiftCode(row.shift_code);
+    setEditActualDays(String(row.actual_work_days));
+    setEditLateCount(String(row.late_occurrences));
+    setEditOtHours(String(row.total_overtime_hours));
+    setEditStatus(row.attendance_status);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+    const nextDays = Math.max(0, Number(editActualDays) || 0);
+    const nextLate = Math.max(0, Math.round(Number(editLateCount) || 0));
+    const nextOt = Math.max(0, Number(editOtHours) || 0);
+
+    setRecords((prev) =>
+      prev.map((item) =>
+        item.id === editingRecord.id
+          ? {
+              ...item,
+              shift_code: editShiftCode,
+              actual_work_days: nextDays,
+              late_occurrences: nextLate,
+              total_overtime_hours: nextOt,
+              attendance_status: editStatus,
+            }
+          : item
+      )
+    );
+    showToast(
+      `Đã cập nhật chấm công ${editingRecord.employee_code}`,
+      `${editingRecord.full_name} — ${nextDays} công, ${nextOt}h OT`,
+      'success'
+    );
+    setEditingRecord(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    setRecords((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+    showToast(
+      `Đã xóa bản ghi công ${deleteTarget.employee_code}`,
+      deleteTarget.full_name,
+      'warning'
+    );
+    setDeleteTarget(null);
+    setEditingRecord(null);
+  };
 
   useEffect(() => {
     let active = true;
@@ -380,6 +450,9 @@ export function AttendanceView() {
                     <th className="whitespace-nowrap px-4 py-3 text-right">Đi muộn</th>
                     <th className="whitespace-nowrap px-4 py-3 text-right">Giờ OT</th>
                     <th className="whitespace-nowrap px-4 py-3">Trạng thái</th>
+                    {canEditAttendance && (
+                      <th className="whitespace-nowrap px-4 py-3 text-right">Thao tác</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
@@ -388,7 +461,12 @@ export function AttendanceView() {
                     return (
                       <tr
                         key={row.id}
-                        className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                        onClick={() => {
+                          if (canEditAttendance) openEditModal(row);
+                        }}
+                        className={`transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40 ${
+                          canEditAttendance ? 'cursor-pointer' : ''
+                        }`}
                       >
                         <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
                           {row.employee_code}
@@ -433,6 +511,36 @@ export function AttendanceView() {
                         <td className="whitespace-nowrap px-4 py-3">
                           <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
                         </td>
+                        {canEditAttendance && (
+                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditModal(row);
+                                }}
+                                aria-label={`Sửa công ${row.full_name}`}
+                              >
+                                <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                                Sửa
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget(row);
+                                }}
+                                aria-label={`Xóa công ${row.full_name}`}
+                                className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                              >
+                                <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                              </Button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -500,6 +608,168 @@ export function AttendanceView() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={editingRecord !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingRecord(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          {editingRecord && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Chỉnh sửa chấm công — {editingRecord.full_name}</DialogTitle>
+                <DialogDescription>
+                  <span className="font-mono tabular-nums">{editingRecord.employee_code}</span> ·{' '}
+                  {editingRecord.department_name}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSaveEdit} className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="edit-shift"
+                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Ca làm việc
+                    </label>
+                    <Select
+                      id="edit-shift"
+                      value={editShiftCode}
+                      onValueChange={setEditShiftCode}
+                      options={shiftOptions.filter((opt) => opt.value !== 'ALL')}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="edit-status"
+                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Trạng thái chốt công
+                    </label>
+                    <Select
+                      id="edit-status"
+                      value={editStatus}
+                      onValueChange={(v) =>
+                        setEditStatus(v as MonthlyAttendanceSummary['attendance_status'])
+                      }
+                      options={[
+                        { value: 'VERIFIED', label: 'Đã xác nhận' },
+                        { value: 'NEEDS_REVIEW', label: 'Cần rà soát' },
+                        { value: 'LOCKED', label: 'Đã chốt công' },
+                      ]}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="edit-days"
+                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Công thực tế
+                    </label>
+                    <Input
+                      id="edit-days"
+                      type="number"
+                      min={0}
+                      max={31}
+                      step={0.5}
+                      value={editActualDays}
+                      onChange={(e) => setEditActualDays(e.target.value)}
+                      className="font-mono tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="edit-late"
+                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Đi muộn (lượt)
+                    </label>
+                    <Input
+                      id="edit-late"
+                      type="number"
+                      min={0}
+                      value={editLateCount}
+                      onChange={(e) => setEditLateCount(e.target.value)}
+                      className="font-mono tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="edit-ot"
+                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Giờ OT
+                    </label>
+                    <Input
+                      id="edit-ot"
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={editOtHours}
+                      onChange={(e) => setEditOtHours(e.target.value)}
+                      className="font-mono tabular-nums"
+                    />
+                  </div>
+                </div>
+                <DialogFooter className="sm:justify-between">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setDeleteTarget(editingRecord)}
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                    Xóa bản ghi
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditingRecord(null)}
+                    >
+                      Hủy
+                    </Button>
+                    <Button type="submit" variant="primary">
+                      Lưu thay đổi
+                    </Button>
+                  </div>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa bản ghi chấm công</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa dữ liệu công tháng 11/2026 của{' '}
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {deleteTarget?.full_name}
+              </span>{' '}
+              (<span className="font-mono tabular-nums">{deleteTarget?.employee_code}</span>)?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Hủy
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Xác nhận xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

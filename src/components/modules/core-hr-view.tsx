@@ -9,8 +9,10 @@ import {
   ChevronRight,
   FileText,
   Network,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -141,6 +143,15 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isAddEmpOpen, setIsAddEmpOpen] = useState(false);
+
+  // Edit & Delete Employee state
+  const [isEditingEmp, setIsEditingEmp] = useState(false);
+  const [confirmDeleteEmp, setConfirmDeleteEmp] = useState(false);
+  const [editEmpName, setEditEmpName] = useState('');
+  const [editEmpDeptId, setEditEmpDeptId] = useState('');
+  const [editEmpPosition, setEditEmpPosition] = useState('');
+  const [editEmpStatus, setEditEmpStatus] = useState<EmploymentStatus>('ACTIVE');
+  const [editEmpSalary, setEditEmpSalary] = useState('');
 
   // Add Employee form state
   const [newEmpName, setNewEmpName] = useState('');
@@ -351,6 +362,64 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     showToast(
       'Đã thêm hồ sơ nhân viên mới',
       `${created.full_name} (${created.employee_code}) đã được thêm vào ${dept.department_name}.`,
+      'success'
+    );
+  };
+
+  const startEditEmployee = (emp: Employee) => {
+    setEditEmpName(emp.full_name);
+    setEditEmpDeptId(emp.department_id);
+    setEditEmpPosition(emp.position_name);
+    setEditEmpStatus(emp.employment_status);
+    setEditEmpSalary(String(emp.base_salary_vnd));
+    setConfirmDeleteEmp(false);
+    setIsEditingEmp(true);
+  };
+
+  const handleSaveEditEmployee = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployee || !editEmpName.trim()) {
+      showToast('Thiếu họ và tên', 'Vui lòng nhập họ tên nhân viên.', 'warning');
+      return;
+    }
+    const dept = departments.find((d) => d.id === editEmpDeptId) ?? departments[0];
+    const nextSalary = Number(editEmpSalary) || selectedEmployee.base_salary_vnd;
+    const updated: Employee = {
+      ...selectedEmployee,
+      full_name: editEmpName.trim(),
+      department_id: dept ? dept.id : selectedEmployee.department_id,
+      department_name: dept ? dept.department_name : selectedEmployee.department_name,
+      position_name: editEmpPosition.trim() || selectedEmployee.position_name,
+      employment_status: editEmpStatus,
+      base_salary_vnd: nextSalary,
+    };
+
+    setEmployees((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    setSelectedEmployee(updated);
+    setIsEditingEmp(false);
+    showToast(
+      'Đã cập nhật hồ sơ nhân viên',
+      `${updated.full_name} (${updated.employee_code}) đã được lưu thay đổi.`,
+      'success'
+    );
+  };
+
+  const handleDeleteEmployee = (emp: Employee) => {
+    if (emp.employee_code === 'NV-2024-001') {
+      showToast(
+        'Không thể xóa tài khoản quản trị đang đăng nhập',
+        'Tài khoản NV-2024-001 đang được sử dụng.',
+        'warning'
+      );
+      return;
+    }
+    setEmployees((prev) => prev.filter((item) => item.id !== emp.id));
+    setSelectedEmployee(null);
+    setConfirmDeleteEmp(false);
+    setIsEditingEmp(false);
+    showToast(
+      'Đã xóa hồ sơ nhân viên',
+      `Hồ sơ ${emp.full_name} (${emp.employee_code}) đã được gỡ khỏi danh sách.`,
       'success'
     );
   };
@@ -913,7 +982,11 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       <Dialog
         open={Boolean(selectedEmployee)}
         onOpenChange={(open) => {
-          if (!open) setSelectedEmployee(null);
+          if (!open) {
+            setSelectedEmployee(null);
+            setIsEditingEmp(false);
+            setConfirmDeleteEmp(false);
+          }
         }}
       >
         <DialogContent className="max-w-xl">
@@ -938,63 +1011,201 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                  <div className="text-zinc-500 dark:text-zinc-400">Email & Điện thoại</div>
-                  <div className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
-                    {selectedEmployee.email}
+              {isEditingEmp ? (
+                <form onSubmit={handleSaveEditEmployee} className="mt-4 space-y-3.5">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Họ và tên *
+                    </label>
+                    <Input
+                      value={editEmpName}
+                      onChange={(e) => setEditEmpName(e.target.value)}
+                      required
+                    />
                   </div>
-                  <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
-                    {selectedEmployee.phone}
-                  </div>
-                </div>
-                {!isDeptManager && (
-                  <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                    <div className="text-zinc-500 dark:text-zinc-400">CCCD / Mã số thuế</div>
-                    <div className="mt-1 font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
-                      CCCD: {selectedEmployee.national_id}
-                    </div>
-                    <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
-                      MST: {selectedEmployee.tax_code} · BHXH: {selectedEmployee.social_insurance_no}
-                    </div>
-                  </div>
-                )}
-                {!hideSalary && (
-                  <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                    <div className="text-zinc-500 dark:text-zinc-400">Chế độ lương & Ngân hàng</div>
-                    <div className="mt-1 font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                      {formatVND(selectedEmployee.base_salary_vnd)}
-                    </div>
-                    <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
-                      {selectedEmployee.bank_name} · {selectedEmployee.bank_account_no}
-                    </div>
-                  </div>
-                )}
-                <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                  <div className="text-zinc-500 dark:text-zinc-400">Ca làm & Quản lý trực tiếp</div>
-                  <div className="mt-1 font-mono text-zinc-900 dark:text-zinc-100">
-                    Ca: {selectedEmployee.work_shift_code}
-                  </div>
-                  <div className="mt-0.5 text-zinc-600 dark:text-zinc-400">
-                    Quản lý: {selectedEmployee.manager_name ?? 'Ban Điều hành'}
-                  </div>
-                </div>
-              </div>
 
-              <div className="mt-3 rounded-lg border border-teal-700/20 bg-teal-50/50 p-3 text-xs dark:border-teal-400/20 dark:bg-teal-950/30">
-                <div className="font-semibold text-teal-800 dark:text-teal-300">
-                  Đánh giá AI Retention
-                </div>
-                <p className="mt-1 text-zinc-700 dark:text-zinc-300">
-                  {selectedEmployee.ai_retention_note}
-                </p>
-              </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        Phòng ban
+                      </label>
+                      <Select
+                        value={editEmpDeptId}
+                        onValueChange={setEditEmpDeptId}
+                        options={departments.map((d) => ({
+                          label: d.department_name,
+                          value: d.id,
+                        }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        Trạng thái làm việc
+                      </label>
+                      <Select
+                        value={editEmpStatus}
+                        onValueChange={(v) => setEditEmpStatus(v as EmploymentStatus)}
+                        options={[
+                          { label: 'Đang làm việc', value: 'ACTIVE' },
+                          { label: 'Thử việc', value: 'PROBATION' },
+                          { label: 'Nghỉ phép dài hạn', value: 'ON_LEAVE' },
+                          { label: 'Đã nghỉ việc', value: 'RESIGNED' },
+                        ]}
+                      />
+                    </div>
+                  </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setSelectedEmployee(null)}>
-                  Đóng
-                </Button>
-              </DialogFooter>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        Chức vụ
+                      </label>
+                      <Input
+                        value={editEmpPosition}
+                        onChange={(e) => setEditEmpPosition(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        Lương cơ bản (VND)
+                      </label>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        value={editEmpSalary ? formatNumberVN(Number(editEmpSalary)) : ''}
+                        onChange={(e) => setEditEmpSalary(e.target.value.replace(/\D/g, ''))}
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditingEmp(false)}
+                    >
+                      Hủy
+                    </Button>
+                    <Button type="submit" variant="primary">
+                      Lưu thay đổi
+                    </Button>
+                  </DialogFooter>
+                </form>
+              ) : (
+                <>
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                    <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                      <div className="text-zinc-500 dark:text-zinc-400">Email & Điện thoại</div>
+                      <div className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                        {selectedEmployee.email}
+                      </div>
+                      <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                        {selectedEmployee.phone}
+                      </div>
+                    </div>
+                    {!isDeptManager && (
+                      <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                        <div className="text-zinc-500 dark:text-zinc-400">CCCD / Mã số thuế</div>
+                        <div className="mt-1 font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                          CCCD: {selectedEmployee.national_id}
+                        </div>
+                        <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                          MST: {selectedEmployee.tax_code} · BHXH: {selectedEmployee.social_insurance_no}
+                        </div>
+                      </div>
+                    )}
+                    {!hideSalary && (
+                      <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                        <div className="text-zinc-500 dark:text-zinc-400">Chế độ lương & Ngân hàng</div>
+                        <div className="mt-1 font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                          {formatVND(selectedEmployee.base_salary_vnd)}
+                        </div>
+                        <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                          {selectedEmployee.bank_name} · {selectedEmployee.bank_account_no}
+                        </div>
+                      </div>
+                    )}
+                    <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
+                      <div className="text-zinc-500 dark:text-zinc-400">Ca làm & Quản lý trực tiếp</div>
+                      <div className="mt-1 font-mono text-zinc-900 dark:text-zinc-100">
+                        Ca: {selectedEmployee.work_shift_code}
+                      </div>
+                      <div className="mt-0.5 text-zinc-600 dark:text-zinc-400">
+                        Quản lý: {selectedEmployee.manager_name ?? 'Ban Điều hành'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-teal-700/20 bg-teal-50/50 p-3 text-xs dark:border-teal-400/20 dark:bg-teal-950/30">
+                    <div className="font-semibold text-teal-800 dark:text-teal-300">
+                      Đánh giá AI Retention
+                    </div>
+                    <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+                      {selectedEmployee.ai_retention_note}
+                    </p>
+                  </div>
+
+                  {confirmDeleteEmp && canManageHr && (
+                    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-rose-500/40 bg-rose-50/70 p-3 text-xs dark:border-rose-400/30 dark:bg-rose-950/30 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="font-medium text-rose-800 dark:text-rose-200">
+                        Xác nhận xóa hồ sơ {selectedEmployee.full_name} ({selectedEmployee.employee_code})?
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setConfirmDeleteEmp(false)}
+                        >
+                          Giữ lại
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => handleDeleteEmployee(selectedEmployee)}
+                          className="bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
+                        >
+                          Xác nhận xóa
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <DialogFooter className="sm:justify-between">
+                    {canManageHr ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startEditEmployee(selectedEmployee)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          Chỉnh sửa hồ sơ
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={selectedEmployee.employee_code === 'NV-2024-001'}
+                          onClick={() => setConfirmDeleteEmp(true)}
+                          className="bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 dark:bg-rose-600 dark:hover:bg-rose-500"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          {selectedEmployee.employee_code === 'NV-2024-001'
+                            ? 'Đang đăng nhập'
+                            : 'Xóa hồ sơ'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <span />
+                    )}
+                    <Button variant="outline" onClick={() => setSelectedEmployee(null)}>
+                      Đóng
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
             </>
           )}
         </DialogContent>

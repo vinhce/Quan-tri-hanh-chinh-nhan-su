@@ -10,8 +10,10 @@ import {
   Clock,
   FileText,
   MinusCircle,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   UserCheck,
   X,
   XCircle,
@@ -248,6 +250,11 @@ export function RequestsView() {
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [rejectError, setRejectError] = useState('');
   const [cancelTarget, setCancelTarget] = useState<LeaveOvertimeRequest | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LeaveOvertimeRequest | null>(null);
+  const [isEditingRequest, setIsEditingRequest] = useState(false);
+  const [editDuration, setEditDuration] = useState('1');
+  const [editHandover, setEditHandover] = useState('');
+  const [editReason, setEditReason] = useState('');
 
   const [formCategory, setFormCategory] = useState<RequestCategory>('ANNUAL_LEAVE');
   const [formStartDate, setFormStartDate] = useState('2026-11-25');
@@ -315,6 +322,7 @@ export function RequestsView() {
     const eff = getEffectiveStatus(req);
     if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
     if (role === 'EMPLOYEE') return false;
+    if (role === 'SUPER_ADMIN') return true;
     if (req.current_step_role !== role) return false;
     if (role === 'DEPT_MANAGER' && !TECH_DIVISION_DEPARTMENTS.has(req.department_name)) {
       return false;
@@ -332,8 +340,9 @@ export function RequestsView() {
     if (!canRoleApproveRequest(req)) return;
     const nowIso = new Date().toISOString();
     const currentSteps = req.approval_steps ?? [];
+    const targetStepRole = req.current_step_role ?? role;
     const updatedSteps: ApprovalStep[] = currentSteps.map((step) =>
-      step.role === role && step.status === 'PENDING'
+      step.role === targetStepRole && step.status === 'PENDING'
         ? {
             ...step,
             status: 'APPROVED',
@@ -348,7 +357,9 @@ export function RequestsView() {
     const nextStatus: MultiStepRequestStatus = isFinal ? 'APPROVED' : 'IN_PROGRESS';
     const nextLeaveDeducted =
       req.leave_deducted ||
-      (role === 'HR_MANAGER' && req.request_category === 'ANNUAL_LEAVE');
+      ((role === 'HR_MANAGER' || role === 'SUPER_ADMIN') &&
+        req.request_category === 'ANNUAL_LEAVE' &&
+        isFinal);
 
     const updatedReq: LeaveOvertimeRequest = {
       ...req,
@@ -443,6 +454,47 @@ export function RequestsView() {
       'default'
     );
     setCancelTarget(null);
+  };
+
+  const startEditingRequest = (req: LeaveOvertimeRequest) => {
+    setEditDuration(String(req.duration_days_or_hours));
+    setEditHandover(req.handover_to_name ?? '');
+    setEditReason(req.reason);
+    setIsEditingRequest(true);
+  };
+
+  const handleSaveRequestEdit = () => {
+    if (!selectedRequest) return;
+    const numericDur = Math.max(0.5, Number(editDuration) || selectedRequest.duration_days_or_hours);
+    const updatedReq: LeaveOvertimeRequest = {
+      ...selectedRequest,
+      duration_days_or_hours: numericDur,
+      handover_to_name: editHandover.trim() || null,
+      reason: editReason.trim() || selectedRequest.reason,
+    };
+    setRequests((prev) => prev.map((item) => (item.id === updatedReq.id ? updatedReq : item)));
+    setSelectedRequest(updatedReq);
+    setIsEditingRequest(false);
+    showToast(
+      `Đã cập nhật đơn ${updatedReq.request_code}`,
+      `${updatedReq.full_name} — ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
+      'success'
+    );
+  };
+
+  const handleConfirmDeleteRequest = () => {
+    if (!deleteTarget) return;
+    setRequests((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+    if (selectedRequest?.id === deleteTarget.id) {
+      setSelectedRequest(null);
+      setIsEditingRequest(false);
+    }
+    showToast(
+      `Đã xóa đơn ${deleteTarget.request_code}`,
+      deleteTarget.full_name,
+      'warning'
+    );
+    setDeleteTarget(null);
   };
 
   const handleCategoryChange = (val: string) => {
@@ -1042,6 +1094,7 @@ export function RequestsView() {
           if (!open) {
             setSelectedRequest(null);
             setChecklistChecked(false);
+            setIsEditingRequest(false);
           }
         }}
       >
@@ -1118,6 +1171,80 @@ export function RequestsView() {
                     </p>
                   </div>
 
+                  {isEditingRequest && role === 'SUPER_ADMIN' && (
+                    <div className="space-y-3 rounded-xl border border-teal-700/25 bg-teal-50/40 p-4 dark:border-teal-400/25 dark:bg-teal-950/20">
+                      <div className="text-xs font-semibold text-teal-800 dark:text-teal-300">
+                        Chỉnh sửa thông tin đơn từ (Quản trị viên)
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="edit-req-duration"
+                            className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                          >
+                            Thời lượng ({selectedRequest.duration_unit === 'NGAY' ? 'ngày' : 'giờ'})
+                          </label>
+                          <Input
+                            id="edit-req-duration"
+                            type="number"
+                            min={0.5}
+                            step={0.5}
+                            value={editDuration}
+                            onChange={(e) => setEditDuration(e.target.value)}
+                            className="font-mono tabular-nums"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="edit-req-handover"
+                            className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                          >
+                            Người nhận bàn giao
+                          </label>
+                          <Input
+                            id="edit-req-handover"
+                            value={editHandover}
+                            onChange={(e) => setEditHandover(e.target.value)}
+                            placeholder="Không có"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="edit-req-reason"
+                          className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                        >
+                          Lý do
+                        </label>
+                        <textarea
+                          id="edit-req-reason"
+                          rows={2}
+                          value={editReason}
+                          onChange={(e) => setEditReason(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-200/80 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingRequest(false)}
+                        >
+                          Hủy sửa
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          onClick={handleSaveRequestEdit}
+                        >
+                          Lưu chỉnh sửa
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedRequest.rejection_reason && (
                     <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300">
                       <div className="text-xs font-semibold">Lý do từ chối</div>
@@ -1182,10 +1309,29 @@ export function RequestsView() {
                   )}
                 </div>
 
-                <DialogFooter className="mt-0 flex shrink-0 items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+                <DialogFooter className="mt-0 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
                   <Button variant="outline" onClick={() => setSelectedRequest(null)}>
                     Đóng
                   </Button>
+                  {role === 'SUPER_ADMIN' && !isEditingRequest && (
+                    <Button
+                      variant="outline"
+                      onClick={() => startEditingRequest(selectedRequest)}
+                    >
+                      <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                      Chỉnh sửa
+                    </Button>
+                  )}
+                  {role === 'SUPER_ADMIN' && (
+                    <Button
+                      variant="destructive"
+                      className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
+                      onClick={() => setDeleteTarget(selectedRequest)}
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                      Xóa đơn
+                    </Button>
+                  )}
                   {canCancelModal && (
                     <Button
                       variant="destructive"
@@ -1308,6 +1454,39 @@ export function RequestsView() {
               onClick={handleConfirmCancel}
             >
               Xác nhận hủy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa đơn từ</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa vĩnh viễn đơn{' '}
+              <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {deleteTarget?.request_code}
+              </span>{' '}
+              của {deleteTarget?.full_name}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => setDeleteTarget(null)}>
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              type="button"
+              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
+              onClick={handleConfirmDeleteRequest}
+            >
+              Xác nhận xóa
             </Button>
           </DialogFooter>
         </DialogContent>

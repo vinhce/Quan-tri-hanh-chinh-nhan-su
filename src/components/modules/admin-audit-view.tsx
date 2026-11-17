@@ -46,6 +46,15 @@ const STATUS_BADGE: Record<
   BLOCKED: { label: 'Đã chặn', variant: 'destructive' },
 };
 
+const STATUS_BLOCK_STYLE: Record<AuditLogEntry['status'], string> = {
+  SUCCESS:
+    'border-emerald-500/30 border-l-4 border-l-emerald-500 bg-emerald-50/60 dark:border-emerald-400/20 dark:border-l-emerald-400 dark:bg-emerald-950/20',
+  WARNING:
+    'border-amber-500/30 border-l-4 border-l-amber-500 bg-amber-50/60 dark:border-amber-400/20 dark:border-l-amber-400 dark:bg-amber-950/20',
+  BLOCKED:
+    'border-rose-500/30 border-l-4 border-l-rose-500 bg-rose-50/60 dark:border-rose-400/20 dark:border-l-rose-400 dark:bg-rose-950/20',
+};
+
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Quản trị hệ thống',
   HR_MANAGER: 'Trưởng phòng Nhân sự',
@@ -435,7 +444,11 @@ export function AdminAuditView() {
           </DialogHeader>
           {selectedLog && (
             <div className="mt-4 space-y-4 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+              <div
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3.5 ${
+                  STATUS_BLOCK_STYLE[selectedLog.status]
+                }`}
+              >
                 <div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Mã nhật ký</p>
                   <p className="font-mono text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
@@ -454,41 +467,49 @@ export function AdminAuditView() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Người thực hiện</p>
+                <div className="rounded-lg border border-blue-500/25 border-l-4 border-l-blue-500 bg-blue-50/40 p-3 dark:border-blue-400/20 dark:border-l-blue-400 dark:bg-blue-950/15">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                    Người thực hiện
+                  </p>
                   <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
                     {selectedLog.actor_name}
                   </p>
-                  <p className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-0.5 font-mono text-xs tabular-nums text-blue-600 dark:text-blue-400">
                     {selectedLog.actor_employee_code}
                   </p>
                 </div>
 
-                <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Vai trò & Địa chỉ IP</p>
+                <div className="rounded-lg border border-violet-500/25 border-l-4 border-l-violet-500 bg-violet-50/40 p-3 dark:border-violet-400/20 dark:border-l-violet-400 dark:bg-violet-950/15">
+                  <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                    Vai trò & Địa chỉ IP
+                  </p>
                   <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
                     {ROLE_LABELS[selectedLog.actor_role] ?? selectedLog.actor_role}
                   </p>
-                  <p className="mt-0.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-0.5 font-mono text-xs tabular-nums text-violet-600 dark:text-violet-400">
                     IP: {selectedLog.ip_address}
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Hành động & Phân hệ</p>
+              <div className="rounded-lg border border-amber-500/25 border-l-4 border-l-amber-500 bg-amber-50/40 p-3 dark:border-amber-400/20 dark:border-l-amber-400 dark:bg-amber-950/15">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                  Hành động & Phân hệ
+                </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className="font-medium text-zinc-900 dark:text-zinc-100">
                     {ACTION_LABELS[selectedLog.action] ?? selectedLog.module}
                   </span>
-                  <Badge variant="outline" className="font-mono text-[11px]">
+                  <Badge variant="warning" className="font-mono text-[11px]">
                     {selectedLog.action}
                   </Badge>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">Đối tượng tác động</p>
+              <div className="rounded-lg border border-teal-600/25 border-l-4 border-l-teal-600 bg-teal-50/40 p-3 dark:border-teal-400/20 dark:border-l-teal-400 dark:bg-teal-950/15">
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-300">
+                  Đối tượng tác động
+                </p>
                 <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
                   {selectedLog.target_entity}
                 </p>

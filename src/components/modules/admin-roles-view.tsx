@@ -66,7 +66,7 @@ function formatTimestamp(iso: string): string {
 }
 
 export function AdminRolesView() {
-  const { showToast } = useApp();
+  const { showToast, currentUserEmail, currentUserProfile } = useApp();
   const [selectedRole, setSelectedRole] = useState<RoleCode>('HR_MANAGER');
   const [roles, setRoles] = useState<RoleDefinition[]>([]);
   const [matrix, setMatrix] = useState<PermissionMatrixRow[]>([]);
@@ -130,11 +130,14 @@ export function AdminRolesView() {
   );
   const mfaUsersCount = useMemo(() => users.filter((u) => u.mfa_enabled).length, [users]);
 
+  const isSuperAdminSelected = selectedRole === 'SUPER_ADMIN';
+
   const handleTogglePermission = (
     moduleCode: string,
     action: PermissionActionKey,
     nextVal: boolean
   ) => {
+    if (selectedRole === 'SUPER_ADMIN') return;
     setMatrix((prev) =>
       prev.map((row) => {
         if (row.module_code !== moduleCode) return row;
@@ -163,6 +166,13 @@ export function AdminRolesView() {
   const handleToggleLockUser = (userId: string) => {
     const target = users.find((u) => u.id === userId);
     if (!target) return;
+    const isSelf =
+      target.employee_code === 'NV-2024-001' ||
+      (Boolean(currentUserEmail) &&
+        target.email.toLowerCase() === currentUserEmail?.toLowerCase()) ||
+      (Boolean(currentUserProfile?.employee_code) &&
+        target.employee_code === currentUserProfile?.employee_code);
+    if (isSelf) return;
     const nextStatus = target.account_status === 'LOCKED' ? 'ACTIVE' : 'LOCKED';
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, account_status: nextStatus } : u))
@@ -333,12 +343,17 @@ export function AdminRolesView() {
                   .
                 </CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSaveMatrix}>
+              <Button variant="outline" size="sm" onClick={handleSaveMatrix} disabled={isSuperAdminSelected}>
                 <Save className="h-4 w-4" strokeWidth={1.5} />
                 Lưu thay đổi
               </Button>
             </CardHeader>
             <CardContent className="p-0">
+              {isSuperAdminSelected && (
+                <div className="border-b border-teal-500/20 bg-teal-50/60 px-5 py-2.5 text-xs font-medium text-teal-800 dark:border-teal-400/20 dark:bg-teal-950/20 dark:text-teal-300">
+                  Quản trị Hệ thống (Super Admin) có toàn quyền mặc định và không thể tự tắt quyền của bản thân.
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                   <thead>
@@ -377,7 +392,8 @@ export function AdminRolesView() {
                             <td key={col.key} className="px-4 py-3.5 text-center">
                               <div className="inline-flex items-center justify-center">
                                 <Switch
-                                  checked={rolePerms[col.key]}
+                                  checked={isSuperAdminSelected ? true : rolePerms[col.key]}
+                                  disabled={isSuperAdminSelected}
                                   onCheckedChange={(checked) =>
                                     handleTogglePermission(row.module_code, col.key, checked)
                                   }
@@ -456,6 +472,12 @@ export function AdminRolesView() {
                     {filteredUsers.map((account) => {
                       const roleMeta = ROLE_BADGE_MAP[account.role_code];
                       const isLocked = account.account_status === 'LOCKED';
+                      const isSelfAccount =
+                        account.employee_code === 'NV-2024-001' ||
+                        (Boolean(currentUserEmail) &&
+                          account.email.toLowerCase() === currentUserEmail?.toLowerCase()) ||
+                        (Boolean(currentUserProfile?.employee_code) &&
+                          account.employee_code === currentUserProfile?.employee_code);
                       return (
                         <tr
                           key={account.id}
@@ -495,23 +517,29 @@ export function AdminRolesView() {
                             </Badge>
                           </td>
                           <td className="px-4 py-3.5 text-right">
-                            <Button
-                              variant={isLocked ? 'outline' : 'secondary'}
-                              size="sm"
-                              onClick={() => handleToggleLockUser(account.id)}
-                            >
-                              {isLocked ? (
-                                <>
-                                  <Unlock className="h-4 w-4" strokeWidth={1.5} />
-                                  Mở khóa
-                                </>
-                              ) : (
-                                <>
-                                  <Lock className="h-4 w-4" strokeWidth={1.5} />
-                                  Khóa
-                                </>
-                              )}
-                            </Button>
+                            {isSelfAccount ? (
+                              <Button variant="outline" size="sm" disabled>
+                                Đang đăng nhập
+                              </Button>
+                            ) : (
+                              <Button
+                                variant={isLocked ? 'outline' : 'secondary'}
+                                size="sm"
+                                onClick={() => handleToggleLockUser(account.id)}
+                              >
+                                {isLocked ? (
+                                  <>
+                                    <Unlock className="h-4 w-4" strokeWidth={1.5} />
+                                    Mở khóa
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="h-4 w-4" strokeWidth={1.5} />
+                                    Khóa
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       );

@@ -142,7 +142,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     module_name: 'Bảng điều hành Nhân sự & Dự báo AI',
     category: 'Quản trị cốt lõi',
     permissions: {
-      SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
+      SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: false, edit: false, approve: false, delete: false, export: true },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
@@ -186,7 +186,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     module_name: 'Tính lương Tự động, BHXH & Thuế TNCN',
     category: 'Vận hành',
     permissions: {
-      SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
+      SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: true, create: false, edit: false, approve: false, delete: false, export: true },

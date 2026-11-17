@@ -138,7 +138,7 @@
           "create": true,
           "edit": true,
           "approve": true,
-          "delete": false,
+          "delete": true,
           "export": true
         },
         "HR_MANAGER": {
@@ -294,7 +294,7 @@
           "create": true,
           "edit": true,
           "approve": true,
-          "delete": false,
+          "delete": true,
           "export": true
         },
         "HR_MANAGER": {
@@ -641,7 +641,7 @@
           "create": true,
           "edit": true,
           "approve": true,
-          "delete": false,
+          "delete": true,
           "export": true
         },
         "HR_MANAGER": {
@@ -797,7 +797,7 @@
           "create": true,
           "edit": true,
           "approve": true,
-          "delete": false,
+          "delete": true,
           "export": true
         },
         "HR_MANAGER": {

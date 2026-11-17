@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApp } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchPayrollMock, type PitTaxBracketItem } from '@/lib/mock-fetcher';
 import { formatNumberVN, formatVND } from '@/lib/utils';
 import { calculateProgressivePitVnd } from '@/mock';
@@ -87,7 +88,9 @@ function computePitBreakdown(
 }
 
 export function PayrollView() {
-  const { role, uiState, setUiState, showToast } = useApp();
+  const { role, currentUserProfile, uiState, setUiState, showToast } = useApp();
+  const actorName = currentUserProfile?.fullName ?? 'Nguyễn Văn An';
+  const actorCode = currentUserProfile?.employee_code ?? 'NV-2024-001';
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [formula, setFormula] = useState<PayrollFormulaConfig | null>(null);
   const [pitBrackets, setPitBrackets] = useState<PitTaxBracketItem[]>([]);
@@ -146,6 +149,15 @@ export function PayrollView() {
       `${updatedRec.full_name} — Thực lĩnh mới: ${formatVND(nextNet)}`,
       'success'
     );
+    recordAuditLog({
+      actor_name: actorName,
+      actor_code: actorCode,
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      module: 'Bảng lương & Thuế',
+      target: `${updatedRec.payslip_code} (${updatedRec.full_name})`,
+      detail: `Điều chỉnh thưởng KPI: ${formatVND(nextKpiBonus)}, trạng thái: ${editPaymentStatus}, Net mới: ${formatVND(nextNet)}`,
+    });
   };
 
   useEffect(() => {
@@ -207,6 +219,15 @@ export function PayrollView() {
       'Toàn bộ bản ghi nháp đã được kiểm tra công thức và chuyển trạng thái Đã duyệt lương.',
       'success'
     );
+    recordAuditLog({
+      actor_name: actorName,
+      actor_code: actorCode,
+      actor_role: role,
+      action: 'EXPORT_PAYROLL',
+      module: 'Bảng lương & Thuế',
+      target: 'Bảng lương kỳ 11/2026',
+      detail: `Chạy tính lương toàn công ty (${records.length} nhân sự)`,
+    });
   };
 
   const handlePublishPayslips = () => {
@@ -223,6 +244,15 @@ export function PayrollView() {
       `Đã gửi phiếu lương điện tử tới ${records.length} nhân sự qua cổng tự phục vụ.`,
       'success'
     );
+    recordAuditLog({
+      actor_name: actorName,
+      actor_code: actorCode,
+      actor_role: role,
+      action: 'EXPORT_PAYROLL',
+      module: 'Bảng lương & Thuế',
+      target: 'Phiếu lương kỳ 11/2026',
+      detail: `Phát hành phiếu lương điện tử tới ${records.length} nhân sự`,
+    });
   };
 
   const pitBreakdown = useMemo(() => {

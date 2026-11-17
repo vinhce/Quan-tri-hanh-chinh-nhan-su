@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApp, type RoleCode } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchAttendanceMock } from '@/lib/mock-fetcher';
 import { formatDateVN } from '@/lib/utils';
 import type {
@@ -384,6 +385,17 @@ export function RequestsView() {
         : `${req.full_name} — ${req.category_label}`,
       'success'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'APPROVE',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${req.request_code} (${req.full_name})`,
+      detail: isFinal
+        ? `Phê duyệt hoàn tất đơn ${req.category_label}`
+        : `Duyệt bước ${targetStepRole}, chuyển tiếp sang ${nextPendingStep?.role}`,
+    });
   };
 
   const openRejectModal = (req: LeaveOvertimeRequest) => {
@@ -435,6 +447,16 @@ export function RequestsView() {
       `Lý do: ${reasonTrimmed}`,
       'warning'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'REJECT',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${rejectTarget.request_code} (${rejectTarget.full_name})`,
+      detail: `Từ chối đơn: ${reasonTrimmed}`,
+      status: 'WARNING',
+    });
   };
 
   const handleConfirmCancel = () => {
@@ -453,6 +475,15 @@ export function RequestsView() {
       'Đơn đề xuất đã được rút lại.',
       'default'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'CANCEL',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${cancelTarget.request_code} (${cancelTarget.full_name})`,
+      detail: `Người gửi hủy đơn ${cancelTarget.category_label}`,
+    });
     setCancelTarget(null);
   };
 
@@ -480,6 +511,15 @@ export function RequestsView() {
       `${updatedReq.full_name} — ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
       'success'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${updatedReq.request_code} (${updatedReq.full_name})`,
+      detail: `Chỉnh sửa thông tin đơn: ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
+    });
   };
 
   const handleConfirmDeleteRequest = () => {
@@ -494,6 +534,16 @@ export function RequestsView() {
       deleteTarget.full_name,
       'warning'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'DELETE_RECORD',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${deleteTarget.request_code} (${deleteTarget.full_name})`,
+      detail: `Xóa đơn ${deleteTarget.category_label}`,
+      status: 'WARNING',
+    });
     setDeleteTarget(null);
   };
 
@@ -607,6 +657,15 @@ export function RequestsView() {
       `Đơn đã được chuyển tới ${isDeptMgr ? 'Cấp 2 (HR)' : 'Cấp 1 (Trưởng bộ phận)'}.`,
       'success'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'CREATE_REQUEST',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${newItem.request_code} (${newItem.full_name})`,
+      detail: `Tạo đơn mới: ${newItem.category_label} (${numericDuration} ${formUnit === 'NGAY' ? 'ngày' : 'giờ'})`,
+    });
   };
 
   if (uiState === 'loading' || isLoading) {

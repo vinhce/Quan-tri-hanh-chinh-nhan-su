@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApp } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchAttendanceMock } from '@/lib/mock-fetcher';
 import { formatNumberVN } from '@/lib/utils';
 import type { MonthlyAttendanceSummary, WorkShift } from '@/mock/types';
@@ -113,6 +114,15 @@ export function AttendanceView() {
       `${editingRecord.full_name} — ${nextDays} công, ${nextOt}h OT`,
       'success'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      module: 'Chấm công & Ca làm',
+      target: `${editingRecord.employee_code} (${editingRecord.full_name})`,
+      detail: `Cập nhật công tháng 11/2026: ${nextDays} công, ${nextLate} đi muộn, ${nextOt}h OT, trạng thái ${editStatus}`,
+    });
     setEditingRecord(null);
   };
 
@@ -124,6 +134,16 @@ export function AttendanceView() {
       deleteTarget.full_name,
       'warning'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'DELETE_RECORD',
+      module: 'Chấm công & Ca làm',
+      target: `${deleteTarget.employee_code} (${deleteTarget.full_name})`,
+      detail: `Xóa bản ghi chấm công tháng 11/2026 của ${deleteTarget.full_name}`,
+      status: 'WARNING',
+    });
     setDeleteTarget(null);
     setEditingRecord(null);
   };
@@ -225,6 +245,15 @@ export function AttendanceView() {
       'Toàn bộ dữ liệu công đã được khóa và đồng bộ sang phân hệ Tính lương.',
       'success'
     );
+    recordAuditLog({
+      actor_name: currentEmployeeName,
+      actor_code: currentEmployeeCode,
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      module: 'Chấm công & Ca làm',
+      target: 'Bảng công tháng 11/2026',
+      detail: `Chốt bảng công toàn công ty (${records.length} nhân sự)`,
+    });
   };
 
   const handleExportExcel = () => {

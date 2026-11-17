@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useApp } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import {
   fetchAdminMock,
   fetchPayrollMock,
@@ -37,7 +38,7 @@ function formatVnd(amount: number): string {
 }
 
 export function AdminSettingsView() {
-  const { showToast } = useApp();
+  const { role, currentUserProfile, showToast } = useApp();
   const [config, setConfig] = useState<SystemConfiguration | null>(null);
   const [pitBrackets, setPitBrackets] = useState<PitTaxBracketItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,10 +85,19 @@ export function AdminSettingsView() {
   }, [loadData]);
 
   const handleSaveConfig = () => {
+    const minDays = Math.max(1, Number(config?.director_approval_min_days) || 3);
     if (config && typeof window !== 'undefined') {
-      const minDays = Math.max(1, Number(config.director_approval_min_days) || 3);
       window.localStorage.setItem('hrm_director_min_days', String(minDays));
     }
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'UPDATE_SETTINGS',
+      target: 'Cấu hình hệ thống & Tham số vận hành',
+      detail: `Lưu cấu hình hệ thống (ngưỡng Giám đốc duyệt: ${minDays} ngày, giờ chuẩn: ${config?.work_hours_start ?? '08:00'}-${config?.work_hours_end ?? '17:00'}).`,
+      status: 'SUCCESS',
+    });
     showToast(
       'Đã lưu cấu hình hệ thống',
       'Các tham số giờ làm việc, quy trình phê duyệt, BHXH/Thuế TNCN và AI HR Copilot đã được áp dụng.',

@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useApp } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchEmployeesMock } from '@/lib/mock-fetcher';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import type {
@@ -105,7 +106,7 @@ function addYearsToIsoDate(isoDate: string | null, years: number): string {
 }
 
 export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
-  const { role, showToast } = useApp();
+  const { role, currentUserProfile, showToast } = useApp();
   const isDeptManager = role === 'DEPT_MANAGER';
   const canManageHr = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
   const canViewOrgChart = role === 'SUPER_ADMIN';
@@ -359,6 +360,16 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     setNewEmpName('');
     setNewEmpEmail('');
     setNewEmpPhone('');
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'CREATE_RECORD',
+      module: 'Hồ sơ & Tổ chức',
+      target: `${created.employee_code} - ${created.full_name}`,
+      detail: `Thêm hồ sơ nhân viên mới vào ${dept.department_name} (${created.position_name}).`,
+      status: 'SUCCESS',
+    });
     showToast(
       'Đã thêm hồ sơ nhân viên mới',
       `${created.full_name} (${created.employee_code}) đã được thêm vào ${dept.department_name}.`,
@@ -397,6 +408,16 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     setEmployees((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     setSelectedEmployee(updated);
     setIsEditingEmp(false);
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      module: 'Hồ sơ & Tổ chức',
+      target: `${updated.employee_code} - ${updated.full_name}`,
+      detail: `Cập nhật hồ sơ nhân viên (${updated.department_name} · ${updated.position_name}).`,
+      status: 'SUCCESS',
+    });
     showToast(
       'Đã cập nhật hồ sơ nhân viên',
       `${updated.full_name} (${updated.employee_code}) đã được lưu thay đổi.`,
@@ -417,6 +438,16 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     setSelectedEmployee(null);
     setConfirmDeleteEmp(false);
     setIsEditingEmp(false);
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'DELETE_RECORD',
+      module: 'Hồ sơ & Tổ chức',
+      target: `${emp.employee_code} - ${emp.full_name}`,
+      detail: `Xóa hồ sơ nhân viên khỏi danh sách Core HR (${emp.department_name}).`,
+      status: 'WARNING',
+    });
     showToast(
       'Đã xóa hồ sơ nhân viên',
       `Hồ sơ ${emp.full_name} (${emp.employee_code}) đã được gỡ khỏi danh sách.`,
@@ -440,6 +471,16 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
           : item
       )
     );
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      module: 'Hợp đồng & Phụ lục',
+      target: `${contract.contract_number} - ${contract.full_name}`,
+      detail: `Gia hạn hợp đồng thêm 12 tháng đến ${formatDateVN(nextEndDate)}.`,
+      status: 'SUCCESS',
+    });
     showToast(
       'Đã gia hạn hợp đồng thành công',
       `Hợp đồng ${contract.contract_number} (${contract.full_name}) được gia hạn đến ${formatDateVN(nextEndDate)}.`,

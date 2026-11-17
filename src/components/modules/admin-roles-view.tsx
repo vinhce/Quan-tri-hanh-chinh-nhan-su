@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useApp, type RoleCode } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchAdminMock } from '@/lib/mock-fetcher';
 import type {
   PermissionMatrixRow,
@@ -66,7 +67,7 @@ function formatTimestamp(iso: string): string {
 }
 
 export function AdminRolesView() {
-  const { showToast, currentUserEmail, currentUserProfile } = useApp();
+  const { role, showToast, currentUserEmail, currentUserProfile } = useApp();
   const [selectedRole, setSelectedRole] = useState<RoleCode>('HR_MANAGER');
   const [roles, setRoles] = useState<RoleDefinition[]>([]);
   const [matrix, setMatrix] = useState<PermissionMatrixRow[]>([]);
@@ -156,6 +157,15 @@ export function AdminRolesView() {
   };
 
   const handleSaveMatrix = () => {
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'UPDATE_PERMISSION',
+      target: `Ma trận phân quyền (${selectedRole})`,
+      detail: `Cập nhật quyền truy cập các phân hệ cho vai trò ${selectedRole}.`,
+      status: 'SUCCESS',
+    });
     showToast(
       'Đã lưu ma trận phân quyền RBAC',
       `Cập nhật quyền truy cập cho vai trò ${selectedRole} thành công.`,
@@ -177,6 +187,15 @@ export function AdminRolesView() {
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, account_status: nextStatus } : u))
     );
+    recordAuditLog({
+      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
+      actor_role: role,
+      action: 'UPDATE_RECORD',
+      target: `${target.employee_code} (${target.full_name})`,
+      detail: `${nextStatus === 'LOCKED' ? 'Khóa' : 'Mở khóa'} tài khoản truy cập hệ thống.`,
+      status: nextStatus === 'LOCKED' ? 'WARNING' : 'SUCCESS',
+    });
     showToast(
       nextStatus === 'LOCKED' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản',
       `${target.full_name} (${target.employee_code}) hiện ở trạng thái ${

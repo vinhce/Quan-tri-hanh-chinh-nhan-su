@@ -10,6 +10,11 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useApp } from '@/context/app-context';
+import {
+  AUDIT_UPDATED_EVENT,
+  clearRuntimeAuditLogs,
+  getRuntimeAuditLogs,
+} from '@/lib/audit-logger';
 import { fetchAdminMock } from '@/lib/mock-fetcher';
 import type { AuditLogEntry } from '@/mock/types';
 import { Badge } from '@/components/ui/badge';
@@ -44,10 +49,18 @@ const ROLE_LABELS: Record<string, string> = {
 const ACTION_LABELS: Record<string, string> = {
   LOGIN: 'Đăng nhập hệ thống',
   FAILED_LOGIN: 'Đăng nhập thất bại',
+  APPROVE: 'Phê duyệt đơn từ',
   APPROVE_LEAVE: 'Phê duyệt đơn từ',
+  REJECT: 'Từ chối đơn từ',
+  CANCEL: 'Hủy đơn từ',
   LOCK_PAYROLL: 'Chốt bảng lương',
   EXPORT_SALARY: 'Xuất bảng lương',
+  EXPORT_PAYROLL: 'Xuất bảng lương',
   UPDATE_PERMISSION: 'Cập nhật phân quyền',
+  UPDATE_SETTINGS: 'Cập nhật cấu hình',
+  CREATE_RECORD: 'Tạo dữ liệu mới',
+  UPDATE_RECORD: 'Cập nhật dữ liệu',
+  DELETE_RECORD: 'Xóa dữ liệu',
   AI_CV_SCREEN: 'AI chấm điểm CV',
   UPDATE_CONTRACT: 'Cập nhật hợp đồng',
   CREATE_REQUEST: 'Tạo đơn từ mới',
@@ -69,7 +82,8 @@ function formatTimestamp(iso: string): string {
 
 export function AdminAuditView() {
   const { showToast } = useApp();
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [baseLogs, setBaseLogs] = useState<AuditLogEntry[]>([]);
+  const [runtimeLogs, setRuntimeLogs] = useState<AuditLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState<string>('ALL');
@@ -81,7 +95,8 @@ export function AdminAuditView() {
     setLoadError(null);
     try {
       const data = await fetchAdminMock({ bypassCache });
-      setAuditLogs(data.MOCK_AUDIT_LOGS);
+      setBaseLogs(data.MOCK_AUDIT_LOGS);
+      setRuntimeLogs(getRuntimeAuditLogs());
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Không thể tải nhật ký bảo mật.');
     } finally {
@@ -93,18 +108,31 @@ export function AdminAuditView() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const handleAuditUpdate = () => {
+      setRuntimeLogs(getRuntimeAuditLogs());
+    };
+    window.addEventListener(AUDIT_UPDATED_EVENT, handleAuditUpdate);
+    return () => window.removeEventListener(AUDIT_UPDATED_EVENT, handleAuditUpdate);
+  }, []);
+
+  const auditLogs = useMemo(() => [...runtimeLogs, ...baseLogs], [runtimeLogs, baseLogs]);
+
   const filteredLogs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return auditLogs.filter((log) => {
       let matchAction = true;
       if (actionFilter === 'APPROVE') {
-        matchAction = log.action === 'APPROVE_LEAVE';
+        matchAction = log.action === 'APPROVE_LEAVE' || (log.action as string) === 'APPROVE';
       } else if (actionFilter === 'EXPORT_PAYROLL') {
-        matchAction = log.action === 'EXPORT_SALARY' || log.action === 'LOCK_PAYROLL';
+        matchAction =
+          log.action === 'EXPORT_SALARY' ||
+          log.action === 'LOCK_PAYROLL' ||
+          (log.action as string) === 'EXPORT_PAYROLL';
       } else if (actionFilter === 'FAILED_LOGIN') {
         matchAction = log.status === 'BLOCKED' || log.status === 'WARNING';
       } else if (actionFilter !== 'ALL') {
-        matchAction = log.action === actionFilter;
+        matchAction = (log.action as string) === actionFilter;
       }
 
       const matchRole = roleFilter === 'ALL' || log.actor_role === roleFilter;
@@ -179,10 +207,24 @@ export function AdminAuditView() {
             Truy vết toàn bộ thao tác nhạy cảm, thay đổi phân quyền, xuất dữ liệu lương và cảnh báo truy cập trái phép.
           </p>
         </div>
-        <Button variant="outline" onClick={handleExportCsv} className="shrink-0">
-          <Download className="h-4 w-4" strokeWidth={1.5} />
-          Xuất nhật ký CSV
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {runtimeLogs.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                clearRuntimeAuditLogs();
+                showToast('Đã xóa log phiên', 'Các bản ghi thao tác trong phiên hiện tại đã được dọn dẹp.', 'default');
+              }}
+            >
+              Xóa log phiên ({runtimeLogs.length})
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleExportCsv} className="shrink-0">
+            <Download className="h-4 w-4" strokeWidth={1.5} />
+            Xuất nhật ký CSV
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -282,11 +324,17 @@ export function AdminAuditView() {
                   { label: 'Tất cả hành động', value: 'ALL' },
                   { label: 'Đăng nhập hệ thống', value: 'LOGIN' },
                   { label: 'Phê duyệt đơn từ', value: 'APPROVE' },
-                  { label: 'Cập nhật phân quyền', value: 'UPDATE_PERMISSION' },
-                  { label: 'Xuất bảng lương', value: 'EXPORT_PAYROLL' },
-                  { label: 'Đăng nhập thất bại / Bị chặn', value: 'FAILED_LOGIN' },
-                  { label: 'AI chấm điểm CV', value: 'AI_CV_SCREEN' },
+                  { label: 'Từ chối đơn từ', value: 'REJECT' },
+                  { label: 'Hủy đơn từ', value: 'CANCEL' },
                   { label: 'Tạo đơn mới', value: 'CREATE_REQUEST' },
+                  { label: 'Tạo dữ liệu mới', value: 'CREATE_RECORD' },
+                  { label: 'Cập nhật dữ liệu', value: 'UPDATE_RECORD' },
+                  { label: 'Xóa dữ liệu', value: 'DELETE_RECORD' },
+                  { label: 'Cập nhật phân quyền', value: 'UPDATE_PERMISSION' },
+                  { label: 'Cập nhật cấu hình', value: 'UPDATE_SETTINGS' },
+                  { label: 'Xuất bảng lương', value: 'EXPORT_PAYROLL' },
+                  { label: 'AI chấm điểm CV', value: 'AI_CV_SCREEN' },
+                  { label: 'Đăng nhập thất bại / Bị chặn', value: 'FAILED_LOGIN' },
                 ]}
               />
               <Select

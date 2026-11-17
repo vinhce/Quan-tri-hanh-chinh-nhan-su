@@ -1,0 +1,163 @@
+<div class="flex h-16 w-full items-center justify-between gap-2 px-3 sm:px-6">
+  <div class="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+    <button
+      type="button"
+      data-header-mobile-btn="true"
+      aria-label="Mở menu điều hướng"
+      aria-expanded="false"
+      aria-controls="app-mobile-drawer"
+      class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-700 transition-unslop hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 lg:hidden"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-4 w-4 shrink-0"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+
+    <div class="min-w-0 flex-1">
+      <div class="flex min-w-0 items-center gap-2">
+        <h1
+          data-header-title="true"
+          class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100 sm:text-base"
+        >
+          Tổng quan điều hành
+        </h1>
+        <span
+          class="hidden shrink-0 items-center rounded-md border border-zinc-200/80 bg-zinc-100/70 px-2 py-0.5 font-mono text-xs tabular-nums text-zinc-700 dark:border-zinc-800/80 dark:bg-zinc-800/60 dark:text-zinc-300 sm:inline-flex"
+        >
+          Tháng 11/2026
+        </span>
+      </div>
+      <p
+        data-header-summary="true"
+        class="hidden truncate text-xs text-zinc-500 dark:text-zinc-400 lg:block"
+      >
+        Bảng điều khiển KPI nhân sự, chấm công &amp; tác vụ điều hành
+      </p>
+    </div>
+  </div>
+
+  <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+    <div
+      role="group"
+      aria-label="Bộ chuyển 4 trạng thái giao diện"
+      class="hidden items-center rounded-lg border border-zinc-200/80 bg-zinc-100/70 p-0.5 dark:border-zinc-800/80 dark:bg-zinc-900 md:inline-flex"
+    >
+      <button
+        type="button"
+        data-ui-state-btn="ready"
+        aria-pressed="true"
+        class="h-7 rounded-md bg-white px-2 text-xs font-medium text-teal-700 shadow-sm transition-unslop dark:bg-[#121214] dark:text-teal-400"
+      >
+        Ready
+      </button>
+      <button
+        type="button"
+        data-ui-state-btn="loading"
+        aria-pressed="false"
+        class="h-7 rounded-md px-2 text-xs font-medium text-zinc-600 transition-unslop hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        Loading
+      </button>
+      <button
+        type="button"
+        data-ui-state-btn="empty"
+        aria-pressed="false"
+        class="h-7 rounded-md px-2 text-xs font-medium text-zinc-600 transition-unslop hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        Empty
+      </button>
+      <button
+        type="button"
+        data-ui-state-btn="error"
+        aria-pressed="false"
+        class="h-7 rounded-md px-2 text-xs font-medium text-zinc-600 transition-unslop hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        Error
+      </button>
+    </div>
+
+    <div class="shrink-0">
+      <label for="header-role-switcher" class="sr-only">Chuyển vai trò xem thử</label>
+      <select
+        id="header-role-switcher"
+        data-role-switcher="true"
+        aria-label="Chuyển vai trò xem thử"
+        class="h-11 w-[100px] truncate rounded-lg border border-zinc-200/80 bg-white px-2 text-xs font-medium text-zinc-800 transition-unslop hover:border-zinc-300 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-200 dark:hover:border-zinc-700 sm:h-9 sm:w-40 sm:px-2.5"
+      >
+        <option value="SUPER_ADMIN">Quản trị Hệ thống (Super Admin)</option>
+        <option value="HR_MANAGER">Trưởng phòng Nhân sự (HR Manager)</option>
+        <option value="DEPT_MANAGER">Trưởng Bộ phận (Dept Manager)</option>
+        <option value="EMPLOYEE">Nhân viên (Employee)</option>
+      </select>
+    </div>
+
+    <button
+      type="button"
+      data-header-copilot-btn="true"
+      aria-label="Mở trợ lý AI HR Copilot"
+      aria-expanded="false"
+      title="AI HR Copilot"
+      class="hidden h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-2.5 text-xs font-medium text-zinc-700 transition-unslop hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 sm:inline-flex"
+    >
+      <span data-header-copilot-icon="true" class="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-4 w-4 shrink-0"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+      </span>
+      <span class="hidden 2xl:inline">AI Copilot</span>
+    </button>
+
+    <button
+      type="button"
+      data-header-theme-btn="true"
+      aria-label="Chuyển giao diện sáng hoặc tối"
+      title="Đổi giao diện sáng / tối"
+      class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-700 transition-unslop hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 sm:h-9 sm:w-9"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-4 w-4 shrink-0"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    </button>
+
+    <div
+      data-header-user-badge="true"
+      class="hidden shrink-0 items-center gap-2 rounded-lg border border-zinc-200/80 bg-zinc-50/80 px-2.5 py-1 dark:border-zinc-800/80 dark:bg-zinc-900/70 xl:flex"
+    >
+      <span
+        data-user-initials="true"
+        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-teal-700/20 bg-teal-50/90 font-mono text-xs font-medium text-teal-800 dark:border-teal-400/20 dark:bg-teal-950/60 dark:text-teal-300"
+      >
+        BN
+      </span>
+      <div class="min-w-0 leading-tight">
+        <p
+          data-user-name="true"
+          class="max-w-[130px] truncate text-xs font-medium text-zinc-900 dark:text-zinc-100"
+        >
+          Trần Thị Bích Ngọc
+        </p>
+        <div class="mt-0.5 flex items-center gap-1.5">
+          <span
+            data-user-code="true"
+            class="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400"
+          >
+            NV-2024-002
+          </span>
+          <span
+            data-user-role="true"
+            class="inline-flex items-center rounded border border-emerald-600/20 bg-emerald-50/80 px-1 py-0 text-[10px] font-medium text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
+            HR Manager
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      data-header-logout-btn="true"
+      aria-label="Đăng xuất phiên làm việc"
+      title="Đăng xuất"
+      class="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white text-xs font-medium text-zinc-700 transition-unslop hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:border-rose-800/70 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 sm:h-9 sm:w-9 2xl:w-auto 2xl:px-2.5"
+    >
+      <span data-header-logout-icon="true" class="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-4 w-4 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+      </span>
+      <span class="hidden 2xl:inline">Đăng xuất</span>
+    </button>
+  </div>
+</div>

@@ -89,8 +89,12 @@ function computePitBreakdown(
 
 export function PayrollView() {
   const { role, currentUserProfile, uiState, setUiState, showToast } = useApp();
-  const actorName = currentUserProfile?.fullName ?? 'Nguyễn Văn An';
-  const actorCode = currentUserProfile?.employee_code ?? 'NV-2024-001';
+  const actorName =
+    currentUserProfile?.fullName ??
+    (role === 'DIRECTOR' ? 'Trần Quốc Việt' : 'Nguyễn Văn An');
+  const actorCode =
+    currentUserProfile?.employee_code ??
+    (role === 'DIRECTOR' ? 'NV-2024-000' : 'NV-2024-001');
   const [records, setRecords] = useState<PayrollRecord[]>([]);
   const [formula, setFormula] = useState<PayrollFormulaConfig | null>(null);
   const [pitBrackets, setPitBrackets] = useState<PitTaxBracketItem[]>([]);

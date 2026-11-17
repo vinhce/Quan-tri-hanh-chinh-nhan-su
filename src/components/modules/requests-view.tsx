@@ -66,6 +66,12 @@ const ROLE_ACTOR_DEFAULT: Record<RoleCode, { code: string; name: string; dept: s
     code: 'NV-2024-001',
     name: 'Nguyễn Văn An',
     dept: 'Ban Điều hành',
+    pos: 'Quản trị Hệ thống Cấp cao',
+  },
+  DIRECTOR: {
+    code: 'NV-2024-000',
+    name: 'Trần Quốc Việt',
+    dept: 'Ban Điều hành',
     pos: 'Giám đốc Điều hành',
   },
   HR_MANAGER: {
@@ -297,7 +303,7 @@ export function RequestsView() {
 
   const filteredRequests = useMemo(() => {
     const q = normalizeVietnamese(searchQuery.trim());
-    return scopedRequests.filter((req) => {
+    const list = scopedRequests.filter((req) => {
       const s = getEffectiveStatus(req);
       if (statusFilter === 'PENDING_GROUP' && s !== 'PENDING' && s !== 'IN_PROGRESS') {
         return false;
@@ -317,7 +323,25 @@ export function RequestsView() {
       }
       return true;
     });
-  }, [scopedRequests, statusFilter, categoryFilter, searchQuery]);
+
+    if (role === 'DIRECTOR') {
+      return [...list].sort((a, b) => {
+        const aPriority =
+          (getEffectiveStatus(a) === 'PENDING' || getEffectiveStatus(a) === 'IN_PROGRESS') &&
+          a.current_step_role === 'DIRECTOR'
+            ? 0
+            : 1;
+        const bPriority =
+          (getEffectiveStatus(b) === 'PENDING' || getEffectiveStatus(b) === 'IN_PROGRESS') &&
+          b.current_step_role === 'DIRECTOR'
+            ? 0
+            : 1;
+        return aPriority - bPriority;
+      });
+    }
+
+    return list;
+  }, [scopedRequests, statusFilter, categoryFilter, searchQuery, role]);
 
   const canRoleApproveRequest = (req: LeaveOvertimeRequest): boolean => {
     const eff = getEffectiveStatus(req);
@@ -601,7 +625,7 @@ export function RequestsView() {
     if (needsDirector) {
       steps.push({
         step_order: 3,
-        role: 'SUPER_ADMIN',
+        role: 'DIRECTOR',
         label: `Cấp 3 · Giám đốc phê duyệt (${
           formCategory === 'UNPAID_LEAVE'
             ? 'Nghỉ không lương'
@@ -610,7 +634,7 @@ export function RequestsView() {
               : `> ${directorMinDays} ngày`
         })`,
         status: 'PENDING',
-        actor_name: 'Nguyễn Văn An',
+        actor_name: 'Trần Quốc Việt',
       });
     }
 

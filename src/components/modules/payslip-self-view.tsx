@@ -62,6 +62,7 @@ function formatTimeNow(date: Date): string {
 
 const ROLE_DEFAULT_EMPLOYEE_CODE: Record<RoleCode, string> = {
   SUPER_ADMIN: 'NV-2024-001',
+  DIRECTOR: 'NV-2024-000',
   HR_MANAGER: 'NV-2024-002',
   DEPT_MANAGER: 'NV-2024-003',
   EMPLOYEE: 'NV-2024-004',

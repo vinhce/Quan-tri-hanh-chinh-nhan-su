@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const mockSrcDir = path.join(projectRoot, 'src', 'mock');
 const publicMockDir = path.join(projectRoot, 'public', 'mock');
+const webMockDir = path.join(projectRoot, 'web', 'mock');
 
 const sourceFiles = [
   'types.ts',
@@ -125,14 +126,16 @@ function exportMockJson() {
     };
 
     fs.mkdirSync(publicMockDir, { recursive: true });
+    fs.mkdirSync(webMockDir, { recursive: true });
 
     for (const [jsonFile, data] of Object.entries(payloads)) {
-      const targetPath = path.join(publicMockDir, jsonFile);
-      fs.writeFileSync(targetPath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+      const jsonContent = JSON.stringify(data, null, 2) + '\n';
+      fs.writeFileSync(path.join(publicMockDir, jsonFile), jsonContent, 'utf8');
+      fs.writeFileSync(path.join(webMockDir, jsonFile), jsonContent, 'utf8');
     }
 
     console.log(
-      `[gen:mock] Exported ${Object.keys(payloads).length} mock JSON files to public/mock/`
+      `[gen:mock] Exported ${Object.keys(payloads).length} mock JSON files to public/mock/ and web/mock/`
     );
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });

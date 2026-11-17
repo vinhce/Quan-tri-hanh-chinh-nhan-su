@@ -47,6 +47,7 @@ const PERMISSION_COLUMNS: Array<{ key: PermissionActionKey; label: string }> = [
 
 const ROLE_BADGE_MAP: Record<RoleCode, { label: string; variant: 'teal' | 'default' | 'secondary' | 'outline' }> = {
   SUPER_ADMIN: { label: 'SUPER_ADMIN', variant: 'teal' },
+  DIRECTOR: { label: 'DIRECTOR', variant: 'default' },
   HR_MANAGER: { label: 'HR_MANAGER', variant: 'default' },
   DEPT_MANAGER: { label: 'DEPT_MANAGER', variant: 'secondary' },
   EMPLOYEE: { label: 'EMPLOYEE', variant: 'outline' },
@@ -88,6 +89,7 @@ export function AdminRolesView() {
           ...row,
           permissions: {
             SUPER_ADMIN: { ...row.permissions.SUPER_ADMIN },
+            DIRECTOR: { ...row.permissions.DIRECTOR },
             HR_MANAGER: { ...row.permissions.HR_MANAGER },
             DEPT_MANAGER: { ...row.permissions.DEPT_MANAGER },
             EMPLOYEE: { ...row.permissions.EMPLOYEE },
@@ -313,7 +315,7 @@ export function AdminRolesView() {
         {/* Tab 1: RBAC Matrix */}
         <TabsContent value="matrix" className="space-y-4">
           {/* Role selector cards */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
             {roles.map((roleDef) => {
               const isSelected = roleDef.role_code === selectedRole;
               return (
@@ -462,6 +464,7 @@ export function AdminRolesView() {
                       options={[
                         { label: 'Tất cả vai trò', value: 'ALL' },
                         { label: 'SUPER_ADMIN', value: 'SUPER_ADMIN' },
+                        { label: 'DIRECTOR', value: 'DIRECTOR' },
                         { label: 'HR_MANAGER', value: 'HR_MANAGER' },
                         { label: 'DEPT_MANAGER', value: 'DEPT_MANAGER' },
                         { label: 'EMPLOYEE', value: 'EMPLOYEE' },

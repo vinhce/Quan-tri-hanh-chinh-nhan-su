@@ -67,6 +67,7 @@ const RISK_BADGE_MAP: Record<RiskLevel, { label: string; variant: BadgeVariant }
 
 const ROLE_SUBTITLE: Record<string, string> = {
   SUPER_ADMIN: 'Toàn cảnh vận hành nhân sự, quỹ lương và chỉ số rủi ro toàn hệ thống',
+  DIRECTOR: 'Tổng quan điều hành doanh nghiệp, quy mô nhân sự, quỹ lương và cảnh báo rủi ro',
   HR_MANAGER: 'Theo dõi biến động nhân sự, phê duyệt đơn từ, quỹ lương và cảnh báo AI',
   DEPT_MANAGER: 'Quản lý quân số, tiến độ tuyển dụng và sức khỏe đội ngũ Phòng Kỹ thuật Phần mềm',
   EMPLOYEE: 'Tổng quan ngày công, phép năm còn lại và kết quả KPI cá nhân kỳ hiện tại',
@@ -246,7 +247,7 @@ export function DashboardView() {
       </div>
 
       {/* KPI Cards */}
-      {(role === 'HR_MANAGER' || role === 'SUPER_ADMIN') && (
+      {(role === 'HR_MANAGER' || role === 'SUPER_ADMIN' || role === 'DIRECTOR') && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card
             onClick={() => setActiveNav('employees')}

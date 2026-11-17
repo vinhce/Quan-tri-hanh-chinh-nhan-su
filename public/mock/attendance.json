@@ -289,10 +289,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (> 3 ngày)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -340,10 +340,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (Đơn cấp Quản lý / > 3 ngày)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -368,11 +368,11 @@
       "duration_unit": "NGAY",
       "reason": "Xin nghỉ không lương 2 ngày để hoàn tất thủ tục sang tên hồ sơ nhà đất tại Đồng Nai.",
       "handover_to_name": "Trần Quốc Bảo",
-      "approver_id": "emp-001",
-      "approver_name": "Nguyễn Văn An",
+      "approver_id": "emp-000",
+      "approver_name": "Trần Quốc Việt",
       "approval_status": "PENDING",
       "status": "IN_PROGRESS",
-      "current_step_role": "SUPER_ADMIN",
+      "current_step_role": "DIRECTOR",
       "approval_steps": [
         {
           "step_order": 1,
@@ -394,10 +394,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (Nghỉ không lương)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -871,10 +871,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (> 3 ngày)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -922,10 +922,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (Đơn cấp Quản lý / > 3 ngày)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -950,11 +950,11 @@
       "duration_unit": "NGAY",
       "reason": "Xin nghỉ không lương 2 ngày để hoàn tất thủ tục sang tên hồ sơ nhà đất tại Đồng Nai.",
       "handover_to_name": "Trần Quốc Bảo",
-      "approver_id": "emp-001",
-      "approver_name": "Nguyễn Văn An",
+      "approver_id": "emp-000",
+      "approver_name": "Trần Quốc Việt",
       "approval_status": "PENDING",
       "status": "IN_PROGRESS",
-      "current_step_role": "SUPER_ADMIN",
+      "current_step_role": "DIRECTOR",
       "approval_steps": [
         {
           "step_order": 1,
@@ -976,10 +976,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (Nghỉ không lương)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -1168,10 +1168,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (> 3 ngày)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -1219,10 +1219,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (Đơn cấp Quản lý / > 3 ngày)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,
@@ -1247,11 +1247,11 @@
       "duration_unit": "NGAY",
       "reason": "Xin nghỉ không lương 2 ngày để hoàn tất thủ tục sang tên hồ sơ nhà đất tại Đồng Nai.",
       "handover_to_name": "Trần Quốc Bảo",
-      "approver_id": "emp-001",
-      "approver_name": "Nguyễn Văn An",
+      "approver_id": "emp-000",
+      "approver_name": "Trần Quốc Việt",
       "approval_status": "PENDING",
       "status": "IN_PROGRESS",
-      "current_step_role": "SUPER_ADMIN",
+      "current_step_role": "DIRECTOR",
       "approval_steps": [
         {
           "step_order": 1,
@@ -1273,10 +1273,10 @@
         },
         {
           "step_order": 3,
-          "role": "SUPER_ADMIN",
+          "role": "DIRECTOR",
           "label": "Cấp 3 · Giám đốc phê duyệt (Nghỉ không lương)",
           "status": "PENDING",
-          "actor_name": "Nguyễn Văn An"
+          "actor_name": "Trần Quốc Việt"
         }
       ],
       "leave_deducted": false,

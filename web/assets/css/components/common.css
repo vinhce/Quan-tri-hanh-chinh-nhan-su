@@ -1,0 +1,93 @@
+/* Component helpers: Skeleton pulse, Toast animations & Unslop transitions */
+:root {
+  --ease-unslop: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Chỉ chuyển tiếp màu sắc, viền và độ mờ — tránh transition-all */
+.transition-unslop {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-unslop);
+}
+
+.transition-panel {
+  transition-property: opacity, transform;
+  transition-duration: 220ms;
+  transition-timing-function: var(--ease-unslop);
+}
+
+/* Skeleton loading đồng bộ src/components/ui/skeleton.tsx */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.skeleton-pulse {
+  border-radius: 6px;
+  background-color: rgba(228, 228, 231, 0.7);
+  animation: skeleton-pulse 1.6s var(--ease-unslop) infinite;
+}
+
+.dark .skeleton-pulse {
+  background-color: rgba(39, 39, 42, 0.7);
+}
+
+/* Toast notifications enter / exit & mobile viewport guard */
+#toast-container {
+  max-width: min(24rem, calc(100vw - 2.5rem));
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+}
+
+.toast-item {
+  animation: toast-in 220ms var(--ease-unslop) forwards;
+}
+
+.toast-item-leaving {
+  animation: toast-out 180ms var(--ease-unslop) forwards;
+}
+
+/* Khung bảng cuộn ngang cục bộ chống tràn màn hình 360px */
+.table-scroll-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tôn trọng thiết lập giảm chuyển động của hệ điều hành */
+@media (prefers-reduced-motion: reduce) {
+  .transition-unslop,
+  .transition-panel,
+  .skeleton-pulse,
+  .toast-item,
+  .toast-item-leaving {
+    animation: none !important;
+    transition: none !important;
+  }
+}

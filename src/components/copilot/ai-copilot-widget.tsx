@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   X,
   MessageSquareText,
@@ -13,12 +13,19 @@ import {
 } from "lucide-react";
 import { useApp, ROLE_DEFAULT_PROFILES } from "@/context/app-context";
 import { ROLE_META } from "@/components/layout/sidebar";
+import { recordAuditLog } from "@/lib/audit-logger";
+import {
+  mergeWithRuntimeRequests,
+  pushNotification,
+  saveRuntimeRequest,
+} from "@/lib/runtime-store";
 import type {
   AnnualLeaveBalance,
   CopilotSampleQA,
   NaturalLanguageLeaveDraft,
   RequestCategory,
 } from "@/mock";
+import type { ApprovalStep, LeaveOvertimeRequest } from "@/mock/types";
 import { fetchAttendanceMock, fetchCopilotMock } from "@/lib/mock-fetcher";
 
 function parseNaturalLanguageLeave(rawText: string): {
@@ -146,6 +153,7 @@ export function AiCopilotWidget() {
   const [chatInput, setChatInput] = useState("");
 
   // Mock data loaded from /mock/copilot.json & /mock/attendance.json
+  const baseRequestsRef = useRef<LeaveOvertimeRequest[]>([]);
   const [qaList, setQaList] = useState<CopilotSampleQA[]>([]);
   const [nlpPresets, setNlpPresets] = useState<NaturalLanguageLeaveDraft[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<AnnualLeaveBalance[]>([]);
@@ -171,6 +179,7 @@ export function AiCopilotWidget() {
       .then((data) => {
         if (cancelled) return;
         setLeaveBalances(data.MOCK_ANNUAL_LEAVE_BALANCES ?? []);
+        baseRequestsRef.current = data.MOCK_LEAVE_OVERTIME_REQUESTS ?? [];
       })
       .catch(() => {
         // Keep empty leave balances if mock fetch fails
@@ -385,9 +394,131 @@ export function AiCopilotWidget() {
   };
 
   const handleSubmitParsedLeave = () => {
-    const newCode = `DON-2026-${String(submittedLeaves.length + 108).padStart(3, "0")}`;
+    const toIsoDatePart = (ddmmyyyy: string): string => {
+      const parts = ddmmyyyy.split("/");
+      if (parts.length === 3) {
+        const dd = parts[0].padStart(2, "0");
+        const mm = parts[1].padStart(2, "0");
+        const yyyy = parts[2];
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      return "2026-11-20";
+    };
+
+    const allRequests = mergeWithRuntimeRequests(baseRequestsRef.current);
+    const maxCodeNum = allRequests.reduce((max, r) => {
+      const m = /^REQ-202611-(\d+)$/.exec(r.request_code);
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 87);
+    const newCode = `REQ-202611-${String(maxCodeNum + 1).padStart(3, "0")}`;
+
+    const deptName =
+      currentUserProfile?.department ||
+      defaultProfile?.department ||
+      currentActor.department;
+    const deptId =
+      currentUserProfile?.department_id ||
+      (deptName === "Phòng Nhân sự & Hành chính"
+        ? "dept-hr"
+        : deptName === "Phòng Tài chính - Kế toán"
+          ? "dept-fin"
+          : deptName === "Khối Kinh doanh"
+            ? "dept-sales"
+            : deptName === "Ban Điều hành"
+              ? "dept-board"
+              : "dept-tech");
+
+    const isDeptMgr = role === "DEPT_MANAGER";
+    const isOvertime = parsedLeave.category === "OVERTIME";
+    const needsDirector =
+      (!isOvertime && parsedLeave.durationDays >= 3) ||
+      parsedLeave.category === "UNPAID_LEAVE" ||
+      parsedLeave.category === "OVERSEAS_BUSINESS_TRIP";
+
+    const steps: ApprovalStep[] = [
+      {
+        step_order: 1,
+        role: "DEPT_MANAGER",
+        label: "Cấp 1 · Trưởng bộ phận duyệt",
+        status: isDeptMgr ? "SKIPPED" : "PENDING",
+        actor_name: "Lê Hoàng Nam",
+        note: isDeptMgr ? "Tự động bỏ qua do người gửi là Trưởng bộ phận" : undefined,
+      },
+      {
+        step_order: 2,
+        role: "HR_MANAGER",
+        label: "Cấp 2 · Trưởng phòng Nhân sự kiểm tra",
+        status: "PENDING",
+        actor_name: "Trần Thị Bích Ngọc",
+      },
+    ];
+    if (needsDirector) {
+      steps.push({
+        step_order: 3,
+        role: "DIRECTOR",
+        label: "Cấp 3 · Giám đốc phê duyệt",
+        status: "PENDING",
+        actor_name: "Trần Quốc Việt",
+      });
+    }
+
+    const startIsoDate = toIsoDatePart(parsedLeave.startDate);
+    const endIsoDate = toIsoDatePart(parsedLeave.endDate);
+    const firstStepRole: "DEPT_MANAGER" | "HR_MANAGER" = isDeptMgr
+      ? "HR_MANAGER"
+      : "DEPT_MANAGER";
+
+    const newReq: LeaveOvertimeRequest = {
+      id: `req-copilot-${Date.now()}`,
+      request_code: newCode,
+      employee_id: "emp-004",
+      employee_code: empCode,
+      full_name: displayName,
+      department_name: deptName,
+      position_name: defaultProfile?.title || currentActor.position,
+      requester_role: role,
+      request_category: parsedLeave.category,
+      category_label: parsedLeave.categoryLabel,
+      start_datetime: `${startIsoDate}T08:30:00+07:00`,
+      end_datetime: `${endIsoDate}T17:30:00+07:00`,
+      duration_days_or_hours: parsedLeave.durationDays,
+      duration_unit: isOvertime ? "GIO" : "NGAY",
+      reason: parsedLeave.reason,
+      handover_to_name: parsedLeave.handoverTo || null,
+      approver_id: isDeptMgr ? "emp-002" : "emp-003",
+      approver_name: isDeptMgr ? "Trần Thị Bích Ngọc" : "Lê Hoàng Nam",
+      approval_status: "PENDING",
+      status: "PENDING",
+      current_step_role: firstStepRole,
+      approval_steps: steps,
+      leave_deducted: false,
+      created_at: new Date().toISOString(),
+      responded_at: null,
+      source: "AI_COPILOT",
+    };
+
+    saveRuntimeRequest(newReq);
+    recordAuditLog({
+      actor_name: displayName,
+      actor_code: empCode,
+      actor_role: role,
+      action: "CREATE_REQUEST",
+      module: "Đơn từ & Phê duyệt",
+      target: `${newReq.request_code} (${displayName})`,
+      detail: `Tạo đơn qua AI HR Copilot: ${parsedLeave.categoryLabel} (${parsedLeave.durationDays} ${isOvertime ? "giờ" : "ngày"})`,
+    });
+    pushNotification({
+      title: `Đơn mới ${newReq.request_code} từ AI HR Copilot`,
+      message: `${displayName} gửi đơn ${parsedLeave.categoryLabel.toLowerCase()} (${parsedLeave.durationDays} ${isOvertime ? "giờ" : "ngày"}: ${parsedLeave.startDate} đến ${parsedLeave.endDate}).`,
+      category: "LEAVE_REQUEST",
+      target_roles: ["DEPT_MANAGER", "HR_MANAGER"],
+      target_department_id: deptId,
+      nav_id: "leaves",
+      entity_id: newReq.request_code,
+    });
+
     const item: SubmittedLeaveItem = {
-      code: newCode,
+      code: newReq.request_code,
       categoryLabel: parsedLeave.categoryLabel,
       durationDays: parsedLeave.durationDays,
       startDate: parsedLeave.startDate,
@@ -399,7 +530,7 @@ export function AiCopilotWidget() {
 
     setSubmittedLeaves((prev) => [item, ...prev]);
     showToast(
-      `Đã tạo đơn ${newCode} thành công`,
+      `Đã tạo đơn ${newReq.request_code} thành công`,
       `${parsedLeave.categoryLabel} (${parsedLeave.durationDays} ngày: ${parsedLeave.startDate} → ${parsedLeave.endDate}) — Đã chuyển người duyệt`,
       "success"
     );

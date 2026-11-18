@@ -398,7 +398,7 @@ export function AdminSettingsView() {
                 className="font-mono tabular-nums"
               />
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Đơn nghỉ phép có số ngày vượt ngưỡng này (hoặc nghỉ không lương, công tác nước ngoài) sẽ tự động chuyển thêm tới Giám đốc (SUPER_ADMIN) phê duyệt.
+                Đơn nghỉ phép có số ngày vượt ngưỡng này (hoặc nghỉ không lương, công tác nước ngoài) sẽ tự động chuyển thêm tới Giám đốc (DIRECTOR) phê duyệt.
               </p>
             </div>
           </div>

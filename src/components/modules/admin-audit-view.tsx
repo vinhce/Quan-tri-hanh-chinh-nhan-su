@@ -57,6 +57,7 @@ const STATUS_BLOCK_STYLE: Record<AuditLogEntry['status'], string> = {
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Quản trị hệ thống',
+  DIRECTOR: 'Giám đốc Điều hành',
   HR_MANAGER: 'Trưởng phòng Nhân sự',
   DEPT_MANAGER: 'Trưởng bộ phận',
   EMPLOYEE: 'Nhân viên chính thức',
@@ -346,6 +347,7 @@ export function AdminAuditView() {
                 options={[
                   { label: 'Tất cả vai trò', value: 'ALL' },
                   { label: 'Quản trị hệ thống', value: 'SUPER_ADMIN' },
+                  { label: 'Giám đốc Điều hành', value: 'DIRECTOR' },
                   { label: 'Trưởng phòng Nhân sự', value: 'HR_MANAGER' },
                   { label: 'Trưởng bộ phận', value: 'DEPT_MANAGER' },
                   { label: 'Nhân viên chính thức', value: 'EMPLOYEE' },

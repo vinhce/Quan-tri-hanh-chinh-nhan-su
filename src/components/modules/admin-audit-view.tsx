@@ -218,10 +218,10 @@ export function AdminAuditView() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Nhật ký bảo mật (Audit Logs)
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             Truy vết toàn bộ thao tác nhạy cảm, thay đổi phân quyền, xuất dữ liệu lương và cảnh báo truy cập trái phép.
           </p>
         </div>
@@ -236,7 +236,7 @@ export function AdminAuditView() {
         <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tổng sự kiện ghi nhận
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
@@ -252,7 +252,7 @@ export function AdminAuditView() {
         <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Hợp lệ (Success)
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
@@ -268,7 +268,7 @@ export function AdminAuditView() {
         <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Cảnh báo (Warning)
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
@@ -284,7 +284,7 @@ export function AdminAuditView() {
         <Card className="border-l-4 border-l-rose-500 dark:border-l-rose-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Đã chặn (Blocked)
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-rose-600 dark:text-rose-400">
@@ -299,8 +299,8 @@ export function AdminAuditView() {
       </div>
 
       {/* Filters & Table */}
-      <Card>
-        <CardHeader className="flex flex-col gap-3.5 space-y-0 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80 xl:flex-row xl:items-center xl:justify-between">
+      <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+        <CardHeader className="flex flex-col gap-3.5 space-y-0 border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80 xl:flex-row xl:items-center xl:justify-between">
           <div className="shrink-0">
             <CardTitle>Dòng sự kiện kiểm toán hệ thống</CardTitle>
             <CardDescription className="mt-1">
@@ -310,7 +310,7 @@ export function AdminAuditView() {
           <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center xl:w-auto">
             <div className="relative w-full sm:flex-1 xl:w-56 xl:flex-none 2xl:w-64">
               <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5C7871] dark:text-zinc-400"
                 strokeWidth={1.5}
               />
               <Input
@@ -364,10 +364,10 @@ export function AdminAuditView() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto bg-[#FCFEFD] dark:bg-transparent">
             <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <thead className="bg-[#F2F7F5] dark:bg-zinc-900/50">
+                <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                   <th className="whitespace-nowrap px-2.5 py-3 xl:px-4">Thời gian</th>
                   <th className="whitespace-nowrap px-2.5 py-3 xl:px-4">Mã NV</th>
                   <th className="px-2.5 py-3 xl:px-4">Người thực hiện</th>
@@ -378,22 +378,22 @@ export function AdminAuditView() {
                   <th className="px-2.5 py-3 xl:px-4">Trạng thái</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+              <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                 {filteredLogs.map((log) => {
                   const statusMeta = STATUS_BADGE[log.status];
                   return (
                     <tr
                       key={log.id}
                       onClick={() => setSelectedLog(log)}
-                      className="cursor-pointer transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                      className="cursor-pointer odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                     >
-                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400 xl:px-4">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400 xl:px-4">
                         {formatTimestamp(log.timestamp)}
                       </td>
-                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300 xl:px-4">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs font-normal tabular-nums text-[#415A54] dark:text-zinc-300 xl:px-4">
                         {log.actor_employee_code}
                       </td>
-                      <td className="px-2.5 py-3.5 font-medium text-zinc-900 dark:text-zinc-100 xl:px-4">
+                      <td className="px-2.5 py-3.5 font-semibold text-[#11221E] dark:text-zinc-100 xl:px-4">
                         {log.actor_name}
                       </td>
                       <td className="px-2.5 py-3.5 xl:px-4">
@@ -402,22 +402,22 @@ export function AdminAuditView() {
                         </Badge>
                       </td>
                       <td className="px-2.5 py-3.5 xl:px-4">
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        <p className="font-medium text-[#11221E] dark:text-zinc-100">
                           {ACTION_LABELS[log.action] ?? log.module}
                         </p>
-                        <p className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <p className="font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
                           {log.action}
                         </p>
                       </td>
                       <td className="max-w-[190px] px-2.5 py-3.5 xl:max-w-xs xl:px-4">
-                        <p className="truncate font-medium text-zinc-800 dark:text-zinc-200">
+                        <p className="truncate font-medium text-[#11221E] dark:text-zinc-200">
                           {log.target_entity}
                         </p>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="mt-0.5 line-clamp-1 text-xs text-[#415A54] dark:text-zinc-400">
                           {log.detail}
                         </p>
                       </td>
-                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400 xl:px-4">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400 xl:px-4">
                         {log.ip_address}
                       </td>
                       <td className="px-2.5 py-3.5 xl:px-4">
@@ -430,7 +430,7 @@ export function AdminAuditView() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                      className="px-4 py-10 text-center text-sm text-[#5C7871] dark:text-zinc-400"
                     >
                       Không có bản ghi nhật ký nào phù hợp với điều kiện lọc.
                     </td>
@@ -459,14 +459,14 @@ export function AdminAuditView() {
                 }`}
               >
                 <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Mã nhật ký</p>
-                  <p className="font-mono text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  <p className="text-xs text-[#5C7871] dark:text-zinc-400">Mã nhật ký</p>
+                  <p className="font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                     {selectedLog.log_code}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Thời gian ghi nhận</p>
-                  <p className="font-mono text-xs font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                  <p className="text-xs text-[#5C7871] dark:text-zinc-400">Thời gian ghi nhận</p>
+                  <p className="font-mono text-xs font-medium tabular-nums text-[#11221E] dark:text-zinc-200">
                     {formatTimestamp(selectedLog.timestamp)}
                   </p>
                 </div>
@@ -480,7 +480,7 @@ export function AdminAuditView() {
                   <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
                     Người thực hiện
                   </p>
-                  <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
+                  <p className="mt-0.5 font-semibold text-[#11221E] dark:text-zinc-100">
                     {selectedLog.actor_name}
                   </p>
                   <p className="mt-0.5 font-mono text-xs tabular-nums text-blue-600 dark:text-blue-400">
@@ -492,7 +492,7 @@ export function AdminAuditView() {
                   <p className="text-xs font-medium text-violet-700 dark:text-violet-300">
                     Vai trò & Địa chỉ IP
                   </p>
-                  <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
+                  <p className="mt-0.5 font-semibold text-[#11221E] dark:text-zinc-100">
                     {ROLE_LABELS[selectedLog.actor_role] ?? selectedLog.actor_role}
                   </p>
                   <p className="mt-0.5 font-mono text-xs tabular-nums text-violet-600 dark:text-violet-400">
@@ -506,7 +506,7 @@ export function AdminAuditView() {
                   Hành động & Phân hệ
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                  <span className="font-semibold text-[#11221E] dark:text-zinc-100">
                     {ACTION_LABELS[selectedLog.action] ?? selectedLog.module}
                   </span>
                   <Badge variant="warning" className="font-mono text-[11px]">
@@ -515,14 +515,14 @@ export function AdminAuditView() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-teal-600/25 border-l-4 border-l-teal-600 bg-teal-50/40 p-3 dark:border-teal-400/20 dark:border-l-teal-400 dark:bg-teal-950/15">
-                <p className="text-xs font-medium text-teal-700 dark:text-teal-300">
+              <div className="rounded-lg border border-[#0F766E]/25 border-l-4 border-l-[#0F766E] bg-[#CBE8E2]/35 p-3 dark:border-teal-400/20 dark:border-l-teal-400 dark:bg-teal-950/15">
+                <p className="text-xs font-medium text-[#0B4F4A] dark:text-teal-300">
                   Đối tượng tác động
                 </p>
-                <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="mt-1 font-semibold text-[#11221E] dark:text-zinc-100">
                   {selectedLog.target_entity}
                 </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                <p className="mt-2 text-xs leading-5 text-[#415A54] dark:text-zinc-300">
                   {selectedLog.detail}
                 </p>
               </div>

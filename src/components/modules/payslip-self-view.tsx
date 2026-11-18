@@ -228,7 +228,7 @@ export function PayslipSelfView() {
       {/* Top Row: Check-in/out & Annual Leave Balance */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Check-in / Check-out */}
-        <Card className="lg:col-span-6">
+        <Card className="flex flex-col lg:col-span-6">
           <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -251,22 +251,29 @@ export function PayslipSelfView() {
             </div>
           </CardHeader>
           <CardContent className="space-y-5 pt-5">
-            <div className="flex flex-col gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="flex flex-col gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50 sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-start xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <p className="whitespace-nowrap text-xs font-medium text-zinc-500 dark:text-zinc-400">
                   Đồng hồ thời gian thực
                 </p>
-                <p className="mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
+                <p className="mt-1 font-mono text-2xl font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100 xl:text-2xl 2xl:text-3xl">
                   {formatTimeNow(now)}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={handleCheckIn} disabled={Boolean(checkInTime)}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  className="shrink-0"
+                  onClick={handleCheckIn}
+                  disabled={Boolean(checkInTime)}
+                >
                   <LogIn className="h-4 w-4" strokeWidth={1.5} />
                   Check-in
                 </Button>
                 <Button
+                  size="sm"
                   variant="outline"
+                  className="shrink-0"
                   onClick={handleCheckOut}
                   disabled={!checkInTime || Boolean(checkOutTime)}
                 >
@@ -294,7 +301,7 @@ export function PayslipSelfView() {
         </Card>
 
         {/* Annual Leave Balance */}
-        <Card className="lg:col-span-6">
+        <Card className="flex flex-col lg:col-span-6">
           <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -312,29 +319,37 @@ export function PayslipSelfView() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="pt-5">
+          <CardContent className="flex flex-1 flex-col justify-center pt-5">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl border border-blue-500/30 bg-blue-50/60 p-3.5 dark:border-blue-400/20 dark:bg-blue-950/20">
-                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Tổng phép năm</p>
-                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+              <div className="flex h-full flex-col justify-between rounded-xl border border-blue-500/30 bg-blue-50/60 p-3 dark:border-blue-400/20 dark:bg-blue-950/20">
+                <p className="text-xs font-medium leading-snug text-blue-700 dark:text-blue-300">
+                  Tổng phép năm
+                </p>
+                <p className="mt-2 font-mono text-2xl font-semibold leading-none tabular-nums text-blue-600 dark:text-blue-400">
                   {totalAnnualLeave}
                 </p>
               </div>
-              <div className="rounded-xl border border-violet-500/30 bg-violet-50/60 p-3.5 dark:border-violet-400/20 dark:bg-violet-950/20">
-                <p className="text-xs font-medium text-violet-700 dark:text-violet-300">Đã nghỉ</p>
-                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-violet-600 dark:text-violet-400">
+              <div className="flex h-full flex-col justify-between rounded-xl border border-violet-500/30 bg-violet-50/60 p-3 dark:border-violet-400/20 dark:bg-violet-950/20">
+                <p className="text-xs font-medium leading-snug text-violet-700 dark:text-violet-300">
+                  Đã nghỉ
+                </p>
+                <p className="mt-2 font-mono text-2xl font-semibold leading-none tabular-nums text-violet-600 dark:text-violet-400">
                   {leaveBalance.used_days}
                 </p>
               </div>
-              <div className="rounded-xl border border-amber-500/30 bg-amber-50/60 p-3.5 dark:border-amber-400/20 dark:bg-amber-950/20">
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Đang chờ duyệt</p>
-                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+              <div className="flex h-full flex-col justify-between rounded-xl border border-amber-500/30 bg-amber-50/60 p-3 dark:border-amber-400/20 dark:bg-amber-950/20">
+                <p className="text-xs font-medium leading-snug text-amber-700 dark:text-amber-300">
+                  Đang chờ duyệt
+                </p>
+                <p className="mt-2 font-mono text-2xl font-semibold leading-none tabular-nums text-amber-600 dark:text-amber-400">
                   {leaveBalance.pending_days}
                 </p>
               </div>
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-3.5 dark:border-emerald-400/20 dark:bg-emerald-950/20">
-                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Còn lại</p>
-                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <div className="flex h-full flex-col justify-between rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-3 dark:border-emerald-400/20 dark:bg-emerald-950/20">
+                <p className="text-xs font-medium leading-snug text-emerald-700 dark:text-emerald-300">
+                  Còn lại
+                </p>
+                <p className="mt-2 font-mono text-2xl font-semibold leading-none tabular-nums text-emerald-600 dark:text-emerald-400">
                   {leaveBalance.remaining_days}
                 </p>
               </div>

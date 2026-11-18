@@ -20,27 +20,27 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const variantClasses: Record<BadgeVariant, string> = {
   default:
-    'border-teal-700/20 bg-teal-50/80 text-teal-800 dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-300',
+    'border-[#0F766E]/30 bg-[#CBE8E2] text-[#0B4F4A] font-semibold dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-300',
   teal:
-    'border-teal-700/20 bg-teal-50/80 text-teal-800 dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-300',
+    'border-[#0F766E]/30 bg-[#CBE8E2] text-[#0B4F4A] font-semibold dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-300',
   secondary:
-    'border-zinc-200/80 bg-zinc-100 text-zinc-700 dark:border-zinc-800/80 dark:bg-zinc-800/80 dark:text-zinc-300',
+    'border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-800/80 dark:text-zinc-300',
   muted:
-    'border-zinc-200/60 bg-zinc-50 text-zinc-600 dark:border-zinc-800/60 dark:bg-zinc-900 dark:text-zinc-400',
+    'border-[#C6D9D3] bg-[#F2F7F5] text-[#415A54] dark:border-zinc-800/60 dark:bg-zinc-900 dark:text-zinc-400',
   outline:
-    'border-zinc-200/80 bg-transparent text-zinc-700 dark:border-zinc-800/80 dark:text-zinc-300',
+    'border-[#C6D9D3] bg-transparent text-[#415A54] dark:border-zinc-800/80 dark:text-zinc-300',
   success:
-    'border-emerald-600/20 bg-emerald-50/80 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-300',
+    'border-[#6EE7B7] bg-[#D1FAE5] text-[#065F46] font-semibold dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-300',
   warning:
-    'border-amber-600/20 bg-amber-50/80 text-amber-800 dark:border-amber-400/20 dark:bg-amber-950/40 dark:text-amber-300',
+    'border-amber-600/30 bg-amber-50 text-amber-900 font-semibold dark:border-amber-400/20 dark:bg-amber-950/40 dark:text-amber-300',
   destructive:
-    'border-red-600/20 bg-red-50/80 text-red-800 dark:border-red-400/20 dark:bg-red-950/40 dark:text-red-300',
+    'border-red-600/30 bg-red-50 text-red-900 font-semibold dark:border-red-400/20 dark:bg-red-950/40 dark:text-red-300',
   error:
-    'border-red-600/20 bg-red-50/80 text-red-800 dark:border-red-400/20 dark:bg-red-950/40 dark:text-red-300',
+    'border-red-600/30 bg-red-50 text-red-900 font-semibold dark:border-red-400/20 dark:bg-red-950/40 dark:text-red-300',
   danger:
-    'border-red-600/20 bg-red-50/80 text-red-800 dark:border-red-400/20 dark:bg-red-950/40 dark:text-red-300',
+    'border-red-600/30 bg-red-50 text-red-900 font-semibold dark:border-red-400/20 dark:bg-red-950/40 dark:text-red-300',
   info:
-    'border-zinc-300/80 bg-zinc-100/80 text-zinc-800 dark:border-zinc-700/80 dark:bg-zinc-800/60 dark:text-zinc-200',
+    'border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-700/80 dark:bg-zinc-800/60 dark:text-zinc-200',
 };
 
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(

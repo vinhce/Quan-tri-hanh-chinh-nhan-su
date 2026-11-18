@@ -22,7 +22,7 @@ export const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
       <div
         ref={ref}
         className={cn(
-          'relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full border border-zinc-200/80 bg-zinc-100 text-xs font-medium text-zinc-700 dark:border-zinc-800/80 dark:bg-zinc-800 dark:text-zinc-200',
+          'relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[#C6D9D3] bg-[#E4EEEB] text-xs font-semibold text-[#0B4F4A] dark:border-zinc-800/80 dark:bg-zinc-800 dark:text-zinc-200',
           className
         )}
         {...props}
@@ -56,7 +56,7 @@ export const AvatarFallback = React.forwardRef<
   <span
     ref={ref}
     className={cn(
-      'flex h-full w-full items-center justify-center rounded-full bg-zinc-100 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200',
+      'flex h-full w-full items-center justify-center rounded-full bg-[#E4EEEB] text-xs font-semibold text-[#0B4F4A] dark:bg-zinc-800 dark:text-zinc-200',
       className
     )}
     {...props}

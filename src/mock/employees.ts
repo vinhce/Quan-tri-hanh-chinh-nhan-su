@@ -793,7 +793,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     burnout_risk_level: 'LOW',
     turnover_risk_score: 21,
     turnover_risk_level: 'LOW',
-    ai_retention_note: 'Phụ trách huấn luyện pipeline RAG tiếng Việt cho AI HR Copilot đạt độ chính xác cao.',
+    ai_retention_note: 'Phụ trách huấn luyện pipeline RAG tiếng Việt cho hệ thống phân tích dữ liệu nội bộ đạt độ chính xác cao.',
     avatar_initials: 'YN',
   },
   {

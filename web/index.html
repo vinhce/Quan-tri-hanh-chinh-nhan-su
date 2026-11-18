@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tổng quan điều hành · Lạc Việt HRM</title>
+    <script src="assets/js/core/theme-boot.js"></script>
+    <link rel="stylesheet" href="assets/css/tailwind.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/theme.css" />
+    <link rel="stylesheet" href="assets/css/layout.css" />
+    <link rel="stylesheet" href="assets/css/components/common.css" />
+  </head>
+  <body data-auto-boot="true" data-nav-id="dashboard" class="surface-canvas antialiased">
+    <div class="app-shell">
+      <aside id="app-sidebar" aria-label="Thanh điều hướng chính"></aside>
+
+      <div
+        id="app-mobile-drawer"
+        class="mobile-drawer-overlay lg:hidden"
+        data-open="false"
+        hidden
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu điều hướng"
+      >
+        <div class="mobile-drawer-backdrop" data-sidebar-backdrop="true"></div>
+        <div id="app-mobile-sidebar" class="mobile-drawer-panel"></div>
+      </div>
+
+      <div class="app-workspace">
+        <header id="app-header"></header>
+
+        <main id="app-main" class="app-main px-4 py-4 sm:px-6 sm:py-6">
+          <div class="app-main-container space-y-6 pb-16">
+            <div id="app-state-container" hidden></div>
+
+            <div id="app-page-content" class="space-y-6">
+              <section
+                aria-labelledby="step1-panel-title"
+                class="surface-card p-5 sm:p-6"
+              >
+                <div class="flex flex-col gap-3 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-start sm:justify-between">
+                  <div class="min-w-0 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="inline-flex items-center rounded-md border border-teal-700/20 bg-teal-50/80 px-2 py-0.5 font-mono text-xs font-medium tabular-nums text-teal-800 dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-300">
+                        Bước 1 · App Shell
+                      </span>
+                      <span
+                        data-shell-role-badge="true"
+                        class="inline-flex items-center rounded-md border border-zinc-200/80 bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:border-zinc-800/80 dark:bg-zinc-800/80 dark:text-zinc-300"
+                      >
+                        HR Manager
+                      </span>
+                    </div>
+                    <h2
+                      id="step1-panel-title"
+                      class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                    >
+                      Kiểm thử khung điều hành, phân quyền RBAC và 4 trạng thái giao diện
+                    </h2>
+                    <p
+                      data-shell-bind="scopeNote"
+                      class="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400"
+                    >
+                      Toàn bộ nghiệp vụ HR, công, lương &amp; tuyển dụng
+                    </p>
+                  </div>
+
+                  <div class="shrink-0 rounded-lg border border-zinc-200/80 bg-zinc-50/80 px-3 py-2 text-left dark:border-zinc-800/80 dark:bg-zinc-900/70 sm:text-right">
+                    <p class="text-[11px] text-zinc-500 dark:text-zinc-400">Trạng thái hiện tại</p>
+                    <p
+                      data-shell-bind="uiStateLabel"
+                      class="mt-0.5 font-mono text-xs font-medium tabular-nums text-teal-700 dark:text-teal-400"
+                    >
+                      Ready · Sẵn sàng dữ liệu
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div class="rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Nhân sự phiên đăng nhập</p>
+                    <p
+                      data-shell-bind="userName"
+                      class="mt-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                    >
+                      Trần Thị Bích Ngọc
+                    </p>
+                    <p
+                      data-shell-bind="email"
+                      class="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400"
+                    >
+                      ngoc.tran@lacviethrm.vn
+                    </p>
+                  </div>
+
+                  <div class="rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Mã nhân viên &amp; ca chuẩn</p>
+                    <p
+                      data-shell-bind="empCode"
+                      class="mt-1 font-mono text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100"
+                    >
+                      NV-2024-002
+                    </p>
+                    <p
+                      data-shell-bind="shiftCode"
+                      class="mt-0.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400"
+                    >
+                      HC-08:00
+                    </p>
+                  </div>
+
+                  <div class="rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Vai trò &amp; đơn vị trực thuộc</p>
+                    <p
+                      data-shell-bind="roleLabel"
+                      class="mt-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                    >
+                      Trưởng phòng Nhân sự (HR Manager)
+                    </p>
+                    <p
+                      data-shell-bind="department"
+                      class="mt-0.5 truncate text-xs text-zinc-600 dark:text-zinc-400"
+                    >
+                      Phòng Nhân sự &amp; Hành chính
+                    </p>
+                  </div>
+
+                  <div class="rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Mục điều hướng &amp; chủ đề</p>
+                    <p
+                      data-shell-bind="activeNavLabel"
+                      class="mt-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100"
+                    >
+                      Tổng quan điều hành
+                    </p>
+                    <p
+                      data-shell-bind="themeLabel"
+                      class="mt-0.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400"
+                    >
+                      Dark Mode
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-5 grid grid-cols-1 gap-4 border-t border-zinc-200/80 pt-4 dark:border-zinc-800/80 lg:grid-cols-2">
+                  <div class="space-y-2">
+                    <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Chuyển nhanh 4 trạng thái hiển thị
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      <button type="button" data-quick-ui-state="ready" aria-pressed="true" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-teal-700/30 bg-teal-50/90 px-3 text-xs font-medium text-teal-800 transition-unslop dark:border-teal-400/30 dark:bg-teal-950/50 dark:text-teal-300">
+                        Ready
+                      </button>
+                      <button type="button" data-quick-ui-state="loading" aria-pressed="false" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:bg-zinc-100 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:bg-zinc-800">
+                        Loading
+                      </button>
+                      <button type="button" data-quick-ui-state="empty" aria-pressed="false" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:bg-zinc-100 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:bg-zinc-800">
+                        Empty
+                      </button>
+                      <button type="button" data-quick-ui-state="error" aria-pressed="false" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:bg-zinc-100 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:bg-zinc-800">
+                        Error
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="space-y-2">
+                    <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Liên kết nhanh theo phạm vi quyền hiện tại
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      <a
+                        href="pages/core-hr.html"
+                        data-shell-nav-link="core-hr"
+                        class="inline-flex h-8 items-center rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:border-teal-700/30 hover:text-teal-700 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:border-teal-400/30 dark:hover:text-teal-400"
+                      >
+                        Hồ sơ &amp; Tổ chức
+                      </a>
+                      <a
+                        href="pages/attendance.html"
+                        data-shell-nav-link="attendance"
+                        class="inline-flex h-8 items-center rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:border-teal-700/30 hover:text-teal-700 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:border-teal-400/30 dark:hover:text-teal-400"
+                      >
+                        Chấm công &amp; Ca làm
+                      </a>
+                      <a
+                        href="pages/requests.html"
+                        data-shell-nav-link="leaves"
+                        class="inline-flex h-8 items-center rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:border-teal-700/30 hover:text-teal-700 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:border-teal-400/30 dark:hover:text-teal-400"
+                      >
+                        Đơn từ &amp; Phê duyệt
+                      </a>
+                      <a
+                        href="pages/payroll.html"
+                        data-shell-nav-link="payroll"
+                        class="inline-flex h-8 items-center rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:border-teal-700/30 hover:text-teal-700 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:border-teal-400/30 dark:hover:text-teal-400"
+                      >
+                        Bảng lương &amp; Thuế
+                      </a>
+                      <a
+                        href="pages/payslip.html"
+                        data-shell-nav-link="payslip"
+                        class="inline-flex h-8 items-center rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-unslop hover:border-teal-700/30 hover:text-teal-700 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-300 dark:hover:border-teal-400/30 dark:hover:text-teal-400"
+                      >
+                        Phiếu lương cá nhân
+                      </a>
+                      <a
+                        href="login.html"
+                        class="inline-flex h-8 items-center rounded-lg border border-zinc-200/80 bg-zinc-100/70 px-3 font-mono text-xs font-medium text-zinc-700 transition-unslop hover:bg-zinc-200/70 dark:border-zinc-800/80 dark:bg-zinc-800/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        login.html
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                id="dashboard-step2-placeholder"
+                aria-labelledby="step2-placeholder-title"
+                class="surface-card p-5 sm:p-6"
+              >
+                <div class="flex flex-col gap-2 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2
+                      id="step2-placeholder-title"
+                      class="text-base font-semibold text-zinc-900 dark:text-zinc-100"
+                    >
+                      Khung chờ nội dung Dashboard điều hành (Bước 2)
+                    </h2>
+                    <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                      Vùng tích hợp KPI nhân sự, biểu đồ quỹ lương và danh sách tác vụ cần phê duyệt kỳ 11/2026.
+                    </p>
+                  </div>
+                  <span class="inline-flex w-fit items-center rounded-md border border-zinc-200/80 bg-zinc-100/70 px-2.5 py-1 font-mono text-xs tabular-nums text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-800/60 dark:text-zinc-300">
+                    Kỳ dữ liệu 11/2026
+                  </span>
+                </div>
+
+                <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div class="rounded-xl border border-dashed border-zinc-300/80 bg-zinc-50/50 p-4 dark:border-zinc-700/80 dark:bg-zinc-900/40">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Khối KPI 01</p>
+                    <p class="mt-2 font-mono text-sm font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                      Tổng nhân sự hiệu lực
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Chờ nạp từ mock/employees.json
+                    </p>
+                  </div>
+                  <div class="rounded-xl border border-dashed border-zinc-300/80 bg-zinc-50/50 p-4 dark:border-zinc-700/80 dark:bg-zinc-900/40">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Khối KPI 02</p>
+                    <p class="mt-2 font-mono text-sm font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                      Tỷ lệ chuyên cần kỳ
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Chờ nạp từ mock/attendance.json
+                    </p>
+                  </div>
+                  <div class="rounded-xl border border-dashed border-zinc-300/80 bg-zinc-50/50 p-4 dark:border-zinc-700/80 dark:bg-zinc-900/40">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Khối KPI 03</p>
+                    <p class="mt-2 font-mono text-sm font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                      Quỹ lương ước tính (VND)
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Chờ nạp từ mock/payroll.json
+                    </p>
+                  </div>
+                  <div class="rounded-xl border border-dashed border-zinc-300/80 bg-zinc-50/50 p-4 dark:border-zinc-700/80 dark:bg-zinc-900/40">
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Khối KPI 04</p>
+                    <p class="mt-2 font-mono text-sm font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
+                      Đơn từ &amp; cảnh báo AI
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Chờ nạp ở Bước 2
+                    </p>
+                  </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <div class="flex min-h-[180px] flex-col justify-between rounded-xl border border-dashed border-zinc-300/80 bg-zinc-50/40 p-5 dark:border-zinc-700/80 dark:bg-zinc-900/30 lg:col-span-2">
+                    <div>
+                      <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        Vùng biểu đồ biến động nhân sự &amp; quỹ lương 6 tháng
+                      </p>
+                      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Sẽ gắn module dashboard ở Bước 2 với số liệu đơn vị VND chuẩn tabular-nums.
+                      </p>
+                    </div>
+                    <p class="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                      slot: #dashboard-analytics-chart
+                    </p>
+                  </div>
+
+                  <div class="flex min-h-[180px] flex-col justify-between rounded-xl border border-dashed border-zinc-300/80 bg-zinc-50/40 p-5 dark:border-zinc-700/80 dark:bg-zinc-900/30">
+                    <div>
+                      <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                        Hàng đợi phê duyệt &amp; sự kiện kỳ 11/2026
+                      </p>
+                      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Hiển thị danh sách đơn từ và nhắc hạn hợp đồng theo Role.
+                      </p>
+                    </div>
+                    <p class="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                      slot: #dashboard-action-queue
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script type="module" src="assets/js/core/app.js"></script>
+  </body>
+</html>

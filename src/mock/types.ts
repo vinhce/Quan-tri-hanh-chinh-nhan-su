@@ -1,4 +1,4 @@
-export type RoleCode = 'SUPER_ADMIN' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
+export type RoleCode = 'SUPER_ADMIN' | 'DIRECTOR' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
 
 export type EmploymentStatus = 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'RESIGNED';
 
@@ -181,7 +181,7 @@ export type MultiStepRequestStatus =
 
 export interface ApprovalStep {
   step_order: number;
-  role: 'DEPT_MANAGER' | 'HR_MANAGER' | 'SUPER_ADMIN';
+  role: 'DEPT_MANAGER' | 'HR_MANAGER' | 'DIRECTOR';
   label: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SKIPPED';
   actor_name?: string;
@@ -210,7 +210,7 @@ export interface LeaveOvertimeRequest {
   approver_name: string;
   approval_status: RequestApprovalStatus;
   status?: MultiStepRequestStatus;
-  current_step_role?: 'DEPT_MANAGER' | 'HR_MANAGER' | 'SUPER_ADMIN' | null;
+  current_step_role?: 'DEPT_MANAGER' | 'HR_MANAGER' | 'DIRECTOR' | null;
   approval_steps?: ApprovalStep[];
   leave_deducted?: boolean;
   rejection_reason?: string;

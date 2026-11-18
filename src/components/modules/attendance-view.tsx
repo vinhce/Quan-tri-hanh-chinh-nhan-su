@@ -400,15 +400,15 @@ export function AttendanceView() {
 
       <Card>
         <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+          <div className="flex flex-col gap-3.5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="shrink-0">
               <CardTitle>Bảng chấm công tháng 11/2026</CardTitle>
               <CardDescription>
                 Hiển thị {filteredRecords.length} / {scopedRecords.length} nhân sự theo bộ lọc hiện tại.
               </CardDescription>
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-[620px]">
-              <div className="relative">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
+              <div className="relative min-w-0 flex-1 sm:w-52 xl:w-56 2xl:w-64">
                 <Search
                   className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
                   strokeWidth={1.5}
@@ -421,21 +421,27 @@ export function AttendanceView() {
                   className="pl-9"
                 />
               </div>
-              <Select
-                value={departmentFilter}
-                onValueChange={setDepartmentFilter}
-                aria-label="Lọc theo phòng ban"
-                options={departments.map((dept) => ({
-                  value: dept,
-                  label: dept === 'ALL' ? 'Tất cả phòng ban' : dept,
-                }))}
-              />
-              <Select
-                value={shiftFilter}
-                onValueChange={setShiftFilter}
-                aria-label="Lọc theo ca làm"
-                options={shiftOptions}
-              />
+              <div className="w-full shrink-0 sm:w-52">
+                <Select
+                  value={departmentFilter}
+                  onValueChange={setDepartmentFilter}
+                  aria-label="Lọc theo phòng ban"
+                  className="whitespace-nowrap"
+                  options={departments.map((dept) => ({
+                    value: dept,
+                    label: dept === 'ALL' ? 'Tất cả phòng ban' : dept,
+                  }))}
+                />
+              </div>
+              <div className="w-full shrink-0 sm:w-40">
+                <Select
+                  value={shiftFilter}
+                  onValueChange={setShiftFilter}
+                  aria-label="Lọc theo ca làm"
+                  className="whitespace-nowrap"
+                  options={shiftOptions}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>

@@ -296,30 +296,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="min-h-dvh bg-[#EFF5F3] text-[#11221E] dark:bg-zinc-950 dark:text-zinc-100">
       {/* Top minimal navigation bar */}
-      <header className="flex h-14 items-center justify-between border-b border-zinc-200/80 bg-white px-6 dark:border-zinc-800/80 dark:bg-zinc-950">
+      <header className="flex h-14 items-center justify-between border-b border-[#C6D9D3] bg-[#E4EEEB] px-6 dark:border-zinc-800/80 dark:bg-zinc-950">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-300/80 bg-zinc-50 text-teal-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
             <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
           </div>
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
             Lạc Việt HRM
           </span>
-          <span className="hidden rounded border border-zinc-200/80 bg-zinc-100 px-2 py-0.5 font-mono text-xs tabular-nums text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 sm:inline-block">
+          <span className="hidden rounded border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-xs tabular-nums text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 sm:inline-block">
             Hệ thống quản trị nhân sự & bảng lương nội bộ
           </span>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hidden font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 md:inline">
+          <span className="hidden font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400 md:inline">
             Kỳ hạch toán: Tháng 11/2026
           </span>
           <button
             type="button"
             onClick={toggleTheme}
             aria-label="Chuyển chế độ sáng tối"
-            className="flex h-9 items-center gap-2 rounded-lg border border-zinc-200/80 bg-zinc-50 px-3 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="flex h-9 items-center gap-2 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             {theme === "light" ? (
               <>
@@ -339,22 +339,22 @@ export default function LoginPage() {
       {/* Main asymmetric split layout */}
       <main className="mx-auto grid min-h-[calc(100dvh-3.5rem)] max-w-[1520px] grid-cols-1 lg:grid-cols-12">
         {/* Left column (5 cols): Auth tabs (Login / Register) + compact quick role pills */}
-        <section className="flex flex-col justify-center border-b border-zinc-200/80 bg-white px-6 py-8 dark:border-zinc-800/80 dark:bg-zinc-900/40 sm:px-10 lg:col-span-5 lg:border-b-0 lg:border-r">
+        <section className="flex flex-col justify-center border-b border-[#C6D9D3] bg-[#FCFEFD] px-6 py-8 dark:border-zinc-800/80 dark:bg-zinc-900/40 sm:px-10 lg:col-span-5 lg:border-b-0 lg:border-r">
           <div className="mx-auto w-full max-w-md">
-            <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200/80 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+            <div className="inline-flex items-center gap-2 rounded-md border border-[#C6D9D3] bg-[#F2F7F5] px-2.5 py-1 text-xs text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
               <ShieldCheck
-                className="h-4 w-4 shrink-0 text-teal-700 dark:text-teal-400"
+                className="h-4 w-4 shrink-0 text-[#0F766E] dark:text-teal-400"
                 strokeWidth={1.5}
               />
               <span>Xác thực phân quyền theo vai trò (RBAC)</span>
             </div>
 
-            <h1 className="mt-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+            <h1 className="mt-4 text-2xl font-semibold text-[#11221E] dark:text-zinc-100">
               {authTab === "login"
                 ? "Đăng nhập cổng điều hành nhân sự"
                 : "Đăng ký tài khoản nhân sự mới"}
             </h1>
-            <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1.5 text-sm text-[#415A54] dark:text-zinc-400">
               {authTab === "login"
                 ? "Truy cập không gian làm việc, bảng công và phiếu lương kỳ Tháng 11/2026"
                 : "Khởi tạo hồ sơ truy cập theo phòng ban và vai trò đề xuất trong hệ thống"}
@@ -364,7 +364,7 @@ export default function LoginPage() {
             <div
               role="tablist"
               aria-label="Chế độ xác thực"
-              className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-zinc-200/80 bg-zinc-100/80 p-1 dark:border-zinc-800 dark:bg-zinc-950"
+              className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-[#C6D9D3] bg-[#E4EEEB] p-1 dark:border-zinc-800 dark:bg-zinc-950"
             >
               <button
                 type="button"
@@ -374,10 +374,10 @@ export default function LoginPage() {
                   setAuthTab("login");
                   setRegError(null);
                 }}
-                className={`h-9 rounded-md text-xs font-medium transition-colors ${
+                className={`h-9 rounded-md border text-xs transition-colors ${
                   authTab === "login"
-                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    ? "border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-900 dark:text-zinc-100"
+                    : "border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                 }`}
               >
                 Đăng nhập
@@ -390,10 +390,10 @@ export default function LoginPage() {
                   setAuthTab("register");
                   setRegError(null);
                 }}
-                className={`h-9 rounded-md text-xs font-medium transition-colors ${
+                className={`h-9 rounded-md border text-xs transition-colors ${
                   authTab === "register"
-                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    ? "border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-900 dark:text-zinc-100"
+                    : "border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                 }`}
               >
                 Đăng ký tài khoản
@@ -406,13 +406,13 @@ export default function LoginPage() {
                 <div>
                   <label
                     htmlFor="login-email"
-                    className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
                     Email doanh nghiệp
                   </label>
                   <div className="relative mt-1.5">
                     <Mail
-                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                       strokeWidth={1.5}
                     />
                     <input
@@ -424,7 +424,7 @@ export default function LoginPage() {
                       placeholder="ten.nhanvien@lacviethrm.vn"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-3 text-sm text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                      className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-3 text-sm text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                     />
                   </div>
                 </div>
@@ -433,21 +433,21 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <label
                       htmlFor="login-password"
-                      className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Mật khẩu
                     </label>
                     <button
                       type="button"
                       onClick={handleForgotPassword}
-                      className="text-xs font-medium text-teal-700 hover:underline dark:text-teal-400"
+                      className="text-xs font-medium text-[#0F766E] hover:underline dark:text-teal-400"
                     >
                       Quên mật khẩu
                     </button>
                   </div>
                   <div className="relative mt-1.5">
                     <Lock
-                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                       strokeWidth={1.5}
                     />
                     <input
@@ -458,13 +458,13 @@ export default function LoginPage() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-10 font-mono text-sm text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                      className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-10 font-mono text-sm text-[#11221E] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowLoginPassword((prev) => !prev)}
                       aria-label={showLoginPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                     >
                       {showLoginPassword ? (
                         <EyeOff className="h-4 w-4" strokeWidth={1.5} />
@@ -476,16 +476,16 @@ export default function LoginPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-[#415A54] dark:text-zinc-400">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded border-zinc-300 text-teal-700 focus:ring-teal-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-teal-400"
+                      className="h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E] focus:ring-[#0F766E] dark:border-zinc-700 dark:bg-zinc-950 dark:text-teal-400"
                     />
                     <span>Ghi nhớ đăng nhập</span>
                   </label>
-                  <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <span className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                     Phiên 8 giờ
                   </span>
                 </div>
@@ -493,7 +493,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-700 px-4 text-sm font-medium text-white transition-colors hover:bg-teal-800 disabled:opacity-60 dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#0F766E] px-4 text-sm font-medium text-[#FCFEFD] transition-colors hover:bg-[#0D5F58] disabled:opacity-60 dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
                 >
                   <span>
                     {isSubmitting
@@ -520,13 +520,13 @@ export default function LoginPage() {
                 <div>
                   <label
                     htmlFor="register-name"
-                    className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
                     Họ và tên
                   </label>
                   <div className="relative mt-1.5">
                     <User
-                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                       strokeWidth={1.5}
                     />
                     <input
@@ -537,7 +537,7 @@ export default function LoginPage() {
                       placeholder="Nguyễn Minh Khôi"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-3 text-sm text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                      className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-3 text-sm text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                     />
                   </div>
                 </div>
@@ -545,13 +545,13 @@ export default function LoginPage() {
                 <div>
                   <label
                     htmlFor="register-email"
-                    className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
                     Email doanh nghiệp
                   </label>
                   <div className="relative mt-1.5">
                     <Mail
-                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                       strokeWidth={1.5}
                     />
                     <input
@@ -562,7 +562,7 @@ export default function LoginPage() {
                       placeholder="khoi.nguyen@lacviethrm.vn"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-3 text-sm text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                      className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-3 text-sm text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                     />
                   </div>
                 </div>
@@ -571,13 +571,13 @@ export default function LoginPage() {
                   <div>
                     <label
                       htmlFor="register-dept"
-                      className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Phòng ban
                     </label>
                     <div className="relative mt-1.5">
                       <Briefcase
-                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                         strokeWidth={1.5}
                       />
                       <select
@@ -585,7 +585,7 @@ export default function LoginPage() {
                         name="department"
                         value={regDept}
                         onChange={(e) => setRegDept(e.target.value)}
-                        className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-3 text-xs text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                        className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-3 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                       >
                         {departments.length > 0 ? (
                           departments.map((dept) => (
@@ -603,7 +603,7 @@ export default function LoginPage() {
                   <div>
                     <label
                       htmlFor="register-role"
-                      className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Vai trò đề xuất
                     </label>
@@ -612,7 +612,7 @@ export default function LoginPage() {
                       name="role"
                       value={regRole}
                       onChange={(e) => setRegRole(e.target.value as RoleCode)}
-                      className="mt-1.5 h-9 w-full rounded-lg border border-zinc-300/80 bg-white px-3 text-xs text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                      className="mt-1.5 h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                     >
                       {REGISTER_ROLE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -627,13 +627,13 @@ export default function LoginPage() {
                   <div>
                     <label
                       htmlFor="register-password"
-                      className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Mật khẩu
                     </label>
                     <div className="relative mt-1.5">
                       <Lock
-                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                         strokeWidth={1.5}
                       />
                       <input
@@ -644,13 +644,13 @@ export default function LoginPage() {
                         placeholder="Tối thiểu 6 ký tự"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-9 font-mono text-xs text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                        className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-9 font-mono text-xs text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                       />
                       <button
                         type="button"
                         onClick={() => setShowRegPassword((prev) => !prev)}
                         aria-label={showRegPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                        className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                        className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                       >
                         {showRegPassword ? (
                           <EyeOff className="h-4 w-4" strokeWidth={1.5} />
@@ -664,13 +664,13 @@ export default function LoginPage() {
                   <div>
                     <label
                       htmlFor="register-confirm-password"
-                      className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Xác nhận mật khẩu
                     </label>
                     <div className="relative mt-1.5">
                       <Lock
-                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                         strokeWidth={1.5}
                       />
                       <input
@@ -681,7 +681,7 @@ export default function LoginPage() {
                         placeholder="Nhập lại mật khẩu"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        className="h-9 w-full rounded-lg border border-zinc-300/80 bg-white pl-9 pr-9 font-mono text-xs text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+                        className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-9 font-mono text-xs text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
                       />
                       <button
                         type="button"
@@ -689,7 +689,7 @@ export default function LoginPage() {
                         aria-label={
                           showRegConfirm ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"
                         }
-                        className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                        className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                       >
                         {showRegConfirm ? (
                           <EyeOff className="h-4 w-4" strokeWidth={1.5} />
@@ -704,7 +704,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-700 px-4 text-sm font-medium text-white transition-colors hover:bg-teal-800 disabled:opacity-60 dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#0F766E] px-4 text-sm font-medium text-[#FCFEFD] transition-colors hover:bg-[#0D5F58] disabled:opacity-60 dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
                 >
                   <span>
                     {isSubmitting ? "Đang tạo tài khoản..." : "Tạo tài khoản và truy cập"}
@@ -715,8 +715,8 @@ export default function LoginPage() {
             )}
 
             {/* Compact quick-demo account pills below form */}
-            <div className="mt-6 border-t border-zinc-200/80 pt-5 dark:border-zinc-800/80">
-              <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="mt-6 border-t border-[#C6D9D3] pt-5 dark:border-zinc-800/80">
+              <div className="mb-2.5 flex items-center justify-between text-xs text-[#5C7871] dark:text-zinc-400">
                 <span>Trải nghiệm nhanh theo vai trò</span>
                 <span className="font-mono tabular-nums">5 tài khoản mẫu</span>
               </div>
@@ -728,10 +728,10 @@ export default function LoginPage() {
                       key={acc.role}
                       type="button"
                       onClick={() => handleSelectDemo(acc)}
-                      className={`flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors ${
+                      className={`flex h-9 items-center justify-center rounded-lg border px-3 text-xs transition-colors ${
                         isSelected
-                          ? "border-teal-700 bg-teal-50/60 text-teal-700 dark:border-teal-400 dark:bg-teal-950/30 dark:text-teal-400"
-                          : "border-zinc-200/80 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          ? "border-[#0F766E] bg-[#CBE8E2] font-semibold text-[#0B4F4A] dark:border-teal-400 dark:bg-teal-950/30 dark:text-teal-400"
+                          : "border-[#C6D9D3] bg-[#F2F7F5] font-medium text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
                       }`}
                     >
                       <span className="truncate">{acc.shortLabel}</span>
@@ -744,19 +744,19 @@ export default function LoginPage() {
         </section>
 
         {/* Right column (7 cols): Real product preview — Payroll & HR Operations Ledger */}
-        <section className="flex flex-col justify-center bg-zinc-100/70 p-6 dark:bg-zinc-950 sm:p-10 lg:col-span-7">
+        <section className="flex flex-col justify-center bg-[#EFF5F3] p-6 dark:bg-zinc-950 sm:p-10 lg:col-span-7">
           <div className="mx-auto w-full max-w-3xl space-y-5">
             {/* Context caption */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                <h2 className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
                   Bản xem trước sổ cái điều hành nhân sự & kỳ lương Tháng 11/2026
                 </h2>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs text-[#415A54] dark:text-zinc-400">
                   Đối soát trực tiếp công chuẩn, khấu trừ BHXH 10.5%, thuế TNCN lũy tiến và thực lĩnh chuyển khoản
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200/80 bg-white px-2.5 py-1 font-mono text-xs tabular-nums text-teal-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-1 font-mono text-xs tabular-nums text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
                 <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />
                 <span>Chốt công: 25/11/2026</span>
               </span>
@@ -764,56 +764,56 @@ export default function LoginPage() {
 
             {/* 3 KPI Stat Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-zinc-200/80 bg-white p-4 xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] p-4 shadow-[0_1px_3px_rgba(17,34,30,0.05)] xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+                <p className="text-xs text-[#415A54] dark:text-zinc-400">
                   Tổng nhân sự hiện hữu
                 </p>
-                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-zinc-900 dark:text-zinc-100">
+                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-[#11221E] dark:text-zinc-100">
                   148 người
                 </p>
-                <p className="mt-1 text-xs text-teal-700 dark:text-teal-400">
+                <p className="mt-1 text-xs text-[#0F766E] dark:text-teal-400">
                   +6 nhân sự mới so với tháng 10/2026
                 </p>
               </div>
 
-              <div className="rounded-xl border border-zinc-200/80 bg-white p-4 xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] p-4 shadow-[0_1px_3px_rgba(17,34,30,0.05)] xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+                <p className="text-xs text-[#415A54] dark:text-zinc-400">
                   Quỹ lương Gross tháng 11/2026
                 </p>
-                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-zinc-900 dark:text-zinc-100">
+                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-[#11221E] dark:text-zinc-100">
                   {formatVND(2975000000)}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                   +2,4% so với dự toán quý 4/2026
                 </p>
               </div>
 
-              <div className="rounded-xl border border-zinc-200/80 bg-white p-4 xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] p-4 shadow-[0_1px_3px_rgba(17,34,30,0.05)] xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+                <p className="text-xs text-[#415A54] dark:text-zinc-400">
                   Tỷ lệ chuyên cần đúng ca
                 </p>
-                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-teal-700 dark:text-teal-400">
+                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-[#0F766E] dark:text-teal-400">
                   98,2%
                 </p>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                   Ca chuẩn HC-08:00 & HC-08:30
                 </p>
               </div>
             </div>
 
             {/* Main visual moment: Live Payroll Reconciliation Table */}
-            <div className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800/80">
+            <div className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#C6D9D3] px-5 py-3.5 dark:border-zinc-800/80">
                 <div className="flex items-center gap-2">
                   <FileSpreadsheet
-                    className="h-4 w-4 text-teal-700 dark:text-teal-400"
+                    className="h-4 w-4 text-[#0F766E] dark:text-teal-400"
                     strokeWidth={1.5}
                   />
-                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                     Bảng đối soát tính lương mẫu (Gross → BHXH 10.5% → Thuế TNCN → Thực lĩnh)
                   </span>
                 </div>
-                <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                <span className="font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
                   Đơn vị: VND
                 </span>
               </div>
@@ -821,25 +821,25 @@ export default function LoginPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-zinc-200/80 bg-zinc-50/80 text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-950/50 dark:text-zinc-400">
-                      <th className="whitespace-nowrap px-4 py-2.5 font-medium">Mã NV</th>
-                      <th className="whitespace-nowrap px-4 py-2.5 font-medium">Họ và tên</th>
-                      <th className="whitespace-nowrap px-4 py-2.5 font-medium">Ca / Công</th>
-                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+                    <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-950/50 dark:text-zinc-400">
+                      <th className="whitespace-nowrap px-4 py-2.5 font-semibold">Mã NV</th>
+                      <th className="whitespace-nowrap px-4 py-2.5 font-semibold">Họ và tên</th>
+                      <th className="whitespace-nowrap px-4 py-2.5 font-semibold">Ca / Công</th>
+                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
                         Lương Gross
                       </th>
-                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
                         BHXH (10.5%)
                       </th>
-                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
                         Thuế TNCN
                       </th>
-                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+                      <th className="whitespace-nowrap px-4 py-2.5 text-right font-semibold">
                         Thực lĩnh Net
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-800/60">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/60">
                     {PREVIEW_PAYROLL_ROWS.map((row) => {
                       const isCurrentSelected =
                         DEMO_ACCOUNTS.find((d) => d.role === selectedRole)
@@ -849,37 +849,37 @@ export default function LoginPage() {
                           key={row.empCode}
                           className={
                             isCurrentSelected
-                              ? "bg-teal-50/50 dark:bg-teal-950/25"
-                              : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40"
+                              ? "bg-[#CBE8E2]/65 hover:bg-[#CBE8E2] dark:bg-teal-950/25"
+                              : "odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-800/40"
                           }
                         >
-                          <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-teal-700 dark:text-teal-400">
+                          <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-[#0F766E] dark:text-teal-400">
                             {row.empCode}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                            <div className="font-semibold text-[#11221E] dark:text-zinc-100">
                               {row.name}
                             </div>
-                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            <div className="text-[11px] text-[#415A54] dark:text-zinc-400">
                               {row.dept}
                             </div>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                          <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                             <div>{row.shift}</div>
-                            <div className="text-[11px] text-zinc-400">
+                            <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
                               {row.days} ngày
                             </div>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-300">
                             {formatVND(row.gross)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                             -{formatVND(row.insurance)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                             -{formatVND(row.pit)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-medium tabular-nums text-teal-700 dark:text-teal-400">
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                             {formatVND(row.net)}
                           </td>
                         </tr>
@@ -891,12 +891,12 @@ export default function LoginPage() {
             </div>
 
             {/* Secondary visual: Department headcount & salary allocation bars */}
-            <div className="rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+            <div className="rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] p-5 shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                   Cơ cấu định biên & ngân sách lương theo khối phòng ban
                 </span>
-                <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                <span className="font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
                   Tổng: 148 nhân sự
                 </span>
               </div>
@@ -905,24 +905,24 @@ export default function LoginPage() {
                 {DEPT_HEADCOUNT_SHARES.map((dept) => (
                   <div key={dept.name} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                      <span className="font-medium text-[#11221E] dark:text-zinc-300">
                         {dept.name}
                       </span>
                       <div className="flex items-center gap-3 font-mono tabular-nums">
-                        <span className="text-zinc-500 dark:text-zinc-400">
+                        <span className="text-[#415A54] dark:text-zinc-400">
                           {dept.count} NV ({dept.ratio}%)
                         </span>
-                        <span className="text-zinc-900 dark:text-zinc-100">
+                        <span className="font-semibold text-[#11221E] dark:text-zinc-100">
                           {formatVND(dept.budgetVnd)}
                         </span>
                       </div>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#E4EEEB] dark:bg-zinc-800">
                       <div
                         className={`h-full rounded-full ${
                           dept.isPrimary
-                            ? "bg-teal-700 dark:bg-teal-400"
-                            : "bg-zinc-400 dark:bg-zinc-600"
+                            ? "bg-[#0F766E] dark:bg-teal-400"
+                            : "bg-[#5C7871] dark:bg-zinc-600"
                         }`}
                         style={{ width: `${dept.ratio}%` }}
                       />

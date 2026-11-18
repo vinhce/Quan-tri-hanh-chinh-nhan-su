@@ -914,21 +914,6 @@ export function RequestsView() {
                         </p>
                       )}
 
-                      {req.approval_steps && req.approval_steps.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                          {req.approval_steps.map((step) => (
-                            <StepperBadge
-                              key={step.step_order}
-                              step={step}
-                              isCurrent={
-                                (effStatus === 'PENDING' || effStatus === 'IN_PROGRESS') &&
-                                req.current_step_role === step.role
-                              }
-                            />
-                          ))}
-                        </div>
-                      )}
-
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                         <span className="inline-flex items-center gap-1.5">
                           <Calendar className="h-4 w-4 text-zinc-400" strokeWidth={1.5} />

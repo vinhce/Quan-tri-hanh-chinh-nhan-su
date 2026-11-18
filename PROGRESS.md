@@ -11,12 +11,14 @@
 - [x] Hoàn thiện bố cục App Shell cố định (`app-shell.tsx`, `sidebar.tsx`, `header.tsx`), bỏ Role Switcher trên Header, thêm nút Đăng xuất về `/login` và mở rộng `/login` với 2 tab Đăng nhập / Đăng ký.
 - [x] Xây dựng trọn bộ 11 module giao diện (`dashboard-view.tsx`, `core-hr-view.tsx`, `ats-view.tsx`, `attendance-view.tsx`, `requests-view.tsx`, `payroll-view.tsx`, `admin-roles-view.tsx`, `admin-settings-view.tsx`, `admin-audit-view.tsx`, `performance-view.tsx`, `payslip-self-view.tsx`) tuân thủ chuẩn `/unslop`.
 - [x] Tích hợp đủ 12 mục điều hướng vào `src/app/page.tsx`, tự động điều hướng về `dashboard` nếu `role` đổi sang vai trò không có quyền với phân hệ đang mở.
+- [x] Hoàn tất đợt tinh chỉnh UI/UX, RBAC 5 vai trò (`DIRECTOR` & phê duyệt Cấp 3), Nhật ký bảo mật bất biến, thẻ tài khoản cuối Sidebar + thu gọn Header, đồng bộ mock (`badge` Sidebar `4`/`6`/`4`/`3`, Copilot phép năm động, 3 câu hỏi AI ATS, bỏ `CA-CHIEU`) và ESS `Phiếu lương cá nhân` trên nhánh `fix-ui`.
+- [x] Kiểm tra nhánh `fix-ui`: `npm.cmd run typecheck` PASS, kiểm thử trình duyệt `http://localhost:3000/` ở `1123x800` / `1280x800` / Mobile `375x812` PASS (`[QA PASS]`).
 
 ## 3. LỖI / VẤN ĐỀ ĐANG GẶP (BLOCKERS)
 - *Không có lỗi chặn.*
 
 ## 4. BƯỚC HÀNH ĐỘNG KẾ TIẾP (NEXT IMMEDIATE ACTION)
-- Chờ `@verifier` nghiệm thu `npx.cmd tsc --noEmit`, `npm.cmd run build` và checklist toàn bộ Giai đoạn 1 (Frontend UI + Mock Data).
+- Đã hoàn tất kiểm thử đợt tinh chỉnh UI/UX, RBAC 5 vai trò và đồng bộ mock trên nhánh `fix-ui` (`npm.cmd run typecheck` PASS, kiểm thử trình duyệt `http://localhost:3000/` ở `1123x800` / `1280x800` / Mobile `375x812` PASS, `[QA PASS]`), sẵn sàng đẩy lên `origin/fix-ui`.
 
 ## 5. GIAI ĐOẠN 2 — THEO DÕI WEB TĨNH THUẦN (web/)
 - **Nhánh phát triển:** `feature/static-web` (`src/` đã đóng băng làm bản tham chiếu Next.js).

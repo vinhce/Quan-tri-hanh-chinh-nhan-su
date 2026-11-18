@@ -40,3 +40,11 @@
 - [ ] **Bước 4:** `pages/attendance.html`, `pages/requests.html`, `pages/payroll.html`, `pages/payslip.html`.
 - [ ] **Bước 5:** `pages/performance.html`, `pages/admin-roles.html`, `pages/admin-settings.html`, `pages/admin-audit.html`.
 - [ ] **Bước 6:** AI Copilot (`partials/copilot.html` + `copilot.js`), kiểm tra responsive và rà soát `< 500` dòng toàn bộ file viết tay.
+
+## BƯỚC 6: TINH CHỈNH UI/UX, RBAC 5 VAI TRÒ & ĐỒNG BỘ DỮ LIỆU (NHÁNH fix-ui)
+- [x] **Task 6.1 (Vai trò Giám đốc & Phê duyệt Cấp 3):** Bổ sung vai trò Giám đốc (`DIRECTOR`) và luồng phê duyệt Cấp 3 (`app-context.tsx`, `requests-view.tsx`, `login/page.tsx`).
+- [x] **Task 6.2 (Nhật ký bảo mật bất biến):** Nâng cấp nhật ký bảo mật bất biến, hộp thoại chi tiết chỉ đọc viền màu và bộ lọc Việt hóa (`admin-audit-view.tsx`, `audit-logger.ts`).
+- [x] **Task 6.3 (Sidebar Account Card & Thu gọn Header):** Hoàn thiện thẻ tài khoản cuối Sidebar (Avatar 2 chữ cuối, badge 5 vai trò Sáng/Tối, nút Hồ sơ, Đăng xuất kèm xác nhận, Đổi vai trò demo + `setAuthenticatedUser`, tự đóng mobile drawer) và thu gọn Header (`sidebar.tsx`, `header.tsx`).
+- [x] **Task 6.4 (Tinh chỉnh UI Component & Nhãn hệ thống):** Sửa `<Select>` 1 mũi tên (`select.tsx`), `<Badge>` 1 dòng (`badge.tsx`), số tiền KPI `/login` không cắt (`login/page.tsx`), khoảng đệm `Đánh giá & Cảnh báo AI` (`performance-view.tsx`) và nhãn `Giám đốc (DIRECTOR)` (`admin-settings-view.tsx`).
+- [x] **Task 6.5 (Đồng bộ dữ liệu & Copilot):** Đồng bộ badge Sidebar (`4`, `6`, `4`, `3`), Copilot phép năm động theo user đang đăng nhập (`ai-copilot-widget.tsx`), đủ 3 câu hỏi AI cho ứng viên (`src/mock/ats.ts`, `public/mock/ats.json`, `ats-view.tsx`), bỏ `CA-CHIEU` và căn bộ lọc Chấm công / Bảng lương (`attendance-view.tsx`, `payroll-view.tsx`).
+- [x] **Task 6.6 (Hoàn thiện ESS Phiếu lương cá nhân):** Tách đồng hồ và `Check-in`/`Check-out` ở `1123px`, căn 4 ô Quỹ phép năm thẳng hàng, giữ đơn vị `đ` không xuống dòng (`\u00A0đ`) và cố định 1 dòng thông tin Hồ sơ cá nhân (`payslip-self-view.tsx`).

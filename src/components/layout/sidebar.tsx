@@ -271,32 +271,32 @@ function getRoleBadgeMeta(
       return {
         text: ROLE_META.SUPER_ADMIN.label,
         className:
-          "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800/80 dark:bg-teal-950/40 dark:text-teal-400",
+          "border-[#99D5CA] bg-[#CBE8E2] text-[#0B4F4A] dark:border-teal-800/80 dark:bg-teal-950/40 dark:text-teal-400",
       };
     case "DIRECTOR":
       return {
         text: ROLE_META.DIRECTOR.label,
         className:
-          "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800/80 dark:bg-violet-950/40 dark:text-violet-400",
+          "border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-800/80 dark:bg-violet-950/40 dark:text-violet-400",
       };
     case "HR_MANAGER":
       return {
         text: ROLE_META.HR_MANAGER.label,
         className:
-          "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800/80 dark:bg-blue-950/40 dark:text-blue-400",
+          "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800/80 dark:bg-blue-950/40 dark:text-blue-400",
       };
     case "DEPT_MANAGER":
       return {
         text: `${ROLE_META.DEPT_MANAGER.label} · ${department}`,
         className:
-          "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-400",
+          "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-400",
       };
     case "EMPLOYEE":
     default:
       return {
         text: `${empCode} · ${department}`,
         className:
-          "border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+          "border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
       };
   }
 }
@@ -452,18 +452,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   };
 
   const renderSidebarContent = () => (
-    <div className="flex h-full min-h-0 w-64 flex-col border-r border-zinc-200/80 bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-950 select-none">
+    <div className="flex h-full min-h-0 w-64 flex-col border-r border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-950 select-none">
       {/* Brand header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200/80 px-4 dark:border-zinc-800/80">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#C6D9D3] px-4 dark:border-zinc-800/80">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-300/80 bg-white text-teal-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
             <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-none">
+            <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100 leading-none">
               Lạc Việt HRM
             </span>
-            <span className="mt-1 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400 leading-none">
+            <span className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400 leading-none">
               v2.4 · Kỳ 11/2026
             </span>
           </div>
@@ -473,7 +473,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             type="button"
             onClick={onMobileClose}
             aria-label="Đóng thanh điều hướng"
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/60 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30 lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#415A54] transition-colors hover:bg-[#D8E6E2] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30 lg:hidden"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
           </button>
@@ -493,7 +493,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
             return (
               <div key={sectionName}>
-                <div className="mt-4 mb-1.5 px-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <div className="mt-4 mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-[#5C7871] dark:text-zinc-400">
                   {sectionName}
                 </div>
                 <ul className="space-y-0.5">
@@ -506,18 +506,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                           type="button"
                           onClick={() => handleSelectNav(item)}
                           aria-current={isActive ? "page" : undefined}
-                          className={`group flex h-8 w-full items-center justify-between rounded-lg px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:focus-visible:ring-teal-400/30 ${
+                          className={`group flex h-9 w-full items-center justify-between rounded-lg border-l-[3px] px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
                             isActive
-                              ? "bg-zinc-200/75 font-medium text-teal-700 dark:bg-zinc-900 dark:text-teal-400"
-                              : "font-normal text-zinc-600 hover:bg-zinc-200/40 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900/60 dark:hover:text-zinc-200"
+                              ? "border-l-[#0F766E] bg-[#CBE8E2] font-semibold text-[#0B4F4A] dark:border-l-teal-400 dark:bg-zinc-900 dark:text-teal-400"
+                              : "border-l-transparent font-medium text-[#415A54] hover:bg-[#D8E6E2] hover:text-[#11221E] dark:font-normal dark:text-zinc-400 dark:hover:bg-zinc-900/60 dark:hover:text-zinc-200"
                           }`}
                         >
                           <span className="flex min-w-0 items-center gap-2">
                             <Icon
                               className={`h-4 w-4 shrink-0 ${
                                 isActive
-                                  ? "text-teal-700 dark:text-teal-400"
-                                  : "text-zinc-500 group-hover:text-zinc-800 dark:text-zinc-400 dark:group-hover:text-zinc-200"
+                                  ? "text-[#0B4F4A] dark:text-teal-400"
+                                  : "text-[#415A54] group-hover:text-[#11221E] dark:text-zinc-400 dark:group-hover:text-zinc-200"
                               }`}
                               strokeWidth={1.5}
                             />
@@ -548,10 +548,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                             if (resolvedBadge === null) return null;
                             return (
                               <span
-                                className={`ml-2 shrink-0 font-mono text-xs tabular-nums ${
+                                className={`ml-2 inline-flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold leading-none tabular-nums ${
                                   isActive
-                                    ? "text-teal-700 dark:text-teal-400"
-                                    : "text-zinc-500 dark:text-zinc-400"
+                                    ? "bg-[#0F766E] text-[#FCFEFD] dark:bg-teal-950/70 dark:text-teal-300"
+                                    : "border border-[#C6D9D3] bg-[#FCFEFD] text-[#415A54] group-hover:bg-[#E4EEEB] group-hover:text-[#11221E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:group-hover:bg-zinc-800 dark:group-hover:text-zinc-200"
                                 }`}
                               >
                                 {resolvedBadge}
@@ -568,14 +568,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           })}
         </nav>
       {/* Account card footer */}
-      <div className="relative shrink-0 border-t border-zinc-200/80 p-2.5 dark:border-zinc-800/80">
+      <div className="relative shrink-0 border-t border-[#C6D9D3] p-2.5 dark:border-zinc-800/80">
         {roleMenuOpen && (
           <div
             role="menu"
             aria-label="Danh sách vai trò demo"
-            className="mb-2 max-h-[45dvh] overflow-y-auto rounded-xl border border-zinc-200/80 bg-white p-1.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            className="mb-2 max-h-[45dvh] overflow-y-auto rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-1.5 shadow-[0_4px_12px_rgba(17,34,30,0.08)] dark:border-zinc-800 dark:bg-zinc-900"
           >
-            <div className="px-2 py-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="px-2 py-1 text-[11px] font-medium text-[#5C7871] dark:text-zinc-400">
               Chỉ dùng để demo phân quyền
             </div>
             <div className="space-y-0.5">
@@ -589,15 +589,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                     type="button"
                     role="menuitem"
                     onClick={() => handleSwitchDemoRole(r)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:focus-visible:ring-teal-400/30 ${
+                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
                       isSelected
-                        ? "bg-teal-50 font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-400"
-                        : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        ? "bg-[#CBE8E2] font-semibold text-[#0B4F4A] dark:bg-teal-950/40 dark:text-teal-400"
+                        : "text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:text-zinc-300 dark:hover:bg-zinc-800"
                     }`}
                   >
                     <span className="min-w-0 flex-1 pr-2">
                       <span className="block truncate">{meta.label}</span>
-                      <span className="block truncate font-mono text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      <span className="block truncate font-mono text-[10px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                         {profile.fullName} · {meta.empCode}
                       </span>
                     </span>
@@ -611,19 +611,19 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </div>
         )}
 
-        <div className="rounded-xl border border-zinc-200/80 bg-white p-2.5 dark:border-zinc-800/80 dark:bg-zinc-900">
+        <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 shadow-[0_1px_2px_rgba(17,34,30,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setRoleMenuOpen((prev) => !prev)}
               aria-label={`Tài khoản ${displayName}, mở menu đổi vai trò demo`}
               aria-expanded={roleMenuOpen}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-300/80 bg-zinc-50 font-mono text-xs font-medium text-teal-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 dark:hover:bg-zinc-700 dark:focus-visible:ring-teal-400/30"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#C6D9D3] bg-[#E4EEEB] font-mono text-xs font-semibold text-[#0B4F4A] transition-colors hover:bg-[#D8E6E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 dark:hover:bg-zinc-700 dark:focus-visible:ring-teal-400/30"
             >
               {initials}
             </button>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              <p className="truncate text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                 {displayName}
               </p>
               <span
@@ -639,9 +639,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             <button
               type="button"
               onClick={handleOpenProfile}
-              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-zinc-200/80 bg-zinc-50 px-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30"
+              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-2 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30"
             >
-              <User className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              <User className="h-3.5 w-3.5 shrink-0 text-[#415A54] dark:text-zinc-300" strokeWidth={1.5} />
               <span>Hồ sơ</span>
             </button>
             <button
@@ -659,7 +659,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             onClick={() => setRoleMenuOpen((prev) => !prev)}
             aria-label="Đổi vai trò (demo)"
             aria-expanded={roleMenuOpen}
-            className="mt-1.5 flex h-7 w-full items-center justify-between rounded-md px-2 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-200 dark:focus-visible:ring-teal-400/30"
+            className="mt-1.5 flex h-7 w-full items-center justify-between rounded-md px-2 text-[11px] font-medium text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-200 dark:focus-visible:ring-teal-400/30"
           >
             <span>Đổi vai trò (demo)</span>
             <ChevronDown
@@ -706,7 +706,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             <DialogTitle>Xác nhận đăng xuất</DialogTitle>
             <DialogDescription>
               Bạn có chắc chắn muốn đăng xuất khỏi tài khoản{" "}
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="font-semibold text-[#11221E] dark:text-zinc-100">
                 {displayName}
               </span>{" "}
               (<span className="font-mono tabular-nums">{displayEmpCode}</span>) và quay về trang đăng nhập không?

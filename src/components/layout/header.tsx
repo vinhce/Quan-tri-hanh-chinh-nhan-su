@@ -11,7 +11,6 @@ import {
   Menu,
   Sun,
   Moon,
-  MessageSquareText,
   Bell,
   BellOff,
   CheckCheck,
@@ -110,8 +109,6 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
     toggleTheme,
     activeNav,
     showToast,
-    isCopilotOpen,
-    setIsCopilotOpen,
     navigateWithIntent,
   } = useApp();
 
@@ -248,24 +245,8 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
           </div>
         </div>
 
-        {/* Right: Controls (Copilot, Notifications, Theme) */}
+        {/* Right: Controls (Notifications, Theme) */}
         <div className="flex shrink-0 items-center gap-2">
-          {/* AI HR Copilot button */}
-          <button
-            type="button"
-            onClick={() => setIsCopilotOpen(!isCopilotOpen)}
-            aria-label="Bật hoặc tắt AI HR Copilot"
-            aria-pressed={isCopilotOpen}
-            className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
-              isCopilotOpen
-                ? "border-[#0F766E] bg-[#0F766E] text-[#FCFEFD] hover:bg-[#0D5F58] dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950"
-                : "border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            }`}
-          >
-            <MessageSquareText className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-            <span className="hidden sm:inline">AI HR Copilot</span>
-          </button>
-
           {/* Notification Bell & Popover */}
           <div ref={bellContainerRef} className="relative">
             <button

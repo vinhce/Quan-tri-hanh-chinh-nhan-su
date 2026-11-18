@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Calendar,
   Clock,
@@ -15,14 +15,22 @@ import {
   User,
 } from 'lucide-react';
 import { useApp, type RoleCode } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import {
   fetchAttendanceMock,
   fetchEmployeesMock,
   fetchPayrollMock,
 } from '@/lib/mock-fetcher';
+import {
+  mergeWithRuntimeRequests,
+  pushNotification,
+  saveRuntimeRequest,
+} from '@/lib/runtime-store';
 import type {
   AnnualLeaveBalance,
+  ApprovalStep,
   Employee,
+  LeaveOvertimeRequest,
   PayrollRecord,
 } from '@/mock/types';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +79,7 @@ const ROLE_DEFAULT_EMPLOYEE_CODE: Record<RoleCode, string> = {
 export function PayslipSelfView() {
   const { role, currentUserProfile, showToast } = useApp();
 
+  const baseRequestsRef = useRef<LeaveOvertimeRequest[]>([]);
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [leaveBalance, setLeaveBalance] = useState<AnnualLeaveBalance | null>(null);
   const [payslip, setPayslip] = useState<PayrollRecord | null>(null);
@@ -90,6 +99,7 @@ export function PayslipSelfView() {
           fetchAttendanceMock({ bypassCache }),
           fetchPayrollMock({ bypassCache }),
         ]);
+        baseRequestsRef.current = attData.MOCK_LEAVE_OVERTIME_REQUESTS ?? [];
         const foundEmp =
           empData.MOCK_EMPLOYEES.find((e) => e.employee_code === targetEmployeeCode) ??
           empData.MOCK_EMPLOYEES.find((e) => e.role_code === role) ??
@@ -162,15 +172,128 @@ export function PayslipSelfView() {
 
   const handleSubmitQuickRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reqReason.trim()) {
+    if (!employee) return;
+    const trimmedReason = reqReason.trim();
+    if (!trimmedReason) {
       showToast('Thiếu lý do', 'Vui lòng nhập lý do gửi đơn.', 'warning');
       return;
     }
-    const label = reqType === 'ANNUAL_LEAVE' ? 'Đơn xin nghỉ phép năm' : 'Đơn đăng ký tăng ca (OT)';
-    const unit = reqType === 'ANNUAL_LEAVE' ? 'ngày' : 'giờ';
+
+    const numericDuration = Math.max(0.5, Number(reqDuration) || 1);
+    const isAnnualLeave = reqType === 'ANNUAL_LEAVE';
+    const label = isAnnualLeave ? 'Đơn xin nghỉ phép năm' : 'Đơn đăng ký tăng ca (OT)';
+    const categoryLabel = isAnnualLeave
+      ? 'Nghỉ phép năm có hưởng lương'
+      : 'Đăng ký tăng ca (OT)';
+    const unit = isAnnualLeave ? 'ngày' : 'giờ';
+    const durationUnit: 'NGAY' | 'GIO' = isAnnualLeave ? 'NGAY' : 'GIO';
+
+    const allRequests = mergeWithRuntimeRequests(baseRequestsRef.current);
+    const maxCodeNum = allRequests.reduce((max, r) => {
+      const m = /^REQ-202611-(\d+)$/.exec(r.request_code);
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 87);
+    const nextRequestCode = `REQ-202611-${String(maxCodeNum + 1).padStart(3, '0')}`;
+
+    const isDeptMgr = role === 'DEPT_MANAGER';
+    const needsDirector = isAnnualLeave && numericDuration >= 3;
+    const steps: ApprovalStep[] = [
+      {
+        step_order: 1,
+        role: 'DEPT_MANAGER',
+        label: 'Cấp 1 · Trưởng bộ phận duyệt',
+        status: isDeptMgr ? 'SKIPPED' : 'PENDING',
+        actor_name: employee.manager_name ?? 'Lê Hoàng Nam',
+        note: isDeptMgr ? 'Tự động bỏ qua do người gửi là Trưởng bộ phận' : undefined,
+      },
+      {
+        step_order: 2,
+        role: 'HR_MANAGER',
+        label: 'Cấp 2 · Trưởng phòng Nhân sự kiểm tra',
+        status: 'PENDING',
+        actor_name: 'Trần Thị Bích Ngọc',
+      },
+    ];
+    if (needsDirector) {
+      steps.push({
+        step_order: 3,
+        role: 'DIRECTOR',
+        label: 'Cấp 3 · Giám đốc phê duyệt (>= 3 ngày)',
+        status: 'PENDING',
+        actor_name: 'Trần Quốc Việt',
+      });
+    }
+
+    let computedEndDate = reqDate;
+    if (isAnnualLeave && numericDuration > 1) {
+      const parsedStart = new Date(`${reqDate}T00:00:00`);
+      if (!Number.isNaN(parsedStart.getTime())) {
+        parsedStart.setDate(parsedStart.getDate() + Math.ceil(numericDuration) - 1);
+        const yyyy = parsedStart.getFullYear();
+        const mm = String(parsedStart.getMonth() + 1).padStart(2, '0');
+        const dd = String(parsedStart.getDate()).padStart(2, '0');
+        computedEndDate = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
+    const firstStepRole: 'DEPT_MANAGER' | 'HR_MANAGER' = isDeptMgr
+      ? 'HR_MANAGER'
+      : 'DEPT_MANAGER';
+
+    const newReq: LeaveOvertimeRequest = {
+      id: `req-ess-${Date.now()}`,
+      request_code: nextRequestCode,
+      employee_id: employee.id,
+      employee_code: employee.employee_code,
+      full_name: employee.full_name,
+      department_name: employee.department_name,
+      position_name: employee.position_name,
+      requester_role: role,
+      request_category: reqType,
+      category_label: categoryLabel,
+      start_datetime: `${reqDate}T08:30:00+07:00`,
+      end_datetime: `${computedEndDate}T17:30:00+07:00`,
+      duration_days_or_hours: numericDuration,
+      duration_unit: durationUnit,
+      reason: trimmedReason,
+      handover_to_name: null,
+      approver_id: isDeptMgr ? 'emp-002' : (employee.manager_id ?? 'emp-003'),
+      approver_name: isDeptMgr
+        ? 'Trần Thị Bích Ngọc'
+        : (employee.manager_name ?? 'Lê Hoàng Nam'),
+      approval_status: 'PENDING',
+      status: 'PENDING',
+      current_step_role: firstStepRole,
+      approval_steps: steps,
+      leave_deducted: false,
+      created_at: new Date().toISOString(),
+      responded_at: null,
+      source: 'MANUAL_FORM',
+    };
+
+    saveRuntimeRequest(newReq);
+    recordAuditLog({
+      actor_name: employee.full_name,
+      actor_code: employee.employee_code,
+      actor_role: role,
+      action: 'CREATE_REQUEST',
+      module: 'Đơn từ & Phê duyệt',
+      target: `${newReq.request_code} (${employee.full_name})`,
+      detail: `Tạo nhanh đơn từ cổng ESS: ${categoryLabel} (${numericDuration} ${unit})`,
+    });
+    pushNotification({
+      title: `Đơn mới ${newReq.request_code} từ cổng ESS`,
+      message: `${employee.full_name} gửi ${categoryLabel.toLowerCase()} ngày ${reqDate} (${numericDuration} ${unit}).`,
+      category: 'LEAVE_REQUEST',
+      target_roles: ['DEPT_MANAGER', 'HR_MANAGER'],
+      target_department_id: employee.department_id,
+      nav_id: 'leaves',
+      entity_id: newReq.request_code,
+    });
+
     showToast(
-      `Đã gửi ${label}`,
-      `Ngày ${reqDate} (${reqDuration} ${unit}) đã chuyển tới Quản lý trực tiếp để phê duyệt.`,
+      `Đã gửi ${label} (${newReq.request_code})`,
+      `Ngày ${reqDate} (${numericDuration} ${unit}) đã chuyển tới Quản lý trực tiếp để phê duyệt.`,
       'success'
     );
     setReqReason('');

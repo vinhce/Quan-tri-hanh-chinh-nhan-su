@@ -45,6 +45,16 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     shiftCode: "HC-08:00",
   },
   {
+    role: "DIRECTOR",
+    shortLabel: "Giám đốc",
+    roleTitle: "Giám đốc Điều hành",
+    empCode: "NV-2024-000",
+    fullName: "Trần Quốc Việt",
+    email: "viet.tran@hrm-enterprise.vn",
+    department: "Ban Điều hành",
+    shiftCode: "HC-08:00",
+  },
+  {
     role: "HR_MANAGER",
     shortLabel: "HR Manager",
     roleTitle: "Trưởng phòng Nhân sự",
@@ -80,6 +90,7 @@ const REGISTER_ROLE_OPTIONS: Array<{ value: RoleCode; label: string }> = [
   { value: "EMPLOYEE", label: "Nhân viên chính thức (EMPLOYEE)" },
   { value: "DEPT_MANAGER", label: "Trưởng bộ phận (DEPT_MANAGER)" },
   { value: "HR_MANAGER", label: "Trưởng phòng Nhân sự (HR_MANAGER)" },
+  { value: "DIRECTOR", label: "Giám đốc Điều hành (DIRECTOR)" },
 ];
 
 const PREVIEW_PAYROLL_ROWS = [
@@ -141,6 +152,13 @@ function resolveRoleFromEmail(email: string, fallbackRole: RoleCode): RoleCode {
   const matchedDemo = DEMO_ACCOUNTS.find((a) => a.email.toLowerCase() === normalized);
   if (matchedDemo) return matchedDemo.role;
   if (normalized.includes("admin")) return "SUPER_ADMIN";
+  if (
+    normalized.includes("viet.tran") ||
+    normalized.includes("director") ||
+    normalized.includes("giamdoc")
+  ) {
+    return "DIRECTOR";
+  }
   if (normalized.includes("hr") || normalized.includes("nhansu")) return "HR_MANAGER";
   if (normalized.includes("manager") || normalized.includes("truongphong")) return "DEPT_MANAGER";
   return fallbackRole;
@@ -700,9 +718,9 @@ export default function LoginPage() {
             <div className="mt-6 border-t border-zinc-200/80 pt-5 dark:border-zinc-800/80">
               <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
                 <span>Trải nghiệm nhanh theo vai trò</span>
-                <span className="font-mono tabular-nums">4 tài khoản mẫu</span>
+                <span className="font-mono tabular-nums">5 tài khoản mẫu</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="flex flex-wrap gap-2">
                 {DEMO_ACCOUNTS.map((acc) => {
                   const isSelected = selectedRole === acc.role && authTab === "login";
                   return (
@@ -710,7 +728,7 @@ export default function LoginPage() {
                       key={acc.role}
                       type="button"
                       onClick={() => handleSelectDemo(acc)}
-                      className={`flex h-9 items-center justify-center rounded-lg border px-2.5 text-xs font-medium transition-colors ${
+                      className={`flex h-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition-colors ${
                         isSelected
                           ? "border-teal-700 bg-teal-50/60 text-teal-700 dark:border-teal-400 dark:bg-teal-950/30 dark:text-teal-400"
                           : "border-zinc-200/80 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"

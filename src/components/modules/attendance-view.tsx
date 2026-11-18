@@ -183,9 +183,7 @@ export function AttendanceView() {
   }, [scopedRecords]);
 
   const shiftOptions = useMemo(() => {
-    const codes = Array.from(
-      new Set([...workShifts.map((s) => s.shift_code), 'CA-CHIEU'])
-    );
+    const codes = Array.from(new Set(workShifts.map((s) => s.shift_code)));
     return [
       { value: 'ALL', label: 'Tất cả ca làm' },
       ...codes.map((code) => ({ value: code, label: code })),
@@ -471,16 +469,16 @@ export function AttendanceView() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
-                    <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
-                    <th className="px-4 py-3">Họ tên</th>
-                    <th className="px-4 py-3">Phòng ban</th>
-                    <th className="whitespace-nowrap px-4 py-3">Ca làm</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Công thực tế / Chuẩn</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Đi muộn</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Giờ OT</th>
-                    <th className="whitespace-nowrap px-4 py-3">Trạng thái</th>
+                    <th className="whitespace-nowrap px-3 py-2.5">Mã NV</th>
+                    <th className="px-3 py-2.5">Họ tên</th>
+                    <th className="px-3 py-2.5">Phòng ban</th>
+                    <th className="whitespace-nowrap px-3 py-2.5">Ca làm</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Công thực tế / Chuẩn</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Đi muộn</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Giờ OT</th>
+                    <th className="whitespace-nowrap px-3 py-2.5">Trạng thái</th>
                     {canEditAttendance && (
-                      <th className="whitespace-nowrap px-4 py-3 text-right">Thao tác</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 text-right">Thao tác</th>
                     )}
                   </tr>
                 </thead>
@@ -497,10 +495,10 @@ export function AttendanceView() {
                           canEditAttendance ? 'cursor-pointer' : ''
                         }`}
                       >
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
                           {row.employee_code}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2.5">
                           <div className="font-medium text-zinc-900 dark:text-zinc-100">
                             {row.full_name}
                           </div>
@@ -508,15 +506,15 @@ export function AttendanceView() {
                             {row.position_name}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
+                        <td className="px-3 py-2.5 text-zinc-700 dark:text-zinc-300">
                           {row.department_name}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="whitespace-nowrap px-3 py-2.5">
                           <Badge variant="outline" className="font-mono tabular-nums">
                             {row.shift_code}
                           </Badge>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                           <span className="font-semibold">{row.actual_work_days}</span>
                           <span className="text-zinc-400"> / {row.standard_work_days}</span>
                           {row.paid_leave_days > 0 && (
@@ -525,7 +523,7 @@ export function AttendanceView() {
                             </span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums">
                           {row.late_occurrences > 0 ? (
                             <span className="font-medium text-amber-700 dark:text-amber-400">
                               {row.late_occurrences} lượt
@@ -534,14 +532,14 @@ export function AttendanceView() {
                             <span className="text-zinc-400">0</span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                           {row.total_overtime_hours} giờ
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="whitespace-nowrap px-3 py-2.5">
                           <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
                         </td>
                         {canEditAttendance && (
-                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right">
                             <div className="inline-flex items-center gap-1">
                               <Button
                                 variant="ghost"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Building2,
@@ -19,6 +19,12 @@ import {
 import { useApp } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchEmployeesMock } from '@/lib/mock-fetcher';
+import {
+  generateNextEmployeeCode,
+  HRM_RUNTIME_EVENT,
+  mergeWithRuntimeEmployees,
+  saveRuntimeEmployee,
+} from '@/lib/runtime-store';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import type {
   ContractStatus,
@@ -193,16 +199,24 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   // Contracts state & filter
   const [contracts, setContracts] = useState<EmploymentContract[]>([]);
   const [contractFilter, setContractFilter] = useState<'ALL' | 'EXPIRING_SOON' | 'ACTIVE'>('ALL');
+  const baseEmployeesRef = useRef<Employee[]>([]);
+
+  const syncRuntimeEmployees = useCallback(() => {
+    if (baseEmployeesRef.current.length > 0) {
+      setEmployees(mergeWithRuntimeEmployees(baseEmployeesRef.current));
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
     fetchEmployeesMock()
       .then((data) => {
         if (!active) return;
+        baseEmployeesRef.current = data.MOCK_EMPLOYEES;
         setDepartments(data.MOCK_DEPARTMENTS);
         setDepartmentTree(data.MOCK_DEPARTMENT_TREE);
         setPositions(data.MOCK_POSITIONS);
-        setEmployees(data.MOCK_EMPLOYEES);
+        setEmployees(mergeWithRuntimeEmployees(data.MOCK_EMPLOYEES));
         setContracts(data.MOCK_CONTRACTS);
         if (data.MOCK_DEPARTMENTS[2]?.id) {
           const defaultDeptId = data.MOCK_DEPARTMENTS[2].id;
@@ -223,6 +237,15 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       active = false;
     };
   }, [showToast]);
+
+  useEffect(() => {
+    window.addEventListener(HRM_RUNTIME_EVENT, syncRuntimeEmployees);
+    window.addEventListener('storage', syncRuntimeEmployees);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncRuntimeEmployees);
+      window.removeEventListener('storage', syncRuntimeEmployees);
+    };
+  }, [syncRuntimeEmployees]);
 
   const scopedDepartments = useMemo(
     () =>
@@ -307,8 +330,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
     const dept = departments.find((d) => d.id === newEmpDeptId) ?? departments[0];
     if (!dept) return;
-    const nextNumber = employees.length + 1;
-    const code = `NV-2026-${String(nextNumber).padStart(3, '0')}`;
+    const code = generateNextEmployeeCode(employees);
     const nameParts = newEmpName.trim().split(/\s+/);
     const initials =
       nameParts.length > 1
@@ -356,6 +378,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       avatar_initials: initials,
     };
 
+    saveRuntimeEmployee(created);
     setEmployees((prev) => [created, ...prev]);
     setIsAddEmpOpen(false);
     setNewEmpName('');
@@ -406,6 +429,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       base_salary_vnd: nextSalary,
     };
 
+    saveRuntimeEmployee(updated);
     setEmployees((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     setSelectedEmployee(updated);
     setIsEditingEmp(false);

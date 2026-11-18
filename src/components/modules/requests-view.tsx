@@ -131,7 +131,7 @@ const STATUS_BADGE: Record<
   CANCELLED: {
     label: 'Đã hủy',
     variant: 'muted',
-    borderClass: 'border-l-4 border-l-zinc-400 dark:border-l-zinc-600',
+    borderClass: 'border-l-4 border-l-[#5C7871] dark:border-l-zinc-600',
   },
 };
 
@@ -204,7 +204,7 @@ function StepperBadge({
   }
   if (step.status === 'SKIPPED') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100/80 px-2 py-0.5 text-[11px] font-medium text-zinc-500 line-through dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500">
+      <span className="inline-flex items-center gap-1 rounded-md border border-[#C6D9D3] bg-[#F2F7F5] px-2 py-0.5 text-[11px] font-medium text-[#5C7871] line-through dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500">
         <MinusCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
         {step.label} (Bỏ qua)
       </span>
@@ -219,8 +219,8 @@ function StepperBadge({
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-zinc-200/80 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
-      <Clock className="h-3.5 w-3.5 opacity-60" strokeWidth={1.5} />
+    <span className="inline-flex items-center gap-1 rounded-md border border-[#C6D9D3] bg-[#F2F7F5] px-2 py-0.5 text-[11px] text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
+      <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />
       {step.label}
     </span>
   );
@@ -867,7 +867,7 @@ export function RequestsView() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" strokeWidth={1.5} />
-          <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
             Không thể tải danh sách đơn từ
           </p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => setUiState('ready')}>
@@ -882,10 +882,10 @@ export function RequestsView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Đơn từ &amp; Phê duyệt đa cấp
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             Luồng duyệt tuần tự: Trưởng bộ phận → Nhân sự (HR) → Giám đốc (khi vượt ngưỡng hoặc nghỉ không lương).
           </p>
         </div>
@@ -904,7 +904,7 @@ export function RequestsView() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
           <CardContent className="p-4">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Tổng số đơn từ
             </span>
             <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
@@ -914,7 +914,7 @@ export function RequestsView() {
         </Card>
         <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
           <CardContent className="p-4">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đang chờ / xử lý
             </span>
             <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
@@ -924,7 +924,7 @@ export function RequestsView() {
         </Card>
         <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
           <CardContent className="p-4">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đã phê duyệt
             </span>
             <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
@@ -934,7 +934,7 @@ export function RequestsView() {
         </Card>
         <Card className="border-l-4 border-l-rose-500 dark:border-l-rose-400">
           <CardContent className="p-4">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đã từ chối
             </span>
             <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-rose-600 dark:text-rose-400">
@@ -944,10 +944,14 @@ export function RequestsView() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+      <Card className="rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Lọc trạng thái đơn">
+            <div
+              className="flex flex-wrap items-center gap-1 rounded-xl border border-[#C6D9D3] bg-[#E4EEEB] p-1 dark:border-zinc-800/80 dark:bg-zinc-900/70"
+              role="group"
+              aria-label="Lọc trạng thái đơn"
+            >
               {(
                 [
                   { key: 'ALL', label: 'Tất cả' },
@@ -965,8 +969,8 @@ export function RequestsView() {
                     onClick={() => setStatusFilter(tab.key)}
                     className={
                       active
-                        ? 'inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-medium text-white dark:bg-teal-400 dark:text-zinc-950'
-                        : 'inline-flex items-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                        ? 'inline-flex items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-1.5 text-xs font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950'
+                        : 'inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-[#415A54] transition-colors hover:bg-[#D8E6E2] hover:text-[#11221E] dark:text-zinc-300 dark:hover:bg-zinc-800'
                     }
                   >
                     <span>{tab.label}</span>
@@ -981,7 +985,7 @@ export function RequestsView() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-[460px]">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                  className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                   strokeWidth={1.5}
                 />
                 <Input
@@ -1011,11 +1015,11 @@ export function RequestsView() {
         <CardContent className="p-5">
           {uiState === 'empty' || filteredRequests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-8 w-8 text-zinc-400" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <FileText className="h-8 w-8 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
                 Không có đơn từ nào khớp bộ lọc
               </p>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Thử chọn trạng thái khác hoặc tạo mới đơn đề xuất.
               </p>
             </div>
@@ -1034,11 +1038,11 @@ export function RequestsView() {
                       setChecklistChecked(false);
                       setSelectedRequest(req);
                     }}
-                    className={`flex cursor-pointer flex-col gap-4 rounded-xl border border-zinc-200/80 ${statusInfo.borderClass} bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/70 lg:flex-row lg:items-center lg:justify-between`}
+                    className={`flex cursor-pointer flex-col gap-4 rounded-xl border border-[#C6D9D3] ${statusInfo.borderClass} odd:bg-[#FCFEFD] even:bg-[#F5FAF8] p-4 transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:odd:bg-zinc-900/40 dark:even:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/70 lg:flex-row lg:items-center lg:justify-between`}
                   >
                     <div className="min-w-0 flex-1 space-y-2.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="whitespace-nowrap font-mono text-xs font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                        <span className="whitespace-nowrap font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                           {req.request_code}
                         </span>
                         <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
@@ -1054,18 +1058,18 @@ export function RequestsView() {
                       </div>
 
                       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                           {req.full_name}
                         </span>
-                        <span className="whitespace-nowrap font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        <span className="whitespace-nowrap font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                           {req.employee_code}
                         </span>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                           {req.department_name}
                         </span>
                       </div>
 
-                      <p className="text-sm leading-5 text-zinc-700 dark:text-zinc-300">
+                      <p className="text-sm leading-5 text-[#11221E] dark:text-zinc-300">
                         {req.reason}
                       </p>
 
@@ -1075,21 +1079,21 @@ export function RequestsView() {
                         </p>
                       )}
 
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#415A54] dark:text-zinc-400">
                         <span className="inline-flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4 text-zinc-400" strokeWidth={1.5} />
+                          <Calendar className="h-4 w-4 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
                           <span className="font-mono tabular-nums">
                             {formatDateVN(req.start_datetime)} - {formatDateVN(req.end_datetime)}
                           </span>
-                          <span className="font-mono font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
+                          <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-200">
                             ({req.duration_days_or_hours} {req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'})
                           </span>
                         </span>
                         <span className="inline-flex items-center gap-1.5">
-                          <UserCheck className="h-4 w-4 text-zinc-400" strokeWidth={1.5} />
+                          <UserCheck className="h-4 w-4 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
                           <span>
                             Bàn giao:{' '}
-                            <strong className="font-medium text-zinc-700 dark:text-zinc-200">
+                            <strong className="font-medium text-[#11221E] dark:text-zinc-200">
                               {req.handover_to_name ?? 'Không có'}
                             </strong>
                           </span>
@@ -1097,7 +1101,7 @@ export function RequestsView() {
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800/80 lg:border-t-0 lg:pt-0">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[#D5E3DF] pt-3 dark:border-zinc-800/80 lg:border-t-0 lg:pt-0">
                       {canApproveHere && (
                         <>
                           <Button
@@ -1139,7 +1143,7 @@ export function RequestsView() {
                         </Button>
                       )}
                       {!canApproveHere && !canCancelHere && (
-                        <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
+                        <div className="text-right text-xs text-[#415A54] dark:text-zinc-400">
                           <div>
                             {effStatus === 'APPROVED' || effStatus === 'REJECTED'
                               ? `Xử lý bởi: ${req.approver_name}`
@@ -1156,7 +1160,7 @@ export function RequestsView() {
                                   : ''}
                           </div>
                           {req.responded_at && (
-                            <div className="font-mono tabular-nums">
+                            <div className="font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
                               {formatDateVN(req.responded_at)}
                             </div>
                           )}
@@ -1184,7 +1188,7 @@ export function RequestsView() {
             <div className="space-y-1.5">
               <label
                 htmlFor="req-category"
-                className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Loại đơn
               </label>
@@ -1203,7 +1207,7 @@ export function RequestsView() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="req-start"
-                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Từ ngày
                 </label>
@@ -1217,7 +1221,7 @@ export function RequestsView() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="req-end"
-                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Đến ngày
                 </label>
@@ -1234,7 +1238,7 @@ export function RequestsView() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="req-duration"
-                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Số lượng ({formUnit === 'NGAY' ? 'ngày' : 'giờ'})
                 </label>
@@ -1251,7 +1255,7 @@ export function RequestsView() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="req-unit"
-                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Đơn vị tính
                 </label>
@@ -1270,7 +1274,7 @@ export function RequestsView() {
             <div className="space-y-1.5">
               <label
                 htmlFor="req-handover"
-                className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Người nhận bàn giao (không bắt buộc)
               </label>
@@ -1285,7 +1289,7 @@ export function RequestsView() {
             <div className="space-y-1.5">
               <label
                 htmlFor="req-reason"
-                className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Lý do chi tiết
               </label>
@@ -1295,7 +1299,7 @@ export function RequestsView() {
                 value={formReason}
                 onChange={(e) => setFormReason(e.target.value)}
                 placeholder="Nhập lý do đề xuất..."
-                className="w-full rounded-lg border border-zinc-200/80 bg-white px-3 py-2 text-sm text-zinc-900 transition-colors placeholder:text-zinc-400 focus-visible:border-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/20 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
+                className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] transition-colors placeholder:text-[#5C7871] focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
               />
             </div>
 
@@ -1337,9 +1341,9 @@ export function RequestsView() {
 
             return (
               <>
-                <DialogHeader className="shrink-0 border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+                <DialogHeader className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
                   <div className="flex flex-wrap items-center gap-2 pr-8">
-                    <span className="font-mono text-xs font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                    <span className="font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                       {selectedRequest.request_code}
                     </span>
                     <Badge variant={STATUS_BADGE[effStatus].variant}>
@@ -1362,54 +1366,54 @@ export function RequestsView() {
                 </DialogHeader>
 
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4 text-sm">
-                  <div className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/60 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/60 sm:grid-cols-2">
                     <div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">Thời gian đề xuất</div>
-                      <div className="mt-1 font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Thời gian đề xuất</div>
+                      <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
                         {formatDateVN(selectedRequest.start_datetime)} -{' '}
                         {formatDateVN(selectedRequest.end_datetime)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">Tổng thời lượng</div>
-                      <div className="mt-1 font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Tổng thời lượng</div>
+                      <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
                         {selectedRequest.duration_days_or_hours}{' '}
                         {selectedRequest.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">Người nhận bàn giao</div>
-                      <div className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Người nhận bàn giao</div>
+                      <div className="mt-1 font-medium text-[#11221E] dark:text-zinc-100">
                         {selectedRequest.handover_to_name ?? 'Không có'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">Ngày gửi đơn</div>
-                      <div className="mt-1 font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Ngày gửi đơn</div>
+                      <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
                         {formatDateVN(selectedRequest.created_at)}
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
-                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
+                    <div className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
                       Lý do chi tiết
                     </div>
-                    <p className="mt-1.5 leading-6 text-zinc-800 dark:text-zinc-200">
+                    <p className="mt-1.5 leading-6 text-[#11221E] dark:text-zinc-200">
                       {selectedRequest.reason}
                     </p>
                   </div>
 
                   {isEditingRequest && role === 'SUPER_ADMIN' && (
-                    <div className="space-y-3 rounded-xl border border-teal-700/25 bg-teal-50/40 p-4 dark:border-teal-400/25 dark:bg-teal-950/20">
-                      <div className="text-xs font-semibold text-teal-800 dark:text-teal-300">
+                    <div className="space-y-3 rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/40 p-4 dark:border-teal-400/25 dark:bg-teal-950/20">
+                      <div className="text-xs font-semibold text-[#0B4F4A] dark:text-teal-300">
                         Chỉnh sửa thông tin đơn từ (Quản trị viên)
                       </div>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div className="space-y-1">
                           <label
                             htmlFor="edit-req-duration"
-                            className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                            className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                           >
                             Thời lượng ({selectedRequest.duration_unit === 'NGAY' ? 'ngày' : 'giờ'})
                           </label>
@@ -1426,7 +1430,7 @@ export function RequestsView() {
                         <div className="space-y-1">
                           <label
                             htmlFor="edit-req-handover"
-                            className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                            className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                           >
                             Người nhận bàn giao
                           </label>
@@ -1441,7 +1445,7 @@ export function RequestsView() {
                       <div className="space-y-1">
                         <label
                           htmlFor="edit-req-reason"
-                          className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                          className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                         >
                           Lý do
                         </label>
@@ -1450,7 +1454,7 @@ export function RequestsView() {
                           rows={2}
                           value={editReason}
                           onChange={(e) => setEditReason(e.target.value)}
-                          className="w-full rounded-lg border border-zinc-200/80 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100"
+                          className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100"
                         />
                       </div>
                       <div className="flex justify-end gap-2">
@@ -1482,8 +1486,8 @@ export function RequestsView() {
                   )}
 
                   {selectedRequest.approval_steps && selectedRequest.approval_steps.length > 0 && (
-                    <div className="rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
-                      <div className="mb-3 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
+                      <div className="mb-3 text-xs font-semibold text-[#5C7871] dark:text-zinc-400">
                         Tiến trình phê duyệt đa cấp
                       </div>
                       <div className="space-y-3">
@@ -1494,15 +1498,15 @@ export function RequestsView() {
                           return (
                             <div
                               key={step.step_order}
-                              className="flex flex-col gap-1 rounded-lg border border-zinc-200/70 bg-zinc-50/60 p-3 dark:border-zinc-800/70 dark:bg-zinc-900/40"
+                              className="flex flex-col gap-1 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] p-3 dark:border-zinc-800/70 dark:bg-zinc-900/40"
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <StepperBadge step={step} isCurrent={isCurrent} />
                                 {step.actor_name && (
-                                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                  <span className="text-xs text-[#415A54] dark:text-zinc-400">
                                     {step.actor_name}
                                     {step.acted_at && (
-                                      <span className="ml-1.5 font-mono tabular-nums">
+                                      <span className="ml-1.5 font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
                                         · {formatDateVN(step.acted_at)}
                                       </span>
                                     )}
@@ -1510,7 +1514,7 @@ export function RequestsView() {
                                 )}
                               </div>
                               {step.note && (
-                                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                <p className="text-xs text-[#415A54] dark:text-zinc-400">
                                   Ghi chú: {step.note}
                                 </p>
                               )}
@@ -1522,12 +1526,12 @@ export function RequestsView() {
                   )}
 
                   {needsChecklist && (
-                    <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-teal-700/25 bg-teal-50/50 p-3.5 text-xs text-zinc-800 dark:border-teal-400/25 dark:bg-teal-950/30 dark:text-zinc-200">
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/40 p-3.5 text-xs text-[#11221E] dark:border-teal-400/25 dark:bg-teal-950/30 dark:text-zinc-200">
                       <input
                         type="checkbox"
                         checked={checklistChecked}
                         onChange={(e) => setChecklistChecked(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-teal-700 focus:ring-teal-700"
+                        className="mt-0.5 h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E] focus:ring-[#0F766E]"
                       />
                       <span>
                         {role === 'DEPT_MANAGER'
@@ -1538,7 +1542,7 @@ export function RequestsView() {
                   )}
                 </div>
 
-                <DialogFooter className="mt-0 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+                <DialogFooter className="mt-0 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
                   <Button variant="outline" onClick={() => setSelectedRequest(null)}>
                     Đóng
                   </Button>
@@ -1618,7 +1622,7 @@ export function RequestsView() {
             <div className="space-y-1.5">
               <label
                 htmlFor="reject-reason-input"
-                className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Lý do từ chối (bắt buộc)
               </label>
@@ -1631,7 +1635,7 @@ export function RequestsView() {
                   if (rejectError) setRejectError('');
                 }}
                 placeholder="Ví dụ: Trùng lịch triển khai dự án hoặc vượt định mức phép năm..."
-                className="w-full rounded-lg border border-zinc-200/80 bg-white px-3 py-2 text-sm text-zinc-900 transition-colors placeholder:text-zinc-400 focus-visible:border-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/20 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
+                className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] transition-colors placeholder:text-[#5C7871] focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
               />
             </div>
             {rejectError && (
@@ -1666,7 +1670,7 @@ export function RequestsView() {
             <DialogTitle>Xác nhận hủy đơn</DialogTitle>
             <DialogDescription>
               Bạn có chắc chắn muốn hủy đơn{' '}
-              <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+              <span className="font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                 {cancelTarget?.request_code}
               </span>{' '}
               này không?
@@ -1699,7 +1703,7 @@ export function RequestsView() {
             <DialogTitle>Xác nhận xóa đơn từ</DialogTitle>
             <DialogDescription>
               Bạn có chắc chắn muốn xóa vĩnh viễn đơn{' '}
-              <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+              <span className="font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                 {deleteTarget?.request_code}
               </span>{' '}
               của {deleteTarget?.full_name}?

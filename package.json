@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "gen:mock": "node scripts/export-mock-json.mjs",
+    "mock:web": "node scripts/export-mock-json.mjs",
+    "css:web": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css",
+    "css:web:watch": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css --watch",
     "predev": "node scripts/export-mock-json.mjs",
     "dev": "next dev",
     "prebuild": "node scripts/export-mock-json.mjs",

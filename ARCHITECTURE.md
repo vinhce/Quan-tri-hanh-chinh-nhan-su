@@ -1,137 +1,70 @@
 # ARCHITECTURE — Hệ thống Quản trị Hành chính Nhân sự tích hợp AI (AI-Powered HRM)
 
 ## 1. TECH STACK (GIAI ĐOẠN 1 — UI PROTOTYPE & MOCK ARCHITECTURE)
-- **Framework Frontend:** Next.js 14+ (App Router), React 18, TypeScript (Strict Mode).
-- **Styling & Design System:** Tailwind CSS, bộ component nền tảng theo chuẩn `shadcn/ui` tinh chỉnh theo triết lý `/unslop` (Quiet Chrome, 1 neutral ramp `zinc`, 1 accent `teal-700` / `teal-400`, 4px spacing grid).
-- **Icons & Biểu đồ:** `lucide-react` (kích thước cố định `16px`, `strokeWidth={1.5}`), `recharts` (biểu đồ phân tích biến động nhân sự và quỹ lương).
-- **Quản lý State & Dữ liệu (Giai đoạn 1):**
-  - React Context API (`src/context/app-context.tsx`) quản lý Role hiện tại (`RoleCode`), giao diện Sáng/Tối (`theme`), điều hướng đang mở (`activeNav`), trạng thái màn hình (`uiState`: `ready` | `loading` | `empty` | `error`), trạng thái đóng/mở khung AI HR Copilot (`isCopilotOpen`) và hệ thống thông báo (`ToastMessage`).
-  - Dữ liệu mẫu định kiểu chặt chẽ tại `src/mock/*`, mô phỏng đầy đủ quan hệ khóa ngoại và nghiệp vụ HRM Việt Nam.
-- **Backend / Database / AI API:** **KHÔNG SỬ DỤNG** trong Giai đoạn 1 (Không cài Prisma, không tạo DB, không gọi API ngoài). Kiến trúc dữ liệu trong `src/mock/types.ts` được thiết kế sẵn sàng để ánh xạ 1:1 sang PostgreSQL + REST API ở Giai đoạn 2.
+- **Framework Frontend:** Next.js 14+ (App Router, cấu hình `output: 'export'` xuất tĩnh ra `out/`), React 18, TypeScript (Strict Mode).
+- **Phiên bản Tĩnh Song Song:** Bộ giao diện HTML/CSS/JS thuần tại `web/` phục vụ kiểm thử nhanh không cần build Next.js qua `scripts/serve-web.mjs` (`npm run dev:web`).
+- **Styling & Design System:** Tailwind CSS, bộ component nền tảng `shadcn/ui` tinh chỉnh theo triết lý `/unslop` (Quiet Chrome, neutral ramp `zinc`, accent `teal-700`/`teal-400`, 4px spacing grid).
+- **Icons & Biểu đồ:** `lucide-react` (`16px`, `strokeWidth={1.5}`), `recharts`.
+- **Quản lý State & Dữ liệu:**
+  - React Context (`src/context/app-context.tsx`) quản lý 5 vai trò (`RoleCode`), `theme`, `activeNav`, `uiState` (`ready` | `loading` | `empty` | `error`), `currentUserProfile`, `isCopilotOpen` và `ToastMessage`.
+  - Dữ liệu gốc định kiểu tại `src/mock/*.ts` -> tự động export ra `public/mock/*.json` qua `scripts/export-mock-json.mjs` (hook `predev`, `prebuild`, `gen:mock`) -> nạp bất đồng bộ qua `fetch()` trong `src/lib/mock-fetcher.ts`.
+  - Nhật ký kiểm toán phiên làm việc (`src/lib/audit-logger.ts`) ghi nhận tự động các thao tác CRUD/phê duyệt từ các module nghiệp vụ.
+- **Backend / Database / AI API:** **KHÔNG SỬ DỤNG** trong Giai đoạn 1 (Không Prisma, không DB, không API ngoài).
 
 ## 2. CẤU TRÚC THƯ MỤC DỰ ÁN
 ```text
 Quan-tri-hanh-chinh-nhan-su/
-├── PRD.md                              # Tài liệu đặc tả yêu cầu sản phẩm (11 nhóm màn hình, 5 bước)
-├── ARCHITECTURE.md                     # Kiến trúc hệ thống, cấu trúc thư mục & mô hình dữ liệu
-├── DESIGN.md                           # Hệ thống thiết kế chuẩn /unslop (Tokens, Typography, Layout)
+├── PRD.md                              # Đặc tả yêu cầu sản phẩm (11 nhóm màn hình, 5 bước)
+├── ARCHITECTURE.md                     # Kiến trúc kép Next.js + Web tĩnh, cấu trúc thư mục & dữ liệu
+├── DESIGN.md                           # Hệ thống thiết kế chuẩn /unslop
 ├── RULES.md                            # Quy tắc cứng cho AI & lập trình viên
-├── TASKS.md                            # Kế hoạch thực thi chi tiết 5 bước Deliverables
+├── TASKS.md                            # Kế hoạch thực thi 5 bước Deliverables
 ├── PROGRESS.md                         # Nhật ký tiến độ và trạng thái dự án
-├── package.json                        # Khai báo dependencies (Next.js, React, Tailwind, Lucide, Recharts)
-├── tsconfig.json                       # Cấu hình TypeScript strict
-├── tailwind.config.ts                  # Cấu hình Tailwind CSS (font-sans, font-mono, bảng màu zinc/teal)
+├── package.json                        # Scripts: gen:mock, mock:web, css:web, dev, dev:web, build, lint, typecheck
+├── public/mock/                        # 6 file JSON xuất tự động (admin, ats, attendance, copilot, employees, payroll)
+├── scripts/
+│   ├── export-mock-json.mjs            # Script export dữ liệu từ src/mock/* ra public/mock/*.json
+│   └── serve-web.mjs                   # Server tĩnh phục vụ thư mục web/
+├── web/                                # Phiên bản HTML/CSS/JS tĩnh song song (index.html, login.html, pages/, partials/, assets/, mock/)
+├── out/                                # Thư mục Static Export của Next.js
 └── src/
     ├── app/
-    │   ├── globals.css                 # CSS biến môi trường màu sắc, tabular-nums, scrollbar tối giản
+    │   ├── globals.css                 # Biến màu sắc, tabular-nums, scrollbar tối giản
     │   ├── layout.tsx                  # Root Layout nạp font Inter & JetBrains Mono + AppProvider
-    │   ├── page.tsx                    # Workspace điều phối màn hình theo Role & activeNav
-    │   └── login/
-    │       └── page.tsx                # Màn hình đăng nhập Split Layout + chọn nhanh 4 Role demo
+    │   ├── page.tsx                    # Workspace điều phối 11 màn hình theo Role & activeNav
+    │   └── login/page.tsx              # Đăng nhập / Đăng ký + 5 pill trải nghiệm nhanh 5 vai trò
     ├── components/
-    │   ├── ui/                         # Base UI chuẩn shadcn/ui (button, card, badge, input, select, dialog, tabs, skeleton, switch, avatar, tooltip...)
+    │   ├── ui/                         # 12 Base UI components (button, card, badge, input, select, dialog, tabs, skeleton, switch, avatar, tooltip, toast-provider)
     │   ├── layout/
-    │   │   ├── sidebar.tsx             # Sidebar 256px lọc menu động theo 4 Role
-    │   │   ├── header.tsx              # Header chứa Role Switcher, UI State Switcher, Theme Toggle
-    │   │   └── app-shell.tsx           # Khung bố cục chính xử lý 4 trạng thái (Ready/Loading/Empty/Error)
-    │   └── copilot/
-    │       └── ai-copilot-widget.tsx   # Trợ lý AI HR Copilot nổi + bóc tách ngôn ngữ tự nhiên tạo đơn phép
-    ├── context/
-    │   └── app-context.tsx             # State toàn cục (role, theme, activeNav, uiState, toast, copilot)
+    │   │   ├── sidebar.tsx             # Sidebar 256px cố định, lọc menu theo 5 Role, Thẻ tài khoản ở đáy
+    │   │   ├── header.tsx              # Header gọn (tiêu đề phân hệ + kỳ dữ liệu, Copilot, Theme Toggle)
+    │   │   └── app-shell.tsx           # Khung cố định fixed inset-0 h-dvh overflow-hidden + 4 trạng thái UI
+    │   ├── copilot/
+    │   │   └── ai-copilot-widget.tsx   # Trợ lý AI HR Copilot nổi + bóc tách ngôn ngữ tự nhiên tạo đơn phép
+    │   └── modules/                    # 11 View nghiệp vụ (Dashboard, Core HR, ATS, Attendance, Requests, Payroll, Admin Roles/Settings/Audit, Performance, Payslip)
+    ├── context/app-context.tsx         # State toàn cục (5 RoleCode, theme, activeNav, uiState, toast, auth)
     ├── lib/
-    │   └── utils.ts                    # Hàm tiện ích cn(), formatVND(), formatDateVN()
-    └── mock/
-        ├── types.ts                    # Toàn bộ TypeScript Interfaces chuẩn hóa như Schema CSDL
-        ├── employees.ts                # Dữ liệu nhân sự, phòng ban, hợp đồng, cảnh báo AI Burnout/Turnover
-        ├── attendance.ts               # Dữ liệu chấm công tháng, ca làm việc, đơn nghỉ phép & OT, quỹ phép
-        ├── payroll.ts                  # Dữ liệu bảng lương Gross -> BHXH/BHYT/BHTN -> Thuế TNCN -> Net
-        ├── ats.ts                      # Dữ liệu tin tuyển dụng, ứng viên 5 bước Kanban & AI CV Scoring
-        ├── admin.ts                    # Dữ liệu tài khoản, ma trận RBAC, cấu hình hệ thống & Audit Logs
-        ├── copilot.ts                  # Kịch bản hội thoại mẫu & parser tạo đơn phép bằng ngôn ngữ tự nhiên
-        └── index.ts                    # Điểm xuất (Barrel export) cho toàn bộ dữ liệu mẫu
+    │   ├── audit-logger.ts             # Ghi & đọc nhật ký kiểm toán thời gian thực trên state/storage
+    │   ├── mock-fetcher.ts             # Nạp dữ liệu từ public/mock/*.json qua fetch()
+    │   └── utils.ts                    # cn(), formatVND(), formatDateVN()
+    └── mock/                           # 8 module dữ liệu mẫu TypeScript (types, employees, attendance, payroll, ats, admin, copilot, index)
 ```
 
-## 3. LUỒNG DỮ LIỆU & TƯƠNG TÁC (CLIENT-SIDE STATE FLOW — GIAI ĐOẠN 1)
+## 3. LUỒNG DỮ LIỆU & TƯƠNG TÁC (CLIENT-SIDE FLOW)
 ```mermaid
 flowchart LR
-    MockData["src/mock/* (Typed Mock Store)"] --> AppContext["AppProvider (src/context/app-context.tsx)"]
-    AppContext --> AppShell["AppShell (Sidebar + Header + State Gate)"]
-    AppShell --> RoleViews["11 Nhóm Màn Hình Theo 4 Role"]
-    AppShell --> Copilot["AI HR Copilot Widget"]
-    RoleViews -- "Thao tác (Duyệt đơn, Chốt lương, Chuyển bước CV)" --> LocalState["Cập nhật React State + showToast()"]
-    Copilot -- "Tạo đơn nghỉ phép từ câu tự nhiên" --> LocalState
+    MockTS["src/mock/*.ts"] -- "scripts/export-mock-json.mjs" --> MockJSON["public/mock/*.json"]
+    MockJSON -- "fetch() via mock-fetcher.ts" --> AppViews["11 Module Views (src/components/modules/*)"]
+    AppContext["AppProvider (5 RoleCode, Theme, Toast)"] --> AppShell["AppShell (Fixed Sidebar + Header)"]
+    AppShell --> AppViews
+    AppViews -- "CRUD / Duyệt đa cấp" --> AuditLogger["audit-logger.ts + showToast()"]
 ```
-1. **Khởi tạo:** Khi ứng dụng tải, `AppProvider` cung cấp trạng thái mặc định (`role = 'HR_MANAGER'`, `theme = 'light'`, `uiState = 'ready'`, `activeNav = 'dashboard'`).
-2. **Chuyển đổi Vai trò (Role Switcher):** Khi người dùng đổi Role trên Header (`SUPER_ADMIN` | `HR_MANAGER` | `DEPT_MANAGER` | `EMPLOYEE`), `Sidebar` lập tức lọc lại danh mục menu được phép truy cập, đồng thời màn hình chính hiển thị đúng dữ liệu và quyền thao tác của Role đó.
-3. **Kiểm thử 4 Trạng thái UI:** Bộ chọn trạng thái trên Header cho phép chuyển tức thì giữa `Ready` (dữ liệu thật từ `src/mock/`), `Loading` (hiển thị Skeleton khớp kích thước), `Empty` (trạng thái trống có hướng dẫn hành động) và `Error` (thông báo lỗi kèm nút Thử lại).
-4. **Tương tác Nghiệp vụ:** Mọi hành động ghi (thêm/cập nhật nhân viên, duyệt/từ chối đơn phép, chuyển cột Kanban ứng viên, cập nhật quyền RBAC, gửi đơn từ AI Copilot) đều cập nhật trực tiếp mảng dữ liệu trong state của component/context và kích hoạt `showToast()` hiển thị thông báo góc dưới phải.
+1. **Khởi tạo & Nạp dữ liệu:** `predev`/`prebuild` chạy `export-mock-json.mjs` đồng bộ `src/mock/*.ts` sang `public/mock/*.json`. Giao diện nạp dữ liệu qua `mock-fetcher.ts`.
+2. **Phân quyền 5 Vai trò:** `Sidebar` lọc danh mục theo `role` (`SUPER_ADMIN` | `DIRECTOR` | `HR_MANAGER` | `DEPT_MANAGER` | `EMPLOYEE`). Việc chuyển role demo thực hiện qua menu `Đổi vai trò (demo)` trong **Thẻ tài khoản** cuối Sidebar (cập nhật đồng bộ `setAuthenticatedUser` với `ROLE_DEFAULT_PROFILES`).
+3. **Luồng phê duyệt đa cấp:** `DEPT_MANAGER` (Cấp 1) -> `HR_MANAGER` (Cấp 2, trừ quỹ phép) -> `DIRECTOR` (Cấp 3, khi vượt `director_approval_min_days`, nghỉ không lương hoặc công tác nước ngoài). Từ chối ở bất kỳ cấp nào bắt buộc nhập lý do và dừng đơn ngay.
 
 ## 4. MÔ HÌNH DỮ LIỆU CỐT LÕI (`src/mock/types.ts`)
-Thiết kế chuẩn hóa với tên trường `snake_case` hoặc `camelCase` nhất quán theo đặc tả CSDL thực tế:
-- **Tổ chức & Nhân sự (`Department`, `Employee`, `EmploymentContract`, `BurnoutRiskAlert`):**
-  - Mã định danh chuẩn (`NV-2024-001`..`NV-2026-015`), phòng ban phân cấp (`parent_id`), chức danh, ngày vào làm, trạng thái (`ACTIVE`, `PROBATION`, `LEAVE`, `RESIGNED`), lương cơ bản VND (`base_salary_vnd`), số người phụ thuộc (`dependents_count`), điểm rủi ro nghỉ việc (`burnout_risk_score` 0-100).
-- **Chấm công & Đơn từ (`Shift`, `AttendanceRecord`, `LeaveRequest`, `LeaveBalance`):**
-  - Ca làm việc (`HC-08:00`), số công thực tế, số phút đi muộn, số giờ tăng ca (`ot_hours_weekday`, `ot_hours_weekend`, `ot_hours_holiday`), đơn xin nghỉ phép / OT (`PENDING`, `APPROVED`, `REJECTED`).
-- **Tính lương (`PayrollPeriod`, `PayrollRecord`):**
-  - Lương cơ bản, phụ cấp chịu thuế/miễn thuế, tiền lương OT, tổng thu nhập Gross (`gross_salary_vnd`), khấu trừ BHXH (`8%`), BHYT (`1.5%`), BHTN (`1%`), giảm trừ bản thân (`11.000.000 ₫`), giảm trừ người phụ thuộc (`4.400.000 ₫/người`), thu nhập tính thuế, thuế TNCN (`pit_tax_vnd`), thực lĩnh (`net_salary_vnd`).
-- **Tuyển dụng ATS (`JobRequisition`, `CandidateProfile`, `AICvEvaluation`):**
-  - Giai đoạn tuyển dụng (`APPLIED` | `AI_SCREENED` | `INTERVIEW` | `OFFER` | `ONBOARDED`), điểm đánh giá AI (`match_score`), danh sách điểm mạnh (`strengths`), thiếu hụt (`gaps`) và câu hỏi phỏng vấn gợi ý (`interview_questions`).
-- **Quản trị & Bảo mật (`UserAccount`, `RolePermissionMatrix`, `SystemConfig`, `AuditLogEntry`):**
-  - Ma trận quyền theo 4 Role x 6 hành động (`view`, `create`, `edit`, `approve`, `delete`, `export`), tham số bảo hiểm/thuế, và nhật ký hệ thống có địa chỉ IP, timestamp ISO 8601.
-
-## 5. HỢP ĐỒNG CONTEXT (`src/context/app-context.tsx`)
-Toàn bộ các component giao diện giao tiếp thông qua hook `useApp()` với hợp đồng kiểu tĩnh:
-```typescript
-export type RoleCode = 'SUPER_ADMIN' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
-
-export interface ToastMessage {
-  id: string;
-  title: string;
-  description?: string;
-  variant?: 'default' | 'success' | 'warning' | 'error';
-}
-```
-- Các thuộc tính và phương thức bắt buộc trong `useApp()`:
-  - `role: RoleCode`, `setRole: (r: RoleCode) => void`
-  - `theme: 'light' | 'dark'`, `setTheme: (t: 'light' | 'dark') => void`, `toggleTheme: () => void`
-  - `activeNav: string`, `setActiveNav: (id: string) => void`
-  - `uiState: 'ready' | 'loading' | 'empty' | 'error'`, `setUiState: (s: 'ready' | 'loading' | 'empty' | 'error') => void`
-  - `showToast: (title: string, description?: string, variant?: ToastMessage['variant']) => void`
-  - `isCopilotOpen: boolean`, `setIsCopilotOpen: (open: boolean) => void`
-
-## 6. KIẾN TRÚC WEB TĨNH THUẦN (web/)
-Giai đoạn 2 đóng băng `src/` (bản tham chiếu Next.js) và triển khai phiên bản web tĩnh thuần (`HTML`, `CSS`, `JavaScript` ES Modules) trong thư mục `web/`.
-
-- **Cấu trúc thư mục `web/`:**
-```text
-web/
-├── index.html                  # Trang Dashboard chính
-├── login.html                  # Trang đăng nhập & chọn nhanh 4 Role demo
-├── pages/                      # Các trang phân hệ nghiệp vụ
-├── partials/                   # Thành phần bố cục dùng chung (sidebar, header, copilot)
-├── assets/
-│   ├── css/                    # CSS nền (base, theme, layout, common) & tailwind.css build ra
-│   ├── js/
-│   │   ├── core/               # Tầng Core JS điều phối dùng chung
-│   │   ├── components/         # Component JS tái sử dụng
-│   │   └── pages/              # Logic từng trang phân hệ
-│   └── vendor/                 # Thư viện bên thứ ba đặt local (không dùng CDN ngoài)
-└── mock/                       # Dữ liệu JSON tĩnh xuất từ scripts/export-mock-json.mjs
-```
-
-- **Tầng Core JS (`web/assets/js/core/`):**
-  - `theme-boot.js`: Script non-module nạp sớm ở `<head>` để áp dụng theme Sáng/Tối tức thì, chống chớp Dark mode khi tải trang.
-  - `utils.js`: Cung cấp `toUrl()` tính đường dẫn tương đối theo `import.meta.url`, `escapeHtml()` chống XSS khi dùng `innerHTML`, `sanitizeHref()` kiểm tra URL an toàn, cùng các hàm formatters chuẩn `vi-VN`.
-  - `api.js`: Nơi duy nhất gọi `fetch()` qua `BASE_URL` để nạp dữ liệu JSON/API.
-  - `rbac.js`: Quản lý phân quyền truy cập menu và thao tác theo 4 Role.
-  - `state.js`: Quản lý trạng thái toàn cục qua `localStorage` và lưu lịch sử hội thoại AI Copilot qua `sessionStorage` (tối đa 50 tin).
-  - `guard.js`: Kiểm tra phiên đăng nhập và quyền truy cập từng trang theo RBAC.
-  - `app.js`: Điểm khởi tạo chung cho từng trang (nạp `partials/`, gắn sự kiện header/sidebar, đồng bộ trạng thái).
-
-- **Quy tắc Build CSS & Xuất dữ liệu Mock:**
-  - **Tailwind CSS:** Cấu hình riêng tại `tailwind.web.config.mjs`, biên dịch ra `web/assets/css/tailwind.css` qua `npm run css:web` (hoặc theo dõi liên tục `--watch` qua `npm run css:web:watch`).
-  - **Mock JSON:** Mở rộng `scripts/export-mock-json.mjs` để xuất dữ liệu từ `src/mock/` sang `web/mock/*.json` qua lệnh `npm run mock:web`.
-
-- **Ngoại lệ giới hạn 500 dòng/file:**
-  - Mọi file code viết tay (`HTML`, `CSS`, `JS`) trong `web/` giữ `< 500` dòng.
-  - Ngoại lệ không áp dụng giới hạn 500 dòng cho: `web/assets/css/tailwind.css` (file build tự động), `web/mock/*.json` (file JSON sinh tự động) và `web/assets/vendor/` (thư viện ngoài đặt local).
+- **Nhân sự (`MOCK_EMPLOYEES` — 28 người):** `employee_code` (`NV-2024-000`..`NV-2026-015`), `role_code` (5 vai trò), `base_salary_vnd` (điều chỉnh giảm 30% sát thực tế), `dependents_count`, `burnout_risk_score`.
+- **Đơn từ (`MOCK_LEAVE_OVERTIME_REQUESTS` — 6 đơn):** Bổ sung `approval_steps: ApprovalStep[]` (`role: 'DEPT_MANAGER' | 'HR_MANAGER' | 'DIRECTOR'`), `current_step_role`, `leave_deducted`, `rejection_reason`.
+- **Tính lương (`PayrollRecord`):** `gross_salary_vnd` -> `BHXH 8%`, `BHYT 1.5%`, `BHTN 1%` -> Giảm trừ `11.000.000 ₫` + `4.400.000 ₫/người phụ thuộc` -> `Thuế TNCN 7 bậc` -> `net_salary_vnd`.
+- **Quản trị (`MOCK_PERMISSION_MATRIX`, `MOCK_AUDIT_LOGS`):** Ma trận 5 vai trò x 6 hành động; Audit Log bất biến có `id`, `timestamp`, `actor_name`, `actor_role`, `action_code`, `target`, `ip_address`, `status`, `detail`.

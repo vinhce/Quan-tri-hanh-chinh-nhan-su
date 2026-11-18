@@ -109,29 +109,30 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   const { role, currentUserProfile, showToast } = useApp();
   const isDeptManager = role === 'DEPT_MANAGER';
   const canManageHr = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+  const canViewContracts = role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
   const canViewOrgChart = role === 'SUPER_ADMIN';
   const hideSalary = isDeptManager;
 
   const [activeTab, setActiveTab] = useState<CoreHrTab>(defaultTab);
   useEffect(() => {
     if (
-      (isDeptManager && defaultTab === 'contracts') ||
+      (!canViewContracts && defaultTab === 'contracts') ||
       (!canViewOrgChart && defaultTab === 'org')
     ) {
       setActiveTab('employees');
     } else {
       setActiveTab(defaultTab);
     }
-  }, [defaultTab, isDeptManager, canViewOrgChart]);
+  }, [defaultTab, canViewContracts, canViewOrgChart]);
 
   useEffect(() => {
     if (
-      (isDeptManager && activeTab === 'contracts') ||
+      (!canViewContracts && activeTab === 'contracts') ||
       (!canViewOrgChart && activeTab === 'org')
     ) {
       setActiveTab('employees');
     }
-  }, [isDeptManager, canViewOrgChart, activeTab]);
+  }, [canViewContracts, canViewOrgChart, activeTab]);
 
   // Employees state & filters
   const [isLoading, setIsLoading] = useState(true);
@@ -611,7 +612,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
               Sơ đồ Phòng ban & Chức vụ
             </TabsTrigger>
           )}
-          {canManageHr && (
+          {canViewContracts && (
             <TabsTrigger value="contracts" className="gap-1.5">
               <FileText className="h-4 w-4" strokeWidth={1.5} />
               Hợp đồng & Phụ lục
@@ -874,7 +875,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
         )}
 
         {/* Tab 3: Contracts */}
-        {canManageHr && (
+        {canViewContracts && (
           <TabsContent value="contracts" className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
@@ -994,7 +995,9 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                             <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                           </td>
                           <td className="whitespace-nowrap px-5 py-3.5 text-right">
-                            {contract.end_date ? (
+                            {!canManageHr ? (
+                              <span className="text-xs text-zinc-400">Chỉ xem</span>
+                            ) : contract.end_date ? (
                               <Button
                                 variant={isExpiring ? 'primary' : 'outline'}
                                 size="sm"

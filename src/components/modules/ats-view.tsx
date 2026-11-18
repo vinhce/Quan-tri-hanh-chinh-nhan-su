@@ -524,12 +524,12 @@ export function AtsView() {
                   </div>
                 </div>
 
-                {/* 3 AI Interview Questions */}
+                {/* AI Interview Questions */}
                 <div className="rounded-lg border border-zinc-200/80 p-4 dark:border-zinc-800/80">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                       <MessageSquareText className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
-                      3 câu hỏi phỏng vấn gợi ý bởi AI
+                      {selectedCandidate.ai_evaluation.interview_questions.length} câu hỏi phỏng vấn gợi ý bởi AI
                     </div>
                     <span className="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-400">
                       <Cpu className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -537,7 +537,7 @@ export function AtsView() {
                     </span>
                   </div>
                   <ol className="mt-3 space-y-2 text-xs leading-5 text-zinc-700 dark:text-zinc-300">
-                    {selectedCandidate.ai_evaluation.interview_questions.slice(0, 3).map((q, idx) => (
+                    {selectedCandidate.ai_evaluation.interview_questions.map((q, idx) => (
                       <li key={idx} className="flex items-start gap-2.5">
                         <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-100 font-mono text-[11px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                           {idx + 1}

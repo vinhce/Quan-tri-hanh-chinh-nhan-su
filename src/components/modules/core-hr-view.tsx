@@ -525,8 +525,8 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       <div key={dept.id} className="space-y-2">
         <div
           className={cn(
-            'flex flex-col gap-3 rounded-xl border border-zinc-200/80 bg-white p-4 transition-colors dark:border-zinc-800/80 dark:bg-[#121214] sm:flex-row sm:items-center sm:justify-between',
-            depth > 0 && 'ml-5 border-l-2 border-l-teal-700/40 dark:border-l-teal-400/40 sm:ml-8'
+            'flex flex-col gap-3 rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] p-4 shadow-[0_1px_3px_rgba(17,34,30,0.05)] transition-colors dark:border-zinc-800/80 dark:bg-[#121214] dark:shadow-none sm:flex-row sm:items-center sm:justify-between',
+            depth > 0 && 'ml-5 border-l-2 border-l-[#0F766E]/50 dark:border-l-teal-400/40 sm:ml-8'
           )}
         >
           <div className="flex items-start gap-3">
@@ -535,7 +535,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                 type="button"
                 onClick={() => toggleDept(dept.id)}
                 aria-label={isExpanded ? 'Thu gọn nhánh' : 'Mở rộng nhánh'}
-                className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-zinc-200/80 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800/80 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#F2F7F5] text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:border-zinc-800/80 dark:bg-transparent dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
@@ -544,36 +544,36 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                 )}
               </button>
             ) : (
-              <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#E4EEEB] text-[#0B4F4A] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-400">
                 <Building2 className="h-3.5 w-3.5" strokeWidth={1.5} />
               </span>
             )}
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="whitespace-nowrap font-mono text-xs font-medium text-teal-700 dark:text-teal-400">
+                <span className="whitespace-nowrap font-mono text-xs font-medium text-[#0F766E] dark:text-teal-400">
                   {dept.department_code}
                 </span>
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                   {dept.department_name}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                Trưởng bộ phận: <span className="font-medium text-zinc-700 dark:text-zinc-300">{dept.manager_name}</span> · {dept.location}
+              <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                Trưởng bộ phận: <span className="font-medium text-[#11221E] dark:text-zinc-300">{dept.manager_name}</span> · {dept.location}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 pl-9 sm:pl-0">
             <div className="text-right">
-              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Định biên</div>
-              <div className="font-mono text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+              <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">Định biên</div>
+              <div className="font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                 {formatNumberVN(dept.headcount)} nhân sự
               </div>
             </div>
             {!hideSalary && (
               <div className="text-right">
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Ngân sách quỹ lương</div>
-                <div className="font-mono text-sm font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">Ngân sách quỹ lương</div>
+                <div className="font-mono text-sm font-medium tabular-nums text-[#415A54] dark:text-zinc-300">
                   {formatVND(dept.budget_allocated_vnd)}
                 </div>
               </div>
@@ -607,10 +607,10 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Quản trị Hồ sơ & Tổ chức (Core HR)
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             {isDeptManager
               ? 'Phạm vi: Khối Công nghệ — Danh bạ nhân sự, cơ cấu phòng ban và chức vụ trực thuộc'
               : 'Quản lý danh bạ nhân sự, cơ cấu phòng ban, chức vụ và theo dõi hợp đồng lao động'}
@@ -625,19 +625,43 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as CoreHrTab)}>
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
-          <TabsTrigger value="employees" className="gap-1.5">
+        <TabsList className="w-full justify-start overflow-x-auto border border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-900 sm:w-auto">
+          <TabsTrigger
+            value="employees"
+            className={cn(
+              'gap-1.5',
+              activeTab === 'employees'
+                ? 'border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100'
+                : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200'
+            )}
+          >
             <Users className="h-4 w-4" strokeWidth={1.5} />
             Hồ sơ nhân viên ({scopedEmployees.length})
           </TabsTrigger>
           {canViewOrgChart && (
-            <TabsTrigger value="org" className="gap-1.5">
+            <TabsTrigger
+              value="org"
+              className={cn(
+                'gap-1.5',
+                activeTab === 'org'
+                  ? 'border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100'
+                  : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200'
+              )}
+            >
               <Network className="h-4 w-4" strokeWidth={1.5} />
               Sơ đồ Phòng ban & Chức vụ
             </TabsTrigger>
           )}
           {canViewContracts && (
-            <TabsTrigger value="contracts" className="gap-1.5">
+            <TabsTrigger
+              value="contracts"
+              className={cn(
+                'gap-1.5',
+                activeTab === 'contracts'
+                  ? 'border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100'
+                  : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200'
+              )}
+            >
               <FileText className="h-4 w-4" strokeWidth={1.5} />
               Hợp đồng & Phụ lục
               {expiringContractsCount > 0 && (
@@ -663,45 +687,45 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
               .filter((d) => d.parent_id === targetDept.id)
               .map((d) => d.department_name);
             return (
-              <Card className="border-l-4 border-l-teal-600 dark:border-l-teal-400">
+              <Card className="rounded-[12px] border border-[#C6D9D3] border-l-4 border-l-[#0F766E] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:border-l-teal-400 dark:bg-zinc-900 dark:shadow-none">
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400">
+                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#E4EEEB] text-[#0B4F4A] dark:border-transparent dark:bg-teal-950/50 dark:text-teal-400">
                       <Building2 className="h-4 w-4" strokeWidth={1.5} />
                     </span>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="whitespace-nowrap font-mono text-xs font-semibold text-teal-700 dark:text-teal-400">
+                        <span className="whitespace-nowrap font-mono text-xs font-semibold text-[#0F766E] dark:text-teal-400">
                           {targetDept.department_code}
                         </span>
-                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                           {targetDept.department_name}
                         </span>
                         {childNames.length > 0 && (
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="text-xs text-[#5C7871] dark:text-zinc-400">
                             ({childNames.join(', ')})
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                        Trưởng bộ phận: <span className="font-medium">{targetDept.manager_name}</span> · {targetDept.location}
+                      <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-300">
+                        Trưởng bộ phận: <span className="font-medium text-[#11221E] dark:text-zinc-100">{targetDept.manager_name}</span> · {targetDept.location}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4 pl-11 sm:pl-0">
                     <div className="text-left sm:text-right">
-                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
                         {isDeptManager ? 'Nhân viên dưới quyền' : 'Nhân sự hiển thị'}
                       </div>
-                      <div className="font-mono text-sm font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                      <div className="font-mono text-sm font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                         {isDeptManager
                           ? `${scopedEmployees.length} nhân viên dưới quyền`
                           : `${filteredEmployees.length} nhân sự trực thuộc`}
                       </div>
                     </div>
                     <div className="text-left sm:text-right">
-                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Định biên</div>
-                      <div className="font-mono text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">Định biên</div>
+                      <div className="font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                         {formatNumberVN(targetDept.headcount)} nhân sự
                       </div>
                     </div>
@@ -711,12 +735,12 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
             );
           })()}
 
-          <Card>
+          <Card className="rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
             <CardContent className="p-4">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <div className="relative md:col-span-2">
                   <Search
-                    className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                    className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                     strokeWidth={1.5}
                   />
                   <Input
@@ -752,12 +776,12 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                    <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                       <th className="px-5 py-3">Mã NV</th>
                       <th className="px-4 py-3">Nhân sự</th>
                       <th className="px-4 py-3">Phòng ban & Chức vụ</th>
@@ -766,12 +790,12 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                       <th className="px-5 py-3 text-right">KPI</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/80">
                     {filteredEmployees.length === 0 ? (
-                      <tr>
+                      <tr className="bg-[#FCFEFD] dark:bg-transparent">
                         <td
                           colSpan={hideSalary ? 5 : 6}
-                          className="px-5 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                          className="px-5 py-10 text-center text-sm text-[#415A54] dark:text-zinc-400"
                         >
                           Không tìm thấy nhân viên nào khớp với bộ lọc hiện tại.
                         </td>
@@ -783,41 +807,54 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                           <tr
                             key={emp.id}
                             onClick={() => setSelectedEmployee(emp)}
-                            className="cursor-pointer transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
+                            className="cursor-pointer transition-colors odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                           >
-                            <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                            <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs font-normal tabular-nums text-[#415A54] dark:text-zinc-400">
                               {emp.employee_code}
                             </td>
                             <td className="px-4 py-3.5">
                               <div className="flex items-center gap-3">
-                                <Avatar initials={emp.avatar_initials} name={emp.full_name} />
+                                <Avatar
+                                  initials={emp.avatar_initials}
+                                  name={emp.full_name}
+                                  className="border-[#C6D9D3] bg-[#E4EEEB] font-semibold text-[#0B4F4A] dark:border-zinc-800/80 dark:bg-zinc-800 dark:text-zinc-200"
+                                />
                                 <div>
-                                  <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                                  <div className="font-semibold text-[#11221E] dark:text-zinc-100">
                                     {emp.full_name}
                                   </div>
-                                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                                  <div className="text-xs font-normal text-[#415A54] dark:text-zinc-400">
                                     {emp.email}
                                   </div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-4 py-3.5">
-                              <div className="text-zinc-900 dark:text-zinc-100">
+                              <div className="font-semibold text-[#11221E] dark:text-zinc-100">
                                 {emp.department_name}
                               </div>
-                              <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                              <div className="text-xs font-normal text-[#415A54] dark:text-zinc-400">
                                 {emp.position_name}
                               </div>
                             </td>
                             <td className="whitespace-nowrap px-4 py-3.5">
-                              <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                              <Badge
+                                variant={statusInfo.variant}
+                                className={
+                                  emp.employment_status === 'ACTIVE'
+                                    ? 'border-[#6EE7B7] bg-[#D1FAE5] font-semibold text-[#065F46] dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                    : undefined
+                                }
+                              >
+                                {statusInfo.label}
+                              </Badge>
                             </td>
                             {!hideSalary && (
-                              <td className="whitespace-nowrap px-4 py-3.5 text-right font-mono text-xs font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                              <td className="whitespace-nowrap px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                                 {formatVND(emp.base_salary_vnd)}
                               </td>
                             )}
-                            <td className="whitespace-nowrap px-5 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                            <td className="whitespace-nowrap px-5 py-3.5 text-right font-mono text-xs font-bold tabular-nums text-[#0F766E] dark:text-teal-400">
                               {emp.kpi_completion_rate}%
                             </td>
                           </tr>
@@ -836,10 +873,10 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
           <TabsContent value="org" className="space-y-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                 Cây cơ cấu tổ chức phòng ban
               </h2>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-[#5C7871] dark:text-zinc-400">
                 Nhấn mũi tên để đóng/mở nhánh trực thuộc
               </span>
             </div>
@@ -848,7 +885,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
             </div>
           </div>
 
-          <Card>
+          <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
             <CardHeader>
               <CardTitle>Danh mục Chức vụ & Khung cấp bậc</CardTitle>
               <CardDescription>
@@ -859,23 +896,23 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-y border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                    <tr className="border-y border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                       <th className="px-5 py-3">Mã chức vụ</th>
                       <th className="px-4 py-3">Tên chức vụ</th>
                       <th className="px-4 py-3">Cấp bậc</th>
                       {!hideSalary && <th className="px-5 py-3 text-right">Dải lương tham chiếu</th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/80">
                     {scopedPositions.map((pos) => (
                       <tr
                         key={pos.id}
-                        className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
+                        className="transition-colors odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                       >
-                        <td className="whitespace-nowrap px-5 py-3 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                        <td className="whitespace-nowrap px-5 py-3 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                           {pos.position_code}
                         </td>
-                        <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                        <td className="px-4 py-3 font-semibold text-[#11221E] dark:text-zinc-100">
                           {pos.position_name}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
@@ -884,7 +921,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                           </Badge>
                         </td>
                         {!hideSalary && (
-                          <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                          <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-xs font-medium tabular-nums text-[#415A54] dark:text-zinc-300">
                             {formatVND(pos.salary_band_min_vnd)} — {formatVND(pos.salary_band_max_vnd)}
                           </td>
                         )}
@@ -904,7 +941,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
               <CardContent className="p-4">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">Tổng hợp đồng đang quản lý</div>
+                <div className="text-xs text-[#415A54] dark:text-zinc-400">Tổng hợp đồng đang quản lý</div>
                 <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
                   {contracts.length}
                 </div>
@@ -912,7 +949,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
             </Card>
             <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
               <CardContent className="p-4">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">Đang hiệu lực ổn định</div>
+                <div className="text-xs text-[#415A54] dark:text-zinc-400">Đang hiệu lực ổn định</div>
                 <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                   {contracts.filter((c) => c.status === 'ACTIVE').length}
                 </div>
@@ -955,12 +992,12 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
             </Button>
           </div>
 
-          <Card>
+          <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                    <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                       <th className="px-5 py-3">Số hợp đồng</th>
                       <th className="px-4 py-3">Nhân sự</th>
                       <th className="px-4 py-3">Loại hợp đồng</th>
@@ -969,7 +1006,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                       <th className="px-5 py-3 text-right">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/80">
                     {filteredContracts.map((contract) => {
                       const isExpiring =
                         contract.status === 'EXPIRING_SOON' ||
@@ -979,26 +1016,28 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                         <tr
                           key={contract.id}
                           className={cn(
-                            'transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40',
-                            isExpiring && 'bg-amber-50/40 dark:bg-amber-950/15'
+                            'transition-colors hover:bg-[#E8F3EF] dark:hover:bg-zinc-900/40',
+                            isExpiring
+                              ? 'bg-amber-50/60 dark:bg-amber-950/15'
+                              : 'odd:bg-[#FCFEFD] even:bg-[#F5FAF8] dark:odd:bg-transparent dark:even:bg-transparent'
                           )}
                         >
-                          <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                          <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-300">
                             {contract.contract_number}
                           </td>
                           <td className="px-4 py-3.5">
-                            <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                            <div className="font-semibold text-[#11221E] dark:text-zinc-100">
                               {contract.full_name}
                             </div>
-                            <div className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                            <div className="font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                               {contract.employee_code} · {contract.department_name}
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 text-xs text-zinc-700 dark:text-zinc-300">
+                          <td className="px-4 py-3.5 text-xs text-[#415A54] dark:text-zinc-300">
                             {CONTRACT_TYPE_LABEL[contract.contract_type]}
                           </td>
                           <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums">
-                            <div className="text-zinc-900 dark:text-zinc-100">
+                            <div className="text-[#11221E] dark:text-zinc-100">
                               {formatDateVN(contract.start_date)} —{' '}
                               {contract.end_date ? formatDateVN(contract.end_date) : 'Vô thời hạn'}
                             </div>
@@ -1008,7 +1047,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                                   'mt-0.5 text-[11px]',
                                   isExpiring
                                     ? 'font-semibold text-amber-700 dark:text-amber-400'
-                                    : 'text-zinc-500 dark:text-zinc-400'
+                                    : 'text-[#5C7871] dark:text-zinc-400'
                                 )}
                               >
                                 Còn {contract.days_until_expiry} ngày
@@ -1016,11 +1055,20 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                             )}
                           </td>
                           <td className="whitespace-nowrap px-4 py-3.5">
-                            <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                            <Badge
+                              variant={statusMeta.variant}
+                              className={
+                                contract.status === 'ACTIVE'
+                                  ? 'border-[#6EE7B7] bg-[#D1FAE5] font-semibold text-[#065F46] dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                  : undefined
+                              }
+                            >
+                              {statusMeta.label}
+                            </Badge>
                           </td>
                           <td className="whitespace-nowrap px-5 py-3.5 text-right">
                             {!canManageHr ? (
-                              <span className="text-xs text-zinc-400">Chỉ xem</span>
+                              <span className="text-xs text-[#5C7871] dark:text-zinc-400">Chỉ xem</span>
                             ) : contract.end_date ? (
                               <Button
                                 variant={isExpiring ? 'primary' : 'outline'}
@@ -1031,7 +1079,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                                 Gia hạn hợp đồng
                               </Button>
                             ) : (
-                              <span className="text-xs text-zinc-400">Không cần gia hạn</span>
+                              <span className="text-xs text-[#5C7871] dark:text-zinc-400">Không cần gia hạn</span>
                             )}
                           </td>
                         </tr>
@@ -1065,10 +1113,11 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                   <Avatar
                     initials={selectedEmployee.avatar_initials}
                     name={selectedEmployee.full_name}
+                    className="border-[#C6D9D3] bg-[#E4EEEB] font-semibold text-[#0B4F4A] dark:border-zinc-800/80 dark:bg-zinc-800 dark:text-zinc-200"
                   />
                   <div>
-                    <div>{selectedEmployee.full_name}</div>
-                    <div className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                    <div className="text-[#11221E] dark:text-zinc-100">{selectedEmployee.full_name}</div>
+                    <div className="font-mono text-xs font-normal text-[#415A54] dark:text-zinc-400">
                       {selectedEmployee.employee_code} · {selectedEmployee.position_name}
                     </div>
                   </div>
@@ -1082,7 +1131,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
               {isEditingEmp ? (
                 <form onSubmit={handleSaveEditEmployee} className="mt-4 space-y-3.5">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                       Họ và tên *
                     </label>
                     <Input
@@ -1094,7 +1143,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                         Phòng ban
                       </label>
                       <Select
@@ -1107,7 +1156,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                         Trạng thái làm việc
                       </label>
                       <Select
@@ -1125,7 +1174,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                         Chức vụ
                       </label>
                       <Input
@@ -1134,7 +1183,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                         Lương cơ bản (VND)
                       </label>
                       <Input
@@ -1163,53 +1212,53 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
               ) : (
                 <>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                    <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                      <div className="text-zinc-500 dark:text-zinc-400">Email & Điện thoại</div>
-                      <div className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                    <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                      <div className="text-[#5C7871] dark:text-zinc-400">Email & Điện thoại</div>
+                      <div className="mt-1 font-medium text-[#11221E] dark:text-zinc-100">
                         {selectedEmployee.email}
                       </div>
-                      <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                      <div className="mt-0.5 font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                         {selectedEmployee.phone}
                       </div>
                     </div>
                     {!isDeptManager && (
-                      <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                        <div className="text-zinc-500 dark:text-zinc-400">CCCD / Mã số thuế</div>
-                        <div className="mt-1 font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                        <div className="text-[#5C7871] dark:text-zinc-400">CCCD / Mã số thuế</div>
+                        <div className="mt-1 font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
                           CCCD: {selectedEmployee.national_id}
                         </div>
-                        <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                        <div className="mt-0.5 font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                           MST: {selectedEmployee.tax_code} · BHXH: {selectedEmployee.social_insurance_no}
                         </div>
                       </div>
                     )}
                     {!hideSalary && (
-                      <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                        <div className="text-zinc-500 dark:text-zinc-400">Chế độ lương & Ngân hàng</div>
-                        <div className="mt-1 font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                        <div className="text-[#5C7871] dark:text-zinc-400">Chế độ lương & Ngân hàng</div>
+                        <div className="mt-1 font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                           {formatVND(selectedEmployee.base_salary_vnd)}
                         </div>
-                        <div className="mt-0.5 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                        <div className="mt-0.5 font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                           {selectedEmployee.bank_name} · {selectedEmployee.bank_account_no}
                         </div>
                       </div>
                     )}
-                    <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                      <div className="text-zinc-500 dark:text-zinc-400">Ca làm & Quản lý trực tiếp</div>
-                      <div className="mt-1 font-mono text-zinc-900 dark:text-zinc-100">
+                    <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                      <div className="text-[#5C7871] dark:text-zinc-400">Ca làm & Quản lý trực tiếp</div>
+                      <div className="mt-1 font-mono text-[#11221E] dark:text-zinc-100">
                         Ca: {selectedEmployee.work_shift_code}
                       </div>
-                      <div className="mt-0.5 text-zinc-600 dark:text-zinc-400">
+                      <div className="mt-0.5 text-[#415A54] dark:text-zinc-400">
                         Quản lý: {selectedEmployee.manager_name ?? 'Ban Điều hành'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-teal-700/20 bg-teal-50/50 p-3 text-xs dark:border-teal-400/20 dark:bg-teal-950/30">
-                    <div className="font-semibold text-teal-800 dark:text-teal-300">
+                  <div className="mt-3 rounded-lg border border-[#0F766E]/25 bg-[#CBE8E2]/45 p-3 text-xs dark:border-teal-400/20 dark:bg-teal-950/30">
+                    <div className="font-semibold text-[#0B4F4A] dark:text-teal-300">
                       Đánh giá AI Retention
                     </div>
-                    <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+                    <p className="mt-1 text-[#11221E] dark:text-zinc-300">
                       {selectedEmployee.ai_retention_note}
                     </p>
                   </div>
@@ -1291,7 +1340,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
           <form onSubmit={handleAddEmployee} className="mt-4 space-y-3.5">
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Họ và tên *
               </label>
               <Input
@@ -1304,7 +1353,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Email công ty *
                 </label>
                 <Input
@@ -1316,7 +1365,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Số điện thoại
                 </label>
                 <Input
@@ -1329,7 +1378,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Phòng ban
                 </label>
                 <Select
@@ -1342,7 +1391,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Trạng thái làm việc
                 </label>
                 <Select
@@ -1358,7 +1407,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Chức vụ
                 </label>
                 <Input
@@ -1369,7 +1418,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
               </div>
               {!hideSalary && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
                     Lương cơ bản (VND)
                   </label>
                   <Input
@@ -1380,7 +1429,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                     placeholder="22.000.000"
                     className="font-mono tabular-nums"
                   />
-                  <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-1 text-[11px] text-[#5C7871] dark:text-zinc-400">
                     Gợi ý theo phòng ban:{' '}
                     <span className="font-mono tabular-nums">
                       {formatVND(Number(DEPT_SUGGESTED_SALARY[newEmpDeptId] ?? 20000000))}

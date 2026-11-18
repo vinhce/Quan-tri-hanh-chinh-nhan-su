@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Bot,
   Building2,
   Calendar,
   Clock,
@@ -19,7 +18,6 @@ import {
   type PitTaxBracketItem,
 } from '@/lib/mock-fetcher';
 import type { SystemConfiguration } from '@/mock/types';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -29,9 +27,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 
 function formatVnd(amount: number): string {
   return `${new Intl.NumberFormat('vi-VN').format(amount)} đ`;
@@ -43,7 +39,6 @@ export function AdminSettingsView() {
   const [pitBrackets, setPitBrackets] = useState<PitTaxBracketItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [autoBurnoutAlert, setAutoBurnoutAlert] = useState<boolean>(true);
 
   const [newHolidayName, setNewHolidayName] = useState('');
   const [newHolidayStart, setNewHolidayStart] = useState('2026-12-25');
@@ -100,7 +95,7 @@ export function AdminSettingsView() {
     });
     showToast(
       'Đã lưu cấu hình hệ thống',
-      'Các tham số giờ làm việc, quy trình phê duyệt, BHXH/Thuế TNCN và AI HR Copilot đã được áp dụng.',
+      'Các tham số giờ làm việc, quy trình phê duyệt và tỷ lệ BHXH/Thuế TNCN đã được áp dụng.',
       'success'
     );
   };
@@ -188,14 +183,6 @@ export function AdminSettingsView() {
     setConfig((prev) => (prev ? updater(prev) : prev));
   };
 
-  const tokenUsagePercent = Math.min(
-    100,
-    Math.round(
-      (config.ai_engine_config.tokens_used_month / config.ai_engine_config.monthly_token_budget) *
-        100
-    )
-  );
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -205,7 +192,7 @@ export function AdminSettingsView() {
             Cấu hình hệ thống & Tham số vận hành
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            Thiết lập giờ làm việc chuẩn, ngày nghỉ lễ, tỷ lệ BHXH/TNCN và động cơ AI HR Copilot.
+            Thiết lập giờ làm việc chuẩn, lịch nghỉ lễ và tỷ lệ trích đóng BHXH / Thuế TNCN.
           </p>
         </div>
         <Button onClick={handleSaveConfig} className="shrink-0">
@@ -679,149 +666,6 @@ export function AdminSettingsView() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Block 4: AI HR Copilot Config */}
-      <Card>
-        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                Cấu hình AI HR Copilot & Bảo mật dữ liệu
-              </CardTitle>
-              <CardDescription className="mt-1">
-                Quản lý mô hình AI, hạn mức token hàng tháng, che dữ liệu định danh (PII Masking) và quét cảnh báo Burnout.
-              </CardDescription>
-            </div>
-            <Badge variant="teal">{config.ai_engine_config.provider}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5 pt-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                Mô hình ngôn ngữ chính
-              </label>
-              <Select
-                value={config.ai_engine_config.primary_model}
-                onValueChange={(val) =>
-                  updateConfig((prev) => ({
-                    ...prev,
-                    ai_engine_config: { ...prev.ai_engine_config, primary_model: val },
-                  }))
-                }
-                options={[
-                  { label: 'gemini-2.5-pro-hr-ats (Khuyến nghị)', value: 'gemini-2.5-pro-hr-ats' },
-                  { label: 'gemini-2.5-flash-hr-ops (Tốc độ cao)', value: 'gemini-2.5-flash-hr-ops' },
-                  { label: 'gemini-2.5-pro-policy-audit', value: 'gemini-2.5-pro-policy-audit' },
-                ]}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                Giới hạn token / tháng
-              </label>
-              <Input
-                type="number"
-                step={500000}
-                value={config.ai_engine_config.monthly_token_budget}
-                onChange={(e) =>
-                  updateConfig((prev) => ({
-                    ...prev,
-                    ai_engine_config: {
-                      ...prev.ai_engine_config,
-                      monthly_token_budget: Number(e.target.value) || 1000000,
-                    },
-                  }))
-                }
-                className="font-mono tabular-nums"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                Lịch quét cảnh báo Burnout
-              </label>
-              <Input
-                value={config.ai_engine_config.burnout_scan_schedule}
-                onChange={(e) =>
-                  updateConfig((prev) => ({
-                    ...prev,
-                    ai_engine_config: {
-                      ...prev.ai_engine_config,
-                      burnout_scan_schedule: e.target.value,
-                    },
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          {/* Token usage bar */}
-          <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="font-semibold text-[#11221E] dark:text-zinc-300">
-                Mức tiêu thụ Token tháng 11/2026
-              </span>
-              <span className="font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
-                {new Intl.NumberFormat('vi-VN').format(config.ai_engine_config.tokens_used_month)} /{' '}
-                {new Intl.NumberFormat('vi-VN').format(config.ai_engine_config.monthly_token_budget)}{' '}
-                tokens ({tokenUsagePercent}%)
-              </span>
-            </div>
-            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[#D5E3DF] dark:bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-[#0F766E] dark:bg-teal-400"
-                style={{ width: `${tokenUsagePercent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Switches */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
-              <div>
-                <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                  Che dữ liệu định danh cá nhân (PII Masking)
-                </p>
-                <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
-                  Ẩn số CCCD, SĐT và số tài khoản trước khi gửi ngữ cảnh sang AI Copilot.
-                </p>
-              </div>
-              <Switch
-                checked={config.ai_engine_config.pii_masking_enabled}
-                onCheckedChange={(checked) =>
-                  updateConfig((prev) => ({
-                    ...prev,
-                    ai_engine_config: {
-                      ...prev.ai_engine_config,
-                      pii_masking_enabled: checked,
-                    },
-                  }))
-                }
-                aria-label="Bật tắt PII Masking"
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
-              <div>
-                <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                  Tự động quét cảnh báo Burnout & Turnover
-                </p>
-                <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
-                  Phân tích giờ tăng ca, tần suất đi muộn và biến động KPI hàng tuần.
-                </p>
-              </div>
-              <Switch
-                checked={autoBurnoutAlert}
-                onCheckedChange={setAutoBurnoutAlert}
-                aria-label="Bật tắt cảnh báo Burnout tự động"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

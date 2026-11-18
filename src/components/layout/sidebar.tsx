@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   LayoutGrid,
   Users,
@@ -18,9 +18,25 @@ import {
   LogOut,
   X,
   Building2,
+  User,
+  ChevronDown,
+  Check,
   type LucideIcon,
 } from "lucide-react";
-import { useApp, type RoleCode } from "@/context/app-context";
+import {
+  useApp,
+  ROLE_DEFAULT_PROFILES,
+  type RoleCode,
+} from "@/context/app-context";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export interface NavItem {
   id: string;
@@ -59,7 +75,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "Quản trị cốt lõi",
     icon: FileText,
     roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER"],
-    badgeCount: 3,
+    badgeCount: 4,
     deliverableStep: "Bước 2",
     summary: "Quản lý hợp đồng lao động, cảnh báo đáo hạn trong 30 ngày",
   },
@@ -69,7 +85,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "Quản trị cốt lõi",
     icon: UserCheck,
     roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER"],
-    badgeCount: 8,
+    badgeCount: 6,
     deliverableStep: "Bước 2",
     summary: "Kanban 5 bước tuyển dụng và chấm điểm hồ sơ ứng viên tự động",
   },
@@ -88,7 +104,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "Vận hành",
     icon: CalendarCheck,
     roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
-    badgeCount: 5,
+    badgeCount: 4,
     deliverableStep: "Bước 3",
     summary: "Nghỉ phép năm, đăng ký làm thêm giờ và giải trình chấm công",
   },
@@ -116,7 +132,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "Vận hành",
     icon: Activity,
     roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER"],
-    badgeCount: 2,
+    badgeCount: 3,
     deliverableStep: "Bước 2",
     summary: "Theo dõi hiệu suất OKR/KPI và dự báo nguy cơ nghỉ việc",
   },
@@ -205,7 +221,7 @@ export const ROLE_META: Record<
   EMPLOYEE: {
     label: "Nhân viên chính thức",
     shortLabel: "Employee",
-    empCode: "NV-2024-008",
+    empCode: "NV-2024-004",
     empName: "Phạm Minh Tuấn",
     position: "Chuyên viên Phát triển Sản phẩm",
     department: "Khối Công nghệ",
@@ -225,16 +241,144 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
+const ROLE_SWITCH_ORDER: RoleCode[] = [
+  "SUPER_ADMIN",
+  "DIRECTOR",
+  "HR_MANAGER",
+  "DEPT_MANAGER",
+  "EMPLOYEE",
+];
+
+function getRoleBadgeMeta(
+  role: RoleCode,
+  empCode: string,
+  department: string
+): { text: string; className: string } {
+  switch (role) {
+    case "SUPER_ADMIN":
+      return {
+        text: `${ROLE_META.SUPER_ADMIN.label} · Toàn quyền`,
+        className:
+          "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800/80 dark:bg-teal-950/40 dark:text-teal-400",
+      };
+    case "DIRECTOR":
+      return {
+        text: ROLE_META.DIRECTOR.label,
+        className:
+          "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800/80 dark:bg-violet-950/40 dark:text-violet-400",
+      };
+    case "HR_MANAGER":
+      return {
+        text: ROLE_META.HR_MANAGER.label,
+        className:
+          "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800/80 dark:bg-blue-950/40 dark:text-blue-400",
+      };
+    case "DEPT_MANAGER":
+      return {
+        text: `${ROLE_META.DEPT_MANAGER.label} · ${department}`,
+        className:
+          "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-400",
+      };
+    case "EMPLOYEE":
+    default:
+      return {
+        text: `${empCode} · ${department}`,
+        className:
+          "border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+      };
+  }
+}
+
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
-  const { role, activeNav, setActiveNav } = useApp();
+  const router = useRouter();
+  const {
+    role,
+    currentUserProfile,
+    setAuthenticatedUser,
+    logout,
+    activeNav,
+    setActiveNav,
+    showToast,
+  } = useApp();
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!roleMenuOpen && !(mobileOpen && !logoutDialogOpen)) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (roleMenuOpen) {
+        setRoleMenuOpen(false);
+      } else if (mobileOpen && !logoutDialogOpen) {
+        onMobileClose?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [roleMenuOpen, mobileOpen, logoutDialogOpen, onMobileClose]);
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const currentMeta = ROLE_META[role];
+  const defaultProfile = ROLE_DEFAULT_PROFILES[role];
+  const displayName = currentUserProfile?.fullName || currentMeta.empName;
+  const displayDept = currentUserProfile?.department || currentMeta.department;
+  const displayEmpCode =
+    currentUserProfile?.employee_code || currentMeta.empCode || defaultProfile.employee_code;
+
+  const initials =
+    displayName
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(-2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "NV";
+
+  const roleBadge = getRoleBadgeMeta(role, displayEmpCode, displayDept);
 
   const handleSelectNav = (item: NavItem) => {
     setActiveNav(item.id);
-    if (onMobileClose) {
-      onMobileClose();
-    }
+    setRoleMenuOpen(false);
+    onMobileClose?.();
+  };
+
+  const handleOpenProfile = () => {
+    setActiveNav("payslip");
+    setRoleMenuOpen(false);
+    onMobileClose?.();
+  };
+
+  const handleSwitchDemoRole = (nextRole: RoleCode) => {
+    const nextProfile = ROLE_DEFAULT_PROFILES[nextRole];
+    const nextMeta = ROLE_META[nextRole];
+    setAuthenticatedUser(nextRole, nextProfile.email, {
+      fullName: nextProfile.fullName || nextMeta.empName,
+      department: nextProfile.department || nextMeta.department,
+      employee_code: nextProfile.employee_code || nextMeta.empCode,
+    });
+    setActiveNav("dashboard");
+    setRoleMenuOpen(false);
+    onMobileClose?.();
+  };
+
+  const handleOpenLogoutDialog = () => {
+    setRoleMenuOpen(false);
+    onMobileClose?.();
+    setLogoutDialogOpen(true);
+  };
+
+  const handleConfirmLogout = () => {
+    setLogoutDialogOpen(false);
+    setRoleMenuOpen(false);
+    logout();
+    showToast(
+      "Đã đăng xuất khỏi hệ thống",
+      "Phiên làm việc đã kết thúc an toàn",
+      "default"
+    );
+    onMobileClose?.();
+    router.push("/login");
   };
 
   const renderSidebarContent = () => (
@@ -259,7 +403,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             type="button"
             onClick={onMobileClose}
             aria-label="Đóng thanh điều hướng"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 lg:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/60 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30 lg:hidden"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
           </button>
@@ -291,13 +435,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                         <button
                           type="button"
                           onClick={() => handleSelectNav(item)}
-                          className={`group flex h-8 w-full items-center justify-between rounded-lg px-3 text-left text-sm transition-colors ${
+                          aria-current={isActive ? "page" : undefined}
+                          className={`group flex h-8 w-full items-center justify-between rounded-lg px-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:focus-visible:ring-teal-400/30 ${
                             isActive
                               ? "bg-zinc-200/75 font-medium text-teal-700 dark:bg-zinc-900 dark:text-teal-400"
                               : "font-normal text-zinc-600 hover:bg-zinc-200/40 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900/60 dark:hover:text-zinc-200"
                           }`}
                         >
-                          <span className="flex items-center gap-2 truncate">
+                          <span className="flex min-w-0 items-center gap-2">
                             <Icon
                               className={`h-4 w-4 shrink-0 ${
                                 isActive
@@ -311,10 +456,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                           {typeof item.badgeCount === "number" &&
                             !(item.id === "leaves" && role === "EMPLOYEE") && (
                             <span
-                              className={`ml-2 font-mono text-xs tabular-nums ${
+                              className={`ml-2 shrink-0 font-mono text-xs tabular-nums ${
                                 isActive
                                   ? "text-teal-700 dark:text-teal-400"
-                                  : "text-zinc-400 dark:text-zinc-500"
+                                  : "text-zinc-500 dark:text-zinc-400"
                               }`}
                             >
                               {item.id === "core-hr"
@@ -333,18 +478,109 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             );
           })}
         </nav>
-      {/* Sidebar footer */}
-      <div className="shrink-0 border-t border-zinc-200/80 p-2.5 dark:border-zinc-800/80">
-        <Link
-          href="/login"
-          className="flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200/50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
-        >
-          <span className="flex items-center gap-2">
-            <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-            <span>Trang đăng nhập & đổi phiên</span>
-          </span>
-          <span className="font-mono text-[11px] text-zinc-400">/login</span>
-        </Link>
+      {/* Account card footer */}
+      <div className="relative shrink-0 border-t border-zinc-200/80 p-2.5 dark:border-zinc-800/80">
+        {roleMenuOpen && (
+          <div
+            role="menu"
+            aria-label="Danh sách vai trò demo"
+            className="mb-2 max-h-[45dvh] overflow-y-auto rounded-xl border border-zinc-200/80 bg-white p-1.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <div className="px-2 py-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              Chỉ dùng để demo phân quyền
+            </div>
+            <div className="space-y-0.5">
+              {ROLE_SWITCH_ORDER.map((r) => {
+                const meta = ROLE_META[r];
+                const profile = ROLE_DEFAULT_PROFILES[r];
+                const isSelected = r === role;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => handleSwitchDemoRole(r)}
+                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:focus-visible:ring-teal-400/30 ${
+                      isSelected
+                        ? "bg-teal-50 font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-400"
+                        : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 pr-2">
+                      <span className="block truncate">{meta.label}</span>
+                      <span className="block truncate font-mono text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {profile.fullName} · {meta.empCode}
+                      </span>
+                    </span>
+                    {isSelected && (
+                      <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-xl border border-zinc-200/80 bg-white p-2.5 dark:border-zinc-800/80 dark:bg-zinc-900">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setRoleMenuOpen((prev) => !prev)}
+              aria-label={`Tài khoản ${displayName}, mở menu đổi vai trò demo`}
+              aria-expanded={roleMenuOpen}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-300/80 bg-zinc-50 font-mono text-xs font-medium text-teal-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 dark:hover:bg-zinc-700 dark:focus-visible:ring-teal-400/30"
+            >
+              {initials}
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                {displayName}
+              </p>
+              <span
+                title={roleBadge.text}
+                className={`mt-1 inline-flex max-w-full items-center overflow-hidden rounded border px-1.5 py-0.5 text-[11px] font-medium leading-tight ${roleBadge.className}`}
+              >
+                <span className="truncate">{roleBadge.text}</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={handleOpenProfile}
+              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-zinc-200/80 bg-zinc-50 px-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30"
+            >
+              <User className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              <span>Hồ sơ</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenLogoutDialog}
+              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-200/80 bg-rose-50/70 px-2 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600/30 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 dark:focus-visible:ring-rose-400/30"
+            >
+              <LogOut className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              <span>Đăng xuất</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setRoleMenuOpen((prev) => !prev)}
+            aria-label="Đổi vai trò (demo)"
+            aria-expanded={roleMenuOpen}
+            className="mt-1.5 flex h-7 w-full items-center justify-between rounded-md px-2 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-200 dark:focus-visible:ring-teal-400/30"
+          >
+            <span>Đổi vai trò (demo)</span>
+            <ChevronDown
+              className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                roleMenuOpen ? "rotate-180" : ""
+              }`}
+              strokeWidth={1.5}
+            />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -373,6 +609,40 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </div>
         </div>
       )}
+
+      {/* Logout confirmation dialog */}
+      <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận đăng xuất</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn đăng xuất khỏi tài khoản{" "}
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                {displayName}
+              </span>{" "}
+              (<span className="font-mono tabular-nums">{displayEmpCode}</span>) và quay về trang đăng nhập không?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setLogoutDialogOpen(false)}
+            >
+              Ở lại
+            </Button>
+            <Button
+              variant="destructive"
+              type="button"
+              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
+              onClick={handleConfirmLogout}
+            >
+              <LogOut className="h-4 w-4" strokeWidth={1.5} />
+              <span>Xác nhận đăng xuất</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

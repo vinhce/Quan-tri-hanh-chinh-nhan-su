@@ -89,7 +89,7 @@ export function DialogContent({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-zinc-950/50 transition-opacity"
+        className="fixed inset-0 bg-[#11221E]/45 transition-opacity dark:bg-zinc-950/60"
         onClick={() => ctx.setOpen(false)}
         aria-hidden="true"
       />
@@ -97,7 +97,7 @@ export function DialogContent({
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-50 flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-6 text-zinc-900 shadow-lg transition-[transform,opacity] duration-200 ease-unslop dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-100',
+          'relative z-50 flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] p-6 text-[#11221E] shadow-[0_12px_32px_rgba(17,34,30,0.14)] transition-[transform,opacity] duration-200 ease-unslop dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-100',
           className
         )}
         {...props}
@@ -107,7 +107,7 @@ export function DialogContent({
           type="button"
           onClick={() => ctx.setOpen(false)}
           aria-label="Đóng hộp thoại"
-          className="absolute right-4 top-4 z-10 inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          className="absolute right-4 top-4 z-10 inline-flex h-7 w-7 items-center justify-center rounded-lg text-[#5C7871] transition-colors hover:bg-[#E4EEEB] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
         >
           <X className="h-4 w-4" strokeWidth={1.5} />
         </button>
@@ -132,7 +132,7 @@ export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLD
 export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2
-      className={cn('text-base font-semibold leading-6 text-zinc-900 dark:text-zinc-100', className)}
+      className={cn('text-base font-semibold leading-6 text-[#11221E] dark:text-zinc-100', className)}
       {...props}
     />
   );
@@ -143,7 +143,7 @@ export function DialogDescription({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn('text-sm leading-5 text-zinc-500 dark:text-zinc-400', className)} {...props} />
+    <p className={cn('text-sm leading-5 text-[#415A54] dark:text-zinc-400', className)} {...props} />
   );
 }
 

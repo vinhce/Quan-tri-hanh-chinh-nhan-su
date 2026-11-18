@@ -36,7 +36,7 @@ export function Tooltip({ content, children, className }: TooltipProps) {
         {open && (
           <span
             role="tooltip"
-            className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-zinc-200/80 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-100 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-800"
+            className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-1 text-xs font-medium text-[#11221E] shadow-[0_2px_8px_rgba(17,34,30,0.08)] dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-100"
           >
             {content}
           </span>
@@ -84,7 +84,7 @@ export function TooltipContent({
     <div
       role="tooltip"
       className={cn(
-        'pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-zinc-200/80 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-100 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-800',
+        'pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-1 text-xs font-medium text-[#11221E] shadow-[0_2px_8px_rgba(17,34,30,0.08)] dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-100',
         className
       )}
       {...props}

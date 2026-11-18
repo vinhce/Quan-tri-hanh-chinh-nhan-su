@@ -764,11 +764,11 @@ export default function LoginPage() {
 
             {/* 3 KPI Stat Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+              <div className="rounded-xl border border-zinc-200/80 bg-white p-4 xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   Tổng nhân sự hiện hữu
                 </p>
-                <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-zinc-900 dark:text-zinc-100">
                   148 người
                 </p>
                 <p className="mt-1 text-xs text-teal-700 dark:text-teal-400">
@@ -776,11 +776,11 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+              <div className="rounded-xl border border-zinc-200/80 bg-white p-4 xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   Quỹ lương Gross tháng 11/2026
                 </p>
-                <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-zinc-900 dark:text-zinc-100">
                   {formatVND(2975000000)}
                 </p>
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -788,11 +788,11 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-zinc-200/80 bg-white p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
+              <div className="rounded-xl border border-zinc-200/80 bg-white p-4 xl:p-5 dark:border-zinc-800/80 dark:bg-zinc-900">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   Tỷ lệ chuyên cần đúng ca
                 </p>
-                <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                <p className="mt-2 font-mono text-lg sm:text-base xl:text-lg 2xl:text-xl font-semibold tabular-nums tracking-tight whitespace-nowrap text-teal-700 dark:text-teal-400">
                   98,2%
                 </p>
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

@@ -2,7 +2,54 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-export type RoleCode = 'SUPER_ADMIN' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
+export type RoleCode = 'SUPER_ADMIN' | 'DIRECTOR' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
+
+export const ROLE_DEFAULT_PROFILES: Record<
+  RoleCode,
+  {
+    fullName: string;
+    employee_code: string;
+    title: string;
+    department: string;
+    email: string;
+  }
+> = {
+  SUPER_ADMIN: {
+    fullName: 'Nguyễn Văn An',
+    employee_code: 'NV-2024-001',
+    title: 'Giám đốc Công nghệ & Hệ thống',
+    department: 'Ban Điều hành',
+    email: 'an.nguyen@lacviethrm.vn',
+  },
+  DIRECTOR: {
+    fullName: 'Trần Quốc Việt',
+    employee_code: 'NV-2024-000',
+    title: 'Giám đốc Điều hành',
+    department: 'Ban Điều hành',
+    email: 'viet.tran@hrm-enterprise.vn',
+  },
+  HR_MANAGER: {
+    fullName: 'Trần Thị Bích Ngọc',
+    employee_code: 'NV-2024-002',
+    title: 'Trưởng phòng Nhân sự & Hành chính',
+    department: 'Phòng Nhân sự & Hành chính',
+    email: 'ngoc.tran@lacviethrm.vn',
+  },
+  DEPT_MANAGER: {
+    fullName: 'Lê Hoàng Nam',
+    employee_code: 'NV-2024-003',
+    title: 'Trưởng phòng Kỹ thuật Phần mềm',
+    department: 'Khối Công nghệ',
+    email: 'nam.le@lacviethrm.vn',
+  },
+  EMPLOYEE: {
+    fullName: 'Phạm Minh Tuấn',
+    employee_code: 'NV-2024-004',
+    title: 'Chuyên viên Phát triển Sản phẩm',
+    department: 'Khối Công nghệ',
+    email: 'tuan.pham@lacviethrm.vn',
+  },
+};
 
 export type UiState = 'ready' | 'loading' | 'empty' | 'error';
 
@@ -49,7 +96,7 @@ const STORAGE_EMAIL_KEY = 'lacviet_hrm_email';
 const STORAGE_PROFILE_KEY = 'lacviet_hrm_profile';
 const STORAGE_THEME_KEY = 'hrm_theme';
 const STORAGE_NAV_KEY = 'hrm_active_nav';
-const VALID_ROLES: RoleCode[] = ['SUPER_ADMIN', 'HR_MANAGER', 'DEPT_MANAGER', 'EMPLOYEE'];
+const VALID_ROLES: RoleCode[] = ['SUPER_ADMIN', 'DIRECTOR', 'HR_MANAGER', 'DEPT_MANAGER', 'EMPLOYEE'];
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 

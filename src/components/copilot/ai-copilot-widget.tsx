@@ -539,24 +539,24 @@ export function AiCopilotWidget() {
   return (
     <aside
       aria-label="Trợ lý AI HR Copilot"
-      className="fixed bottom-4 right-4 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+      className="fixed bottom-4 right-4 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_8px_24px_rgba(17,34,30,0.12)] dark:border-zinc-800 dark:bg-zinc-900"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200/80 bg-zinc-50 px-4 py-3 dark:border-zinc-800/80 dark:bg-zinc-950">
+      <div className="flex items-center justify-between border-b border-[#C6D9D3] bg-[#E4EEEB] px-4 py-3 dark:border-zinc-800/80 dark:bg-zinc-950">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-300/80 bg-white text-teal-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
             <MessageSquareText className="h-4 w-4" strokeWidth={1.5} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                 AI HR Copilot
               </span>
-              <span className="rounded border border-zinc-200/80 bg-white px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-teal-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+              <span className="rounded border border-[#C6D9D3] bg-[#FCFEFD] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-[#0B4F4A] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
                 {empCode}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            <p className="text-[11px] text-[#415A54] dark:text-zinc-400">
               Trợ lý tra cứu quy chế & bóc tách đơn từ ngôn ngữ tự nhiên
             </p>
           </div>
@@ -566,21 +566,21 @@ export function AiCopilotWidget() {
           type="button"
           onClick={() => setIsCopilotOpen(false)}
           aria-label="Đóng AI HR Copilot"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#415A54] transition-colors hover:bg-[#D8E6E2] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
         >
           <X className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
 
       {/* Mode Switcher Tabs */}
-      <div className="grid grid-cols-2 gap-1 border-b border-zinc-200/80 bg-zinc-100/70 p-1.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
+      <div className="grid grid-cols-2 gap-1 border-b border-[#C6D9D3] bg-[#E4EEEB] p-1.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
         <button
           type="button"
           onClick={() => setActiveTab("nlp-leave")}
-          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors ${
             activeTab === "nlp-leave"
-              ? "bg-white text-teal-700 shadow-2xs dark:bg-zinc-900 dark:text-teal-400"
-              : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+              ? "border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400"
+              : "border border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
           }`}
         >
           <CalendarCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -589,10 +589,10 @@ export function AiCopilotWidget() {
         <button
           type="button"
           onClick={() => setActiveTab("chat")}
-          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs transition-colors ${
             activeTab === "chat"
-              ? "bg-white text-teal-700 shadow-2xs dark:bg-zinc-900 dark:text-teal-400"
-              : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+              ? "border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400"
+              : "border border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
           }`}
         >
           <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -602,16 +602,16 @@ export function AiCopilotWidget() {
 
       {/* TAB 1: NATURAL LANGUAGE LEAVE PARSER */}
       {activeTab === "nlp-leave" && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           <div>
             <div className="flex items-center justify-between">
               <label
                 htmlFor="copilot-nlp-input"
-                className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Nhập câu yêu cầu nghỉ phép bằng tiếng Việt tự nhiên
               </label>
-              <span className="font-mono text-[11px] tabular-nums text-teal-700 dark:text-teal-400">
+              <span className="font-mono text-[11px] font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                 Độ khớp: {parsedLeave.confidence}%
               </span>
             </div>
@@ -622,7 +622,7 @@ export function AiCopilotWidget() {
               value={nlpText}
               onChange={(e) => setNlpText(e.target.value)}
               placeholder="Ví dụ: Xin nghỉ phép năm 2 ngày từ 20/11/2026 đến 21/11/2026 vì việc gia đình..."
-              className="mt-1.5 w-full rounded-lg border border-zinc-300/80 bg-zinc-50/50 p-2.5 text-xs leading-relaxed text-zinc-900 focus:border-teal-700 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400"
+              className="mt-1.5 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs leading-relaxed text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400"
             />
 
             {/* Preset buttons */}
@@ -632,7 +632,7 @@ export function AiCopilotWidget() {
                   key={preset.id}
                   type="button"
                   onClick={() => setNlpText(preset.sample_input)}
-                  className="rounded-md border border-zinc-200/80 bg-zinc-50 px-2 py-1 text-[11px] text-zinc-600 transition-colors hover:border-teal-700/50 hover:text-teal-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:text-teal-400"
+                  className="rounded-md border border-[#C6D9D3] bg-[#F2F7F5] px-2 py-1 text-[11px] text-[#415A54] transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] hover:text-[#0B4F4A] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:text-teal-400"
                 >
                   Mẫu {index + 1}: {preset.parsed_category_label.split(" ")[0]}{" "}
                   {preset.parsed_duration_days} ngày
@@ -642,48 +642,48 @@ export function AiCopilotWidget() {
           </div>
 
           {/* Live Parsed Result Box */}
-          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3.5 dark:border-zinc-800/80 dark:bg-zinc-950/70">
-            <div className="flex items-center justify-between border-b border-zinc-200/70 pb-2 text-xs dark:border-zinc-800">
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">
+          <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-3.5 dark:border-zinc-800/80 dark:bg-zinc-950/70">
+            <div className="flex items-center justify-between border-b border-[#C6D9D3] pb-2 text-xs dark:border-zinc-800">
+              <span className="font-semibold text-[#11221E] dark:text-zinc-200">
                 Kết quả AI bóc tách trường dữ liệu
               </span>
-              <span className="font-mono text-[11px] tabular-nums text-zinc-500">
+              <span className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-500">
                 {parsedLeave.category}
               </span>
             </div>
 
             <dl className="mt-2.5 space-y-2 text-xs">
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-zinc-500 dark:text-zinc-400">Nhân sự lập đơn:</dt>
-                <dd className="font-medium text-zinc-900 dark:text-zinc-100">
+                <dt className="text-[#415A54] dark:text-zinc-400">Nhân sự lập đơn:</dt>
+                <dd className="font-semibold text-[#11221E] dark:text-zinc-100">
                   {displayName}{" "}
-                  <span className="font-mono tabular-nums text-teal-700 dark:text-teal-400">
+                  <span className="font-mono font-normal tabular-nums text-[#0F766E] dark:text-teal-400">
                     ({empCode})
                   </span>
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-zinc-500 dark:text-zinc-400">Loại đơn:</dt>
-                <dd className="font-medium text-teal-700 dark:text-teal-400">
+                <dt className="text-[#415A54] dark:text-zinc-400">Loại đơn:</dt>
+                <dd className="font-medium text-[#0F766E] dark:text-teal-400">
                   {parsedLeave.categoryLabel}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-zinc-500 dark:text-zinc-400">Thời gian nghỉ:</dt>
-                <dd className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                <dt className="text-[#415A54] dark:text-zinc-400">Thời gian nghỉ:</dt>
+                <dd className="font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
                   {parsedLeave.startDate} → {parsedLeave.endDate} (
                   {parsedLeave.durationDays} ngày)
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-zinc-500 dark:text-zinc-400">Lý do trích xuất:</dt>
-                <dd className="text-right font-medium text-zinc-800 dark:text-zinc-200">
+                <dt className="text-[#415A54] dark:text-zinc-400">Lý do trích xuất:</dt>
+                <dd className="text-right font-medium text-[#11221E] dark:text-zinc-200">
                   {parsedLeave.reason}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <dt className="text-zinc-500 dark:text-zinc-400">Bàn giao cho:</dt>
-                <dd className="font-mono text-[11px] tabular-nums text-zinc-700 dark:text-zinc-300">
+                <dt className="text-[#415A54] dark:text-zinc-400">Bàn giao cho:</dt>
+                <dd className="font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-300">
                   {parsedLeave.handoverTo}
                 </dd>
               </div>
@@ -692,7 +692,7 @@ export function AiCopilotWidget() {
             <button
               type="button"
               onClick={handleSubmitParsedLeave}
-              className="mt-3.5 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-teal-700 px-3 text-xs font-medium text-white transition-colors hover:bg-teal-800 dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
+              className="mt-3.5 flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#0F766E] px-3 text-xs font-medium text-[#FCFEFD] transition-colors hover:bg-[#0D5F58] dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
             >
               <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
               <span>Gửi đơn phê duyệt ngay</span>
@@ -703,7 +703,7 @@ export function AiCopilotWidget() {
           {/* Recently created requests in current session */}
           {submittedLeaves.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <div className="flex items-center justify-between text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 <span>Đơn vừa khởi tạo trong phiên</span>
                 <span className="font-mono tabular-nums">
                   {submittedLeaves.length} đơn
@@ -713,24 +713,24 @@ export function AiCopilotWidget() {
                 {submittedLeaves.map((item) => (
                   <div
                     key={item.code}
-                    className="rounded-lg border border-zinc-200/80 bg-white p-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-950"
+                    className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-950"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono font-medium tabular-nums text-teal-700 dark:text-teal-400">
+                      <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                         {item.code}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="inline-flex items-center gap-1 rounded border border-[#C6D9D3] bg-[#F2F7F5] px-1.5 py-0.5 font-mono text-[10px] text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                         <Clock className="h-3 w-3" strokeWidth={1.5} />
                         <span>Chờ duyệt · {item.createdAt}</span>
                       </span>
                     </div>
-                    <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                    <p className="mt-1 font-medium text-[#11221E] dark:text-zinc-100">
                       {item.categoryLabel} ·{" "}
                       <span className="font-mono tabular-nums">
                         {item.durationDays} ngày
                       </span>
                     </p>
-                    <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <p className="mt-0.5 text-[11px] text-[#415A54] dark:text-zinc-400">
                       Lý do: {item.reason} · Bàn giao: {item.handoverTo}
                     </p>
                   </div>
@@ -747,7 +747,7 @@ export function AiCopilotWidget() {
           <div className="flex-1 space-y-3 overflow-y-auto p-4">
             {/* Suggested question chips */}
             <div className="space-y-1.5">
-              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-[11px] font-medium text-[#5C7871] dark:text-zinc-400">
                 Câu hỏi nghiệp vụ gợi ý theo vai trò:
               </p>
               <div className="flex flex-col gap-1.5">
@@ -756,7 +756,7 @@ export function AiCopilotWidget() {
                     key={qa.id}
                     type="button"
                     onClick={() => handleSelectPromptQA(qa)}
-                    className="rounded-lg border border-zinc-200/80 bg-zinc-50/70 px-3 py-2 text-left text-xs text-zinc-700 transition-colors hover:border-teal-700/50 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800/80"
+                    className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-3 py-2 text-left text-xs text-[#11221E] transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800/80"
                   >
                     {qa.prompt_label}
                   </button>
@@ -771,22 +771,22 @@ export function AiCopilotWidget() {
                   key={msg.id}
                   className={`rounded-xl border p-3 text-xs leading-relaxed ${
                     msg.sender === "user"
-                      ? "ml-6 border-teal-700/30 bg-teal-50/40 text-zinc-900 dark:border-teal-400/30 dark:bg-teal-950/20 dark:text-zinc-100"
-                      : "mr-2 border-zinc-200/80 bg-zinc-50/80 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
+                      ? "ml-6 border-[#0F766E]/35 bg-[#CBE8E2]/65 text-[#11221E] dark:border-teal-400/30 dark:bg-teal-950/20 dark:text-zinc-100"
+                      : "mr-2 border-[#C6D9D3] bg-[#F2F7F5] text-[#11221E] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
                   }`}
                 >
                   <p>{msg.text}</p>
                   {msg.metrics && msg.metrics.length > 0 && (
-                    <div className="mt-2 grid grid-cols-3 gap-1.5 border-t border-zinc-200/70 pt-2 dark:border-zinc-800">
+                    <div className="mt-2 grid grid-cols-3 gap-1.5 border-t border-[#C6D9D3] pt-2 dark:border-zinc-800">
                       {msg.metrics.map((m) => (
                         <div
                           key={m.label}
-                          className="rounded bg-white p-1.5 dark:bg-zinc-900"
+                          className="rounded border border-[#D5E3DF] bg-[#FCFEFD] p-1.5 dark:border-zinc-800 dark:bg-zinc-900"
                         >
-                          <div className="text-[10px] text-zinc-500">
+                          <div className="text-[10px] text-[#5C7871] dark:text-zinc-500">
                             {m.label}
                           </div>
-                          <div className="font-mono text-[11px] font-medium tabular-nums text-teal-700 dark:text-teal-400">
+                          <div className="font-mono text-[11px] font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                             {m.value}
                           </div>
                         </div>
@@ -794,7 +794,7 @@ export function AiCopilotWidget() {
                     </div>
                   )}
                   {msg.policy && (
-                    <div className="mt-1.5 font-mono text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                    <div className="mt-1.5 font-mono text-[10px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                       Nguồn: {msg.policy}
                     </div>
                   )}
@@ -805,19 +805,19 @@ export function AiCopilotWidget() {
 
           <form
             onSubmit={handleSendCustomChat}
-            className="flex items-center gap-2 border-t border-zinc-200/80 bg-zinc-50 p-3 dark:border-zinc-800/80 dark:bg-zinc-950"
+            className="flex items-center gap-2 border-t border-[#C6D9D3] bg-[#E4EEEB] p-3 dark:border-zinc-800/80 dark:bg-zinc-950"
           >
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="Đặt câu hỏi quy chế hoặc gõ xin nghỉ phép..."
-              className="h-9 flex-1 rounded-lg border border-zinc-300/80 bg-white px-3 text-xs text-zinc-900 focus:border-teal-700 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-teal-400"
+              className="h-9 flex-1 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400"
             />
             <button
               type="submit"
               aria-label="Gửi câu hỏi"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-white transition-colors hover:bg-teal-800 dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0F766E] text-[#FCFEFD] transition-colors hover:bg-[#0D5F58] dark:bg-teal-400 dark:text-zinc-950 dark:hover:bg-teal-300"
             >
               <Send className="h-4 w-4" strokeWidth={1.5} />
             </button>

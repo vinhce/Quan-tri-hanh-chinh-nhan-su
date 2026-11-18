@@ -15,9 +15,10 @@ const MIME = {
 };
 
 const send = (res, status, body, type = 'text/plain; charset=utf-8', len) => {
-  const headers = { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
-  if (len !== undefined) headers['Content-Length'] = len;
-  res.writeHead(status, headers);
+  res.writeHead(status, {
+    'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+    ...(len !== undefined ? { 'Content-Length': len } : {}),
+  });
   res.end(body);
 };
 
@@ -55,23 +56,24 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-function listen(port, offset = 0) {
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    console.error(`[serve-web] Invalid PORT: ${process.env.PORT}`);
-    process.exit(1);
-  }
-  const onError = (err) => {
-    if (err.code === 'EADDRINUSE' && !hasEnvPort && offset < 5) return listen(port + 1, offset + 1);
-    console.error(`[serve-web] Failed on ${HOST}:${port}:`, err.message);
-    process.exit(1);
-  };
-  server.once('error', onError);
-  server.listen(port, HOST, () => {
-    server.off('error', onError);
-    server.on('error', (err) => console.error('[serve-web] Server error:', err));
-    console.log(`[serve-web] http://localhost:${port}/`);
-    console.log(`[serve-web] http://localhost:${port}/login.html`);
-  });
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`[serve-web] Invalid PORT: ${process.env.PORT}`);
+  process.exit(1);
 }
 
-listen(PORT);
+let offset = 0;
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE' && !hasEnvPort && offset < 5 && PORT + offset < 65535) {
+    return server.listen(PORT + ++offset, HOST);
+  }
+  console.error(`[serve-web] Failed on ${HOST}:${PORT + offset}:`, err.message);
+  process.exit(1);
+});
+
+server.once('listening', () => {
+  const { port } = server.address();
+  server.removeAllListeners('error').on('error', (err) => console.error('[serve-web] Error:', err));
+  console.log(`[serve-web] http://localhost:${port}/\n[serve-web] http://localhost:${port}/login.html`);
+});
+
+server.listen(PORT, HOST);

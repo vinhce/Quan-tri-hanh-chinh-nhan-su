@@ -7,6 +7,7 @@ import { NAV_ITEMS } from "@/components/layout/sidebar";
 import { DashboardView } from "@/components/modules/dashboard-view";
 import { CoreHrView } from "@/components/modules/core-hr-view";
 import { AtsView } from "@/components/modules/ats-view";
+import { OnboardingView } from "@/components/modules/onboarding-view";
 import { AttendanceView } from "@/components/modules/attendance-view";
 import { RequestsView } from "@/components/modules/requests-view";
 import { PayrollView } from "@/components/modules/payroll-view";
@@ -19,6 +20,7 @@ import { AdminAuditView } from "@/components/modules/admin-audit-view";
 const NAV_ALIAS_TO_ID: Record<string, string> = {
   employees: "core-hr",
   recruitment: "ats",
+  assets: "onboarding",
   requests: "leaves",
   performance: "kpi",
   roles: "rbac",
@@ -57,6 +59,8 @@ export default function HomePage() {
         return <CoreHrView key="core-hr-contracts" defaultTab="contracts" />;
       case "ats":
         return <AtsView />;
+      case "onboarding":
+        return <OnboardingView />;
       case "attendance":
         return <AttendanceView />;
       case "leaves":

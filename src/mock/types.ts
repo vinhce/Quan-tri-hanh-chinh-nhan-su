@@ -453,3 +453,70 @@ export interface NaturalLanguageLeaveDraft {
   parsed_handover_to: string;
   confidence_score: number;
 }
+
+export type NotificationCategory = 'LEAVE_REQUEST' | 'PAYROLL' | 'ONBOARDING' | 'ASSET' | 'SYSTEM';
+
+export interface HrmNotification {
+  id: string;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  created_at: string;
+  target_roles?: RoleCode[];
+  target_employee_codes?: string[];
+  target_department_id?: string;
+  read_by: string[];
+  nav_id: string;
+  entity_id?: string;
+  sub_tab?: string;
+}
+
+export type OnboardingTaskGroup = 'IT' | 'ADMIN' | 'HR' | 'MANAGER';
+
+export interface OnboardingChecklistItem {
+  id: string;
+  group: OnboardingTaskGroup;
+  title: string;
+  assignee_role_label: string;
+  completed: boolean;
+  completed_at?: string;
+  completed_by?: string;
+}
+
+export type OnboardingStatus = 'IN_PROGRESS' | 'COMPLETED';
+
+export interface OnboardingRecord {
+  id: string;
+  candidate_id?: string;
+  candidate_code?: string;
+  employee_id: string;
+  employee_code: string;
+  full_name: string;
+  email: string;
+  department_id: string;
+  department_name: string;
+  position_name: string;
+  manager_name: string;
+  start_date: string;
+  status: OnboardingStatus;
+  checklist: OnboardingChecklistItem[];
+  assigned_asset_ids: string[];
+  created_at: string;
+}
+
+export type AssetCategory = 'LAPTOP' | 'MONITOR' | 'ACCESS_CARD' | 'PERIPHERAL';
+export type AssetStatus = 'ASSIGNED' | 'AVAILABLE' | 'MAINTENANCE';
+
+export interface CompanyAsset {
+  id: string;
+  asset_code: string;
+  name: string;
+  category: AssetCategory;
+  serial_number: string;
+  status: AssetStatus;
+  assigned_to_code?: string;
+  assigned_to_name?: string;
+  assigned_department_id?: string;
+  assigned_at?: string;
+  condition_note: string;
+}

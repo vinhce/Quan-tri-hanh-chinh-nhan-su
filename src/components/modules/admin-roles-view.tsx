@@ -242,10 +242,10 @@ export function AdminRolesView() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Phân quyền RBAC & Tài khoản hệ thống
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             Kiểm soát quyền hạn chi tiết theo vai trò và trạng thái bảo mật tài khoản nội bộ.
           </p>
         </div>
@@ -260,7 +260,7 @@ export function AdminRolesView() {
         <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tổng vai trò RBAC
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
@@ -276,7 +276,7 @@ export function AdminRolesView() {
         <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tài khoản đang hoạt động
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
@@ -292,7 +292,7 @@ export function AdminRolesView() {
         <Card className="border-l-4 border-l-violet-500 dark:border-l-violet-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tài khoản bật xác thực MFA
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-violet-600 dark:text-violet-400">
@@ -325,22 +325,22 @@ export function AdminRolesView() {
                   onClick={() => setSelectedRole(roleDef.role_code)}
                   className={`rounded-xl border p-4 text-left transition-colors ${
                     isSelected
-                      ? 'border-teal-700 bg-teal-50/50 dark:border-teal-400 dark:bg-teal-950/20'
-                      : 'border-zinc-200/80 bg-white hover:bg-zinc-50 dark:border-zinc-800/80 dark:bg-[#121214] dark:hover:bg-zinc-900'
+                      ? 'border-[#0F766E] bg-[#CBE8E2]/60 dark:border-teal-400 dark:bg-teal-950/20'
+                      : 'border-[#C6D9D3] bg-[#FCFEFD] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-[#121214] dark:hover:bg-zinc-900'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant={isSelected ? 'teal' : 'secondary'}>
                       {roleDef.role_code}
                     </Badge>
-                    <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    <span className="font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                       {roleDef.users_count} người dùng
                     </span>
                   </div>
-                  <p className="mt-2.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <p className="mt-2.5 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                     {roleDef.role_name}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-xs leading-4 text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-1 line-clamp-2 text-xs leading-4 text-[#5C7871] dark:text-zinc-400">
                     {roleDef.description}
                   </p>
                 </button>
@@ -349,16 +349,16 @@ export function AdminRolesView() {
           </div>
 
           {/* Matrix Table */}
-          <Card>
-            <CardHeader className="flex flex-col gap-2 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-center sm:justify-between">
+          <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+            <CardHeader className="flex flex-col gap-2 border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <KeyRound className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+                  <KeyRound className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
                   Ma trận quyền hạn: {activeRoleInfo?.role_name ?? selectedRole}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   Bật hoặc tắt trực tiếp từng thao tác trên các phân hệ cho vai trò{' '}
-                  <span className="font-mono font-medium text-zinc-800 dark:text-zinc-200">
+                  <span className="font-mono font-semibold text-[#11221E] dark:text-zinc-200">
                     {selectedRole}
                   </span>
                   .
@@ -371,14 +371,14 @@ export function AdminRolesView() {
             </CardHeader>
             <CardContent className="p-0">
               {isSuperAdminSelected && (
-                <div className="border-b border-teal-500/20 bg-teal-50/60 px-5 py-2.5 text-xs font-medium text-teal-800 dark:border-teal-400/20 dark:bg-teal-950/20 dark:text-teal-300">
+                <div className="border-b border-[#0F766E]/25 bg-[#CBE8E2]/55 px-5 py-2.5 text-xs font-medium text-[#0B4F4A] dark:border-teal-400/20 dark:bg-teal-950/20 dark:text-teal-300">
                   Quản trị Hệ thống (Super Admin) có toàn quyền mặc định và không thể tự tắt quyền của bản thân.
                 </div>
               )}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto bg-[#FCFEFD] dark:bg-transparent">
                 <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                  <thead className="bg-[#F2F7F5] dark:bg-zinc-900/50">
+                    <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                       <th className="px-5 py-3">Phân hệ chức năng</th>
                       <th className="px-4 py-3">Nhóm</th>
                       {PERMISSION_COLUMNS.map((col) => (
@@ -388,19 +388,19 @@ export function AdminRolesView() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                     {matrix.map((row) => {
                       const rolePerms = row.permissions[selectedRole];
                       return (
                         <tr
                           key={row.module_code}
-                          className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                          className="odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                         >
                           <td className="px-5 py-3.5">
-                            <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                            <p className="font-semibold text-[#11221E] dark:text-zinc-100">
                               {row.module_name}
                             </p>
-                            <p className="mt-0.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                            <p className="mt-0.5 font-mono text-xs text-[#415A54] dark:text-zinc-400">
                               {row.module_code}
                             </p>
                           </td>
@@ -435,8 +435,8 @@ export function AdminRolesView() {
 
         {/* Tab 2: System Accounts */}
         <TabsContent value="accounts" className="space-y-4">
-          <Card>
-            <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+          <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+            <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Tài khoản truy cập hệ thống</CardTitle>
@@ -447,7 +447,7 @@ export function AdminRolesView() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="relative w-full sm:w-64">
                     <Search
-                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5C7871] dark:text-zinc-400"
                       strokeWidth={1.5}
                     />
                     <Input
@@ -475,10 +475,10 @@ export function AdminRolesView() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto bg-[#FCFEFD] dark:bg-transparent">
                 <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                  <thead className="bg-[#F2F7F5] dark:bg-zinc-900/50">
+                    <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                       <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
                       <th className="px-4 py-3">Nhân sự</th>
                       <th className="px-4 py-3">Phòng ban</th>
@@ -490,7 +490,7 @@ export function AdminRolesView() {
                       <th className="px-4 py-3 text-right">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                     {filteredUsers.map((account) => {
                       const roleMeta = ROLE_BADGE_MAP[account.role_code];
                       const isLocked = account.account_status === 'LOCKED';
@@ -503,20 +503,20 @@ export function AdminRolesView() {
                       return (
                         <tr
                           key={account.id}
-                          className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                          className="odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                         >
-                          <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                          <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-normal tabular-nums text-[#415A54] dark:text-zinc-300">
                             {account.employee_code}
                           </td>
                           <td className="px-4 py-3.5">
-                            <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                            <p className="font-semibold text-[#11221E] dark:text-zinc-100">
                               {account.full_name}
                             </p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            <p className="text-xs text-[#415A54] dark:text-zinc-400">
                               {account.email}
                             </p>
                           </td>
-                          <td className="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-300">
+                          <td className="px-4 py-3.5 text-xs font-semibold text-[#11221E] dark:text-zinc-300">
                             {account.department_name}
                           </td>
                           <td className="px-4 py-3.5">
@@ -527,10 +527,10 @@ export function AdminRolesView() {
                               {account.mfa_enabled ? 'Đã bật' : 'Chưa bật'}
                             </Badge>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                          <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                             {formatTimestamp(account.last_login_at)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                          <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                             {account.last_login_ip}
                           </td>
                           <td className="px-4 py-3.5">
@@ -570,7 +570,7 @@ export function AdminRolesView() {
                       <tr>
                         <td
                           colSpan={9}
-                          className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                          className="px-4 py-10 text-center text-sm text-[#5C7871] dark:text-zinc-400"
                         >
                           Không tìm thấy tài khoản nào khớp với bộ lọc hiện tại.
                         </td>

@@ -84,7 +84,7 @@ export function Select({
             handleValueChange(e.target.value);
           }}
           className={cn(
-            'block h-9 w-full truncate whitespace-nowrap appearance-none rounded-lg border border-zinc-200/80 bg-white [background-image:none] py-1.5 pl-3 pr-8 text-sm text-zinc-900 transition-colors focus-visible:border-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
+            'block h-9 w-full truncate whitespace-nowrap appearance-none rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] [background-image:none] py-1.5 pl-3 pr-8 text-sm text-[#11221E] transition-colors focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
             className
           )}
           style={{
@@ -105,7 +105,7 @@ export function Select({
             : children}
         </select>
         <ChevronDown
-          className="pointer-events-none absolute right-2.5 h-4 w-4 text-zinc-500 dark:text-zinc-400"
+          className="pointer-events-none absolute right-2.5 h-4 w-4 text-[#415A54] dark:text-zinc-400"
           strokeWidth={1.5}
         />
       </div>
@@ -138,13 +138,13 @@ export const SelectTrigger = React.forwardRef<
         onClick?.(e);
       }}
       className={cn(
-        'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-zinc-200/80 bg-white px-3 py-1.5 text-sm text-zinc-900 transition-colors hover:bg-zinc-50 focus-visible:border-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800/80 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
+        'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-1.5 text-sm text-[#11221E] transition-colors hover:bg-[#E8F3EF] focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800/80 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
         className
       )}
       {...props}
     >
       {children}
-      <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />
+      <ChevronDown className="h-4 w-4 shrink-0 text-[#415A54] dark:text-zinc-400" strokeWidth={1.5} />
     </button>
   );
 });
@@ -160,7 +160,7 @@ export function SelectValue({
   const ctx = React.useContext(SelectContext);
   return (
     <span className="truncate">
-      {children ?? (ctx?.value ? ctx.value : <span className="text-zinc-400">{placeholder}</span>)}
+      {children ?? (ctx?.value ? ctx.value : <span className="text-[#5C7871] dark:text-zinc-500">{placeholder}</span>)}
     </span>
   );
 }
@@ -176,7 +176,7 @@ export function SelectContent({
     <div
       role="listbox"
       className={cn(
-        'absolute left-0 top-full z-50 mt-1 max-h-60 min-w-full overflow-auto rounded-lg border border-zinc-200/80 bg-white p-1 text-zinc-900 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100',
+        'absolute left-0 top-full z-50 mt-1 max-h-60 min-w-full overflow-auto rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-1 text-[#11221E] shadow-[0_4px_12px_rgba(17,34,30,0.08)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100',
         className
       )}
       {...props}
@@ -200,8 +200,8 @@ export function SelectItem({
       aria-selected={isSelected}
       onClick={() => ctx?.onValueChange(value)}
       className={cn(
-        'relative flex cursor-pointer select-none items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800',
-        isSelected && 'bg-zinc-100/80 font-medium text-teal-700 dark:bg-zinc-800/80 dark:text-teal-400',
+        'relative flex cursor-pointer select-none items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition-colors hover:bg-[#E8F3EF] dark:hover:bg-zinc-800',
+        isSelected && 'bg-[#CBE8E2] font-medium text-[#0B4F4A] dark:bg-zinc-800/80 dark:text-teal-400',
         className
       )}
       {...props}
@@ -218,7 +218,7 @@ export function SelectGroup({ children, className }: React.HTMLAttributes<HTMLDi
 
 export function SelectLabel({ children, className }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('px-2.5 py-1 text-xs font-medium text-zinc-500 dark:text-zinc-400', className)}>
+    <div className={cn('px-2.5 py-1 text-xs font-semibold text-[#5C7871] dark:text-zinc-400', className)}>
       {children}
     </div>
   );

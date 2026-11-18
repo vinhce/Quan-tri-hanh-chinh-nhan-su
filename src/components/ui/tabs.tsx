@@ -51,7 +51,7 @@ export function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivEl
     <div
       role="tablist"
       className={cn(
-        'inline-flex h-9 items-center justify-center rounded-lg border border-zinc-200/80 bg-zinc-100/80 p-1 text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-400',
+        'inline-flex h-9 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#E4EEEB] p-1 text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-400',
         className
       )}
       {...props}
@@ -74,10 +74,10 @@ export function TabsTrigger({ value, className, children, ...props }: TabsTrigge
       aria-selected={isActive}
       onClick={() => ctx?.onValueChange(value)}
       className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex items-center justify-center whitespace-nowrap rounded-md border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:focus-visible:ring-teal-400/30 disabled:pointer-events-none disabled:opacity-50',
         isActive
-          ? 'bg-white text-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:bg-zinc-800 dark:text-zinc-100'
-          : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200',
+          ? 'border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-100'
+          : 'border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200',
         className
       )}
       {...props}

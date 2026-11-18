@@ -254,7 +254,7 @@ export const MOCK_LEAVE_OVERTIME_REQUESTS: LeaveOvertimeRequest[] = [
     leave_deducted: false,
     created_at: '2026-11-17T09:15:00+07:00',
     responded_at: null,
-    source: 'AI_COPILOT',
+    source: 'MANUAL_FORM',
   },
   {
     id: 'req-002',
@@ -506,7 +506,7 @@ export const MOCK_LEAVE_OVERTIME_REQUESTS: LeaveOvertimeRequest[] = [
     rejection_reason: 'Chưa đính kèm giấy xác nhận khám bệnh hợp lệ theo quy định nghỉ ốm hưởng BHXH.',
     created_at: '2026-11-10T07:45:00+07:00',
     responded_at: '2026-11-10T08:15:00+07:00',
-    source: 'AI_COPILOT',
+    source: 'MANUAL_FORM',
   },
 ];
 

@@ -300,30 +300,33 @@ export function AdminAuditView() {
 
       {/* Filters & Table */}
       <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle>Dòng sự kiện kiểm toán hệ thống</CardTitle>
-              <CardDescription className="mt-1">
-                Hiển thị {filteredLogs.length} / {auditLogs.length} sự kiện theo bộ lọc hiện tại.
-              </CardDescription>
+        <CardHeader className="flex flex-col gap-3.5 space-y-0 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80 xl:flex-row xl:items-center xl:justify-between">
+          <div className="shrink-0">
+            <CardTitle>Dòng sự kiện kiểm toán hệ thống</CardTitle>
+            <CardDescription className="mt-1">
+              Hiển thị {filteredLogs.length} / {auditLogs.length} sự kiện theo bộ lọc hiện tại.
+            </CardDescription>
+          </div>
+          <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center xl:w-auto">
+            <div className="relative w-full sm:flex-1 xl:w-56 xl:flex-none 2xl:w-64">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                strokeWidth={1.5}
+              />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm Target, IP, nhân sự..."
+                aria-label="Tìm kiếm sự kiện kiểm toán theo Target, IP hoặc nhân sự"
+                className="h-9 w-full pl-9"
+              />
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:w-auto">
-              <div className="relative sm:w-64">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-                  strokeWidth={1.5}
-                />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm Target, IP, nhân sự..."
-                  className="pl-9"
-                />
-              </div>
+            <div className="w-full shrink-0 sm:w-[196px] md:w-52 xl:w-[196px] 2xl:w-52">
               <Select
                 value={actionFilter}
                 onValueChange={setActionFilter}
+                aria-label="Lọc theo hành động"
+                className="h-9 whitespace-nowrap"
                 options={[
                   { label: 'Tất cả hành động', value: 'ALL' },
                   { label: 'Đăng nhập hệ thống', value: 'LOGIN' },
@@ -341,9 +344,13 @@ export function AdminAuditView() {
                   { label: 'Đăng nhập thất bại / Bị chặn', value: 'FAILED_LOGIN' },
                 ]}
               />
+            </div>
+            <div className="w-full shrink-0 sm:w-[196px] md:w-52 xl:w-[196px] 2xl:w-52">
               <Select
                 value={roleFilter}
                 onValueChange={setRoleFilter}
+                aria-label="Lọc theo vai trò"
+                className="h-9 whitespace-nowrap"
                 options={[
                   { label: 'Tất cả vai trò', value: 'ALL' },
                   { label: 'Quản trị hệ thống', value: 'SUPER_ADMIN' },
@@ -358,17 +365,17 @@ export function AdminAuditView() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[760px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
-                  <th className="whitespace-nowrap px-4 py-3">Thời gian</th>
-                  <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
-                  <th className="px-4 py-3">Người thực hiện</th>
-                  <th className="px-4 py-3">Vai trò</th>
-                  <th className="px-4 py-3">Hành động</th>
-                  <th className="px-4 py-3">Đối tượng tác động</th>
-                  <th className="whitespace-nowrap px-4 py-3">Địa chỉ IP</th>
-                  <th className="px-4 py-3">Trạng thái</th>
+                  <th className="whitespace-nowrap px-2.5 py-3 xl:px-4">Thời gian</th>
+                  <th className="whitespace-nowrap px-2.5 py-3 xl:px-4">Mã NV</th>
+                  <th className="px-2.5 py-3 xl:px-4">Người thực hiện</th>
+                  <th className="px-2.5 py-3 xl:px-4">Vai trò</th>
+                  <th className="px-2.5 py-3 xl:px-4">Hành động</th>
+                  <th className="px-2.5 py-3 xl:px-4">Đối tượng tác động</th>
+                  <th className="whitespace-nowrap px-2.5 py-3 xl:px-4">Địa chỉ IP</th>
+                  <th className="px-2.5 py-3 xl:px-4">Trạng thái</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
@@ -380,21 +387,21 @@ export function AdminAuditView() {
                       onClick={() => setSelectedLog(log)}
                       className="cursor-pointer transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
-                      <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400 xl:px-4">
                         {formatTimestamp(log.timestamp)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300 xl:px-4">
                         {log.actor_employee_code}
                       </td>
-                      <td className="px-4 py-3.5 font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-2.5 py-3.5 font-medium text-zinc-900 dark:text-zinc-100 xl:px-4">
                         {log.actor_name}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-2.5 py-3.5 xl:px-4">
                         <Badge variant="outline" className="whitespace-nowrap text-xs">
                           {ROLE_LABELS[log.actor_role] ?? log.actor_role}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-2.5 py-3.5 xl:px-4">
                         <p className="font-medium text-zinc-900 dark:text-zinc-100">
                           {ACTION_LABELS[log.action] ?? log.module}
                         </p>
@@ -402,7 +409,7 @@ export function AdminAuditView() {
                           {log.action}
                         </p>
                       </td>
-                      <td className="max-w-xs px-4 py-3.5">
+                      <td className="max-w-[190px] px-2.5 py-3.5 xl:max-w-xs xl:px-4">
                         <p className="truncate font-medium text-zinc-800 dark:text-zinc-200">
                           {log.target_entity}
                         </p>
@@ -410,10 +417,10 @@ export function AdminAuditView() {
                           {log.detail}
                         </p>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                      <td className="whitespace-nowrap px-2.5 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400 xl:px-4">
                         {log.ip_address}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-2.5 py-3.5 xl:px-4">
                         <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                       </td>
                     </tr>

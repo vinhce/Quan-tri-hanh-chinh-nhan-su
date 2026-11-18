@@ -280,10 +280,10 @@ export function AttendanceView() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" strokeWidth={1.5} />
-          <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
             Không thể tải dữ liệu chấm công tháng 11/2026
           </p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
             Vui lòng kiểm tra lại kết nối máy chủ chấm công và thử lại.
           </p>
           <Button
@@ -303,10 +303,10 @@ export function AttendanceView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Chấm công &amp; Ca làm việc
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             Tổng hợp bảng công kỳ tháng 11/2026, theo dõi đi muộn, tăng ca OT và cấu hình ca chuẩn.
           </p>
         </div>
@@ -332,7 +332,7 @@ export function AttendanceView() {
         <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Công chuẩn tháng 11/2026
               </span>
               <CalendarCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
@@ -340,7 +340,7 @@ export function AttendanceView() {
             <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
               {summary.standardDays} công
             </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
               Áp dụng khối Hành chính &amp; Kỹ thuật
             </p>
           </CardContent>
@@ -349,7 +349,7 @@ export function AttendanceView() {
         <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tỷ lệ đúng giờ
               </span>
               <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
@@ -357,7 +357,7 @@ export function AttendanceView() {
             <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
               {summary.onTimeRate}%
             </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
               Không phát sinh đi muộn / về sớm
             </p>
           </CardContent>
@@ -366,7 +366,7 @@ export function AttendanceView() {
         <Card className="border-l-4 border-l-violet-500 dark:border-l-violet-400">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tổng giờ OT
               </span>
               <Timer className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} />
@@ -374,7 +374,7 @@ export function AttendanceView() {
             <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-violet-600 dark:text-violet-400">
               {formatNumberVN(summary.totalOtHours)} giờ
             </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
               Bao gồm ngày thường &amp; cuối tuần
             </p>
           </CardContent>
@@ -383,7 +383,7 @@ export function AttendanceView() {
         <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Đi muộn / Về sớm
               </span>
               <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
@@ -391,15 +391,15 @@ export function AttendanceView() {
             <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
               {formatNumberVN(summary.totalLateEarly)} lượt
             </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
               Tính sau ngưỡng ân hạn từng ca
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+      <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <div className="flex flex-col gap-3.5 xl:flex-row xl:items-center xl:justify-between">
             <div className="shrink-0">
               <CardTitle>Bảng chấm công tháng 11/2026</CardTitle>
@@ -410,7 +410,7 @@ export function AttendanceView() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
               <div className="relative min-w-0 flex-1 sm:w-52 xl:w-56 2xl:w-64">
                 <Search
-                  className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                  className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                   strokeWidth={1.5}
                 />
                 <Input
@@ -448,11 +448,11 @@ export function AttendanceView() {
         <CardContent className="p-0">
           {uiState === 'empty' || filteredRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-              <Users className="h-8 w-8 text-zinc-400" strokeWidth={1.5} />
-              <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <Users className="h-8 w-8 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
+              <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
                 Không tìm thấy dữ liệu chấm công phù hợp
               </p>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Thử thay đổi từ khóa tìm kiếm, phòng ban hoặc ca làm việc.
               </p>
               {(searchQuery || departmentFilter !== 'ALL' || shiftFilter !== 'ALL') && (
@@ -471,10 +471,10 @@ export function AttendanceView() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto bg-[#FCFEFD] dark:bg-transparent">
               <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
+                <thead className="bg-[#F2F7F5] dark:bg-zinc-900/60">
+                  <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
                     <th className="whitespace-nowrap px-3 py-2.5">Mã NV</th>
                     <th className="px-3 py-2.5">Họ tên</th>
                     <th className="px-3 py-2.5">Phòng ban</th>
@@ -488,7 +488,7 @@ export function AttendanceView() {
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+                <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                   {filteredRecords.map((row) => {
                     const statusCfg = ATTENDANCE_STATUS_CONFIG[row.attendance_status];
                     return (
@@ -497,22 +497,22 @@ export function AttendanceView() {
                         onClick={() => {
                           if (canEditAttendance) openEditModal(row);
                         }}
-                        className={`transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40 ${
+                        className={`odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40 ${
                           canEditAttendance ? 'cursor-pointer' : ''
                         }`}
                       >
-                        <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs font-normal tabular-nums text-[#415A54] dark:text-zinc-300">
                           {row.employee_code}
                         </td>
                         <td className="px-3 py-2.5">
-                          <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                          <div className="font-semibold text-[#11221E] dark:text-zinc-100">
                             {row.full_name}
                           </div>
-                          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="text-xs text-[#415A54] dark:text-zinc-400">
                             {row.position_name}
                           </div>
                         </td>
-                        <td className="px-3 py-2.5 text-zinc-700 dark:text-zinc-300">
+                        <td className="px-3 py-2.5 font-semibold text-[#11221E] dark:text-zinc-300">
                           {row.department_name}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5">
@@ -520,11 +520,11 @@ export function AttendanceView() {
                             {row.shift_code}
                           </Badge>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
                           <span className="font-semibold">{row.actual_work_days}</span>
-                          <span className="text-zinc-400"> / {row.standard_work_days}</span>
+                          <span className="text-[#5C7871] dark:text-zinc-400"> / {row.standard_work_days}</span>
                           {row.paid_leave_days > 0 && (
-                            <span className="ml-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            <span className="ml-1.5 text-xs text-[#415A54] dark:text-zinc-400">
                               (+{row.paid_leave_days} phép)
                             </span>
                           )}
@@ -535,10 +535,10 @@ export function AttendanceView() {
                               {row.late_occurrences} lượt
                             </span>
                           ) : (
-                            <span className="text-zinc-400">0</span>
+                            <span className="text-[#5C7871] dark:text-zinc-400">0</span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
                           {row.total_overtime_hours} giờ
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5">
@@ -584,18 +584,18 @@ export function AttendanceView() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+      <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <CardTitle>Danh mục Ca làm việc chuẩn</CardTitle>
           <CardDescription>
             Khung giờ quy định, thời gian nghỉ trưa và ngưỡng ân hạn đi muộn áp dụng toàn công ty.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto bg-[#FCFEFD] dark:bg-transparent">
             <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
+              <thead className="bg-[#F2F7F5] dark:bg-zinc-900/60">
+                <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
                   <th className="whitespace-nowrap px-4 py-3">Mã ca</th>
                   <th className="px-4 py-3">Tên ca làm việc</th>
                   <th className="whitespace-nowrap px-4 py-3">Khung giờ</th>
@@ -605,33 +605,33 @@ export function AttendanceView() {
                   <th className="px-4 py-3">Phạm vi áp dụng</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+              <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                 {workShifts.map((shift) => (
                   <tr
                     key={shift.id}
-                    className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                    className="odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                   >
                     <td className="whitespace-nowrap px-4 py-3">
                       <Badge variant="teal" className="font-mono tabular-nums">
                         {shift.shift_code}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                    <td className="px-4 py-3 font-semibold text-[#11221E] dark:text-zinc-100">
                       {shift.shift_name}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
                       {shift.start_time} - {shift.end_time}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
                       {shift.break_minutes} phút
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
                       {shift.standard_hours} giờ
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
                       {shift.late_grace_minutes} phút
                     </td>
-                    <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
+                    <td className="px-4 py-3 text-xs text-[#415A54] dark:text-zinc-400">
                       {shift.department_scope}
                     </td>
                   </tr>
@@ -663,7 +663,7 @@ export function AttendanceView() {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="edit-shift"
-                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Ca làm việc
                     </label>
@@ -677,7 +677,7 @@ export function AttendanceView() {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="edit-status"
-                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Trạng thái chốt công
                     </label>
@@ -699,7 +699,7 @@ export function AttendanceView() {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="edit-days"
-                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Công thực tế
                     </label>
@@ -717,7 +717,7 @@ export function AttendanceView() {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="edit-late"
-                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Đi muộn (lượt)
                     </label>
@@ -733,7 +733,7 @@ export function AttendanceView() {
                   <div className="space-y-1.5">
                     <label
                       htmlFor="edit-ot"
-                      className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                     >
                       Giờ OT
                     </label>
@@ -787,7 +787,7 @@ export function AttendanceView() {
             <DialogTitle>Xác nhận xóa bản ghi chấm công</DialogTitle>
             <DialogDescription>
               Bạn có chắc chắn muốn xóa dữ liệu công tháng 11/2026 của{' '}
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+              <span className="font-semibold text-[#11221E] dark:text-zinc-100">
                 {deleteTarget?.full_name}
               </span>{' '}
               (<span className="font-mono tabular-nums">{deleteTarget?.employee_code}</span>)?

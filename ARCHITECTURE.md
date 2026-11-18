@@ -98,3 +98,40 @@ export interface ToastMessage {
   - `uiState: 'ready' | 'loading' | 'empty' | 'error'`, `setUiState: (s: 'ready' | 'loading' | 'empty' | 'error') => void`
   - `showToast: (title: string, description?: string, variant?: ToastMessage['variant']) => void`
   - `isCopilotOpen: boolean`, `setIsCopilotOpen: (open: boolean) => void`
+
+## 6. KIẾN TRÚC WEB TĨNH THUẦN (web/)
+Giai đoạn 2 đóng băng `src/` (bản tham chiếu Next.js) và triển khai phiên bản web tĩnh thuần (`HTML`, `CSS`, `JavaScript` ES Modules) trong thư mục `web/`.
+
+- **Cấu trúc thư mục `web/`:**
+```text
+web/
+├── index.html                  # Trang Dashboard chính
+├── login.html                  # Trang đăng nhập & chọn nhanh 4 Role demo
+├── pages/                      # Các trang phân hệ nghiệp vụ
+├── partials/                   # Thành phần bố cục dùng chung (sidebar, header, copilot)
+├── assets/
+│   ├── css/                    # CSS nền (base, theme, layout, common) & tailwind.css build ra
+│   ├── js/
+│   │   ├── core/               # Tầng Core JS điều phối dùng chung
+│   │   ├── components/         # Component JS tái sử dụng
+│   │   └── pages/              # Logic từng trang phân hệ
+│   └── vendor/                 # Thư viện bên thứ ba đặt local (không dùng CDN ngoài)
+└── mock/                       # Dữ liệu JSON tĩnh xuất từ scripts/export-mock-json.mjs
+```
+
+- **Tầng Core JS (`web/assets/js/core/`):**
+  - `theme-boot.js`: Script non-module nạp sớm ở `<head>` để áp dụng theme Sáng/Tối tức thì, chống chớp Dark mode khi tải trang.
+  - `utils.js`: Cung cấp `toUrl()` tính đường dẫn tương đối theo `import.meta.url`, `escapeHtml()` chống XSS khi dùng `innerHTML`, `sanitizeHref()` kiểm tra URL an toàn, cùng các hàm formatters chuẩn `vi-VN`.
+  - `api.js`: Nơi duy nhất gọi `fetch()` qua `BASE_URL` để nạp dữ liệu JSON/API.
+  - `rbac.js`: Quản lý phân quyền truy cập menu và thao tác theo 4 Role.
+  - `state.js`: Quản lý trạng thái toàn cục qua `localStorage` và lưu lịch sử hội thoại AI Copilot qua `sessionStorage` (tối đa 50 tin).
+  - `guard.js`: Kiểm tra phiên đăng nhập và quyền truy cập từng trang theo RBAC.
+  - `app.js`: Điểm khởi tạo chung cho từng trang (nạp `partials/`, gắn sự kiện header/sidebar, đồng bộ trạng thái).
+
+- **Quy tắc Build CSS & Xuất dữ liệu Mock:**
+  - **Tailwind CSS:** Cấu hình riêng tại `tailwind.web.config.mjs`, biên dịch ra `web/assets/css/tailwind.css` qua `npm run css:web` (hoặc theo dõi liên tục `--watch` qua `npm run css:web:watch`).
+  - **Mock JSON:** Mở rộng `scripts/export-mock-json.mjs` để xuất dữ liệu từ `src/mock/` sang `web/mock/*.json` qua lệnh `npm run mock:web`.
+
+- **Ngoại lệ giới hạn 500 dòng/file:**
+  - Mọi file code viết tay (`HTML`, `CSS`, `JS`) trong `web/` giữ `< 500` dòng.
+  - Ngoại lệ không áp dụng giới hạn 500 dòng cho: `web/assets/css/tailwind.css` (file build tự động), `web/mock/*.json` (file JSON sinh tự động) và `web/assets/vendor/` (thư viện ngoài đặt local).

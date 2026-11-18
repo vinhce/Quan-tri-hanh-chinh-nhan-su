@@ -1,0 +1,98 @@
+/* Hệ thống Token màu Zinc + Teal đồng bộ với src/app/globals.css & DESIGN.md */
+:root {
+  color-scheme: light;
+  --bg-canvas: #FAFAFA;
+  --bg-card: #FFFFFF;
+  --bg-muted: rgba(244, 244, 245, 0.7);
+  --bg-subtle: #F4F4F5;
+  --text-primary: #18181B;
+  --text-secondary: #52525B;
+  --text-muted: #71717A;
+  --border-hairline: rgba(228, 228, 231, 0.8);
+  --border-strong: rgba(212, 212, 216, 0.85);
+  --accent-primary: #0F766E;
+  --accent-hover: #115E59;
+  --accent-contrast: #FFFFFF;
+  --accent-soft: rgba(240, 253, 250, 0.8);
+  --accent-border: rgba(153, 246, 228, 0.8);
+  --focus-ring: rgba(15, 118, 110, 0.22);
+
+  /* Semantic tokens (desaturated per DESIGN.md) */
+  --status-success-text: #047857;
+  --status-success-bg: #ECFDF5;
+  --status-success-border: #A7F3D0;
+  --status-warning-text: #B45309;
+  --status-warning-bg: #FFFBEB;
+  --status-warning-border: #FDE68A;
+  --status-error-text: #BE123C;
+  --status-error-bg: #FFF1F2;
+  --status-error-border: #FECDD3;
+
+  /* Surface & glass tokens */
+  --surface-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --glass-bg: rgba(255, 255, 255, 0.84);
+  --glass-border: rgba(228, 228, 231, 0.8);
+  --backdrop-scrim: rgba(9, 9, 11, 0.4);
+}
+
+.dark {
+  color-scheme: dark;
+  --bg-canvas: #09090B;
+  --bg-card: #121214;
+  --bg-muted: rgba(39, 39, 42, 0.6);
+  --bg-subtle: #18181B;
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+  --border-hairline: rgba(39, 39, 42, 0.8);
+  --border-strong: rgba(63, 63, 70, 0.8);
+  --accent-primary: #2DD4BF;
+  --accent-hover: #5EEAD4;
+  --accent-contrast: #09090B;
+  --accent-soft: rgba(4, 47, 46, 0.4);
+  --accent-border: rgba(17, 94, 89, 0.6);
+  --focus-ring: rgba(45, 212, 191, 0.24);
+
+  --status-success-text: #34D399;
+  --status-success-bg: rgba(2, 44, 34, 0.4);
+  --status-success-border: rgba(6, 95, 70, 0.5);
+  --status-warning-text: #FBBF24;
+  --status-warning-bg: rgba(69, 26, 3, 0.4);
+  --status-warning-border: rgba(146, 64, 14, 0.5);
+  --status-error-text: #FB7185;
+  --status-error-bg: rgba(76, 5, 25, 0.4);
+  --status-error-border: rgba(159, 18, 57, 0.5);
+
+  --surface-shadow: none;
+  --glass-bg: rgba(18, 18, 20, 0.84);
+  --glass-border: rgba(39, 39, 42, 0.8);
+  --backdrop-scrim: rgba(0, 0, 0, 0.65);
+}
+
+/* Bề mặt chuẩn Quiet Chrome */
+.surface-canvas {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.surface-card {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+  box-shadow: var(--surface-shadow);
+}
+
+.surface-muted {
+  background-color: var(--bg-muted);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-hairline);
+}
+
+/* Glass Panel tối giản không glow màu */
+.glass-panel {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}

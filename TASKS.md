@@ -32,3 +32,11 @@
   - Giao diện `DEPT_MANAGER`: Theo dõi quân số phòng ban (ẩn cột lương), duyệt đơn cấp dưới, đánh giá KPI/OKR và cảnh báo Burnout.
   - Giao diện `EMPLOYEE`: Xem bảng công cá nhân, check-in/out thời gian thực, quỹ phép năm, tra cứu phiếu lương Net và tạo đơn xin nghỉ phép / OT mới.
 - [x] **Task 5.2 (Nhóm màn hình 11 — Tích hợp 12 phân hệ & Kiểm thử tổng thể):** Kết nối đủ 12 phân hệ vào `src/app/page.tsx`, cố định Sidebar/Header, bỏ Role Switcher trên Header (chọn vai trò qua `/login` + nút Đăng xuất), đồng bộ AI HR Copilot và hoàn tất Giai đoạn 1.
+
+## GIAI ĐOẠN 2: CHUYỂN ĐỔI SANG WEB TĨNH THUẦN (web/)
+- [x] **Bước 1:** Cấu trúc thư mục `web/`, mở rộng `scripts/export-mock-json.mjs`, cấu hình `tailwind.web.config.mjs`, CSS nền (`base`, `theme`, `layout`, `common`), Core JS (`theme-boot`, `utils`, `api`, `rbac`, `state`, `guard`, `app`), partials (`sidebar`, `header`), `login.html` và khung `index.html`.
+- [ ] **Bước 2:** `index.html` (Dashboard) kèm biểu đồ.
+- [ ] **Bước 3:** `pages/core-hr.html` và `pages/ats.html`.
+- [ ] **Bước 4:** `pages/attendance.html`, `pages/requests.html`, `pages/payroll.html`, `pages/payslip.html`.
+- [ ] **Bước 5:** `pages/performance.html`, `pages/admin-roles.html`, `pages/admin-settings.html`, `pages/admin-audit.html`.
+- [ ] **Bước 6:** AI Copilot (`partials/copilot.html` + `copilot.js`), kiểm tra responsive và rà soát `< 500` dòng toàn bộ file viết tay.

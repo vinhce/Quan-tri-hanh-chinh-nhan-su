@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Tổng quan điều hành",
     section: "Quản trị cốt lõi",
     icon: LayoutGrid,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
     deliverableStep: "Bước 1",
     summary: "Bàn làm việc trung tâm theo vai trò, chỉ số nhân sự và đối soát nhanh",
   },
@@ -48,8 +48,8 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Hồ sơ & Tổ chức",
     section: "Quản trị cốt lõi",
     icon: Users,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER"],
-    badgeCount: 27,
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER"],
+    badgeCount: 28,
     deliverableStep: "Bước 2",
     summary: "Cây sơ đồ khối phòng ban, danh bạ nhân viên và biến động nhân sự",
   },
@@ -58,7 +58,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Hợp đồng & Phụ lục",
     section: "Quản trị cốt lõi",
     icon: FileText,
-    roles: ["SUPER_ADMIN", "HR_MANAGER"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER"],
     badgeCount: 3,
     deliverableStep: "Bước 2",
     summary: "Quản lý hợp đồng lao động, cảnh báo đáo hạn trong 30 ngày",
@@ -78,7 +78,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Chấm công & Ca làm",
     section: "Vận hành",
     icon: Clock,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
     deliverableStep: "Bước 3",
     summary: "Bảng công tháng, phân ca HC-08:00 và đối soát đi muộn về sớm",
   },
@@ -87,7 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Đơn từ & Phê duyệt",
     section: "Vận hành",
     icon: CalendarCheck,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
     badgeCount: 5,
     deliverableStep: "Bước 3",
     summary: "Nghỉ phép năm, đăng ký làm thêm giờ và giải trình chấm công",
@@ -97,7 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Bảng lương & Thuế",
     section: "Vận hành",
     icon: Wallet,
-    roles: ["SUPER_ADMIN", "HR_MANAGER"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER"],
     deliverableStep: "Bước 3",
     summary: "Tính lương Gross sang Net, BHXH 10.5%, giảm trừ gia cảnh và thuế TNCN",
   },
@@ -106,7 +106,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Phiếu lương cá nhân",
     section: "Vận hành",
     icon: Receipt,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
     deliverableStep: "Bước 5",
     summary: "Chi tiết thu nhập, khấu trừ bảo hiểm và thực lĩnh chuyển khoản",
   },
@@ -115,7 +115,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Đánh giá & Cảnh báo AI",
     section: "Vận hành",
     icon: Activity,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER"],
     badgeCount: 2,
     deliverableStep: "Bước 2",
     summary: "Theo dõi hiệu suất OKR/KPI và dự báo nguy cơ nghỉ việc",
@@ -171,6 +171,16 @@ export const ROLE_META: Record<
     department: "Ban Điều hành",
     shiftCode: "HC-08:00",
     scopeNote: "Toàn quyền 12/12 phân hệ & cấu hình bảo mật",
+  },
+  DIRECTOR: {
+    label: "Giám đốc Điều hành",
+    shortLabel: "Director",
+    empCode: "NV-2024-000",
+    empName: "Trần Quốc Việt",
+    position: "Giám đốc Điều hành",
+    department: "Ban Điều hành",
+    shiftCode: "HC-08:00",
+    scopeNote: "Điều hành toàn doanh nghiệp, phê duyệt cấp 3 & quỹ lương",
   },
   HR_MANAGER: {
     label: "Trưởng phòng Nhân sự",
@@ -310,7 +320,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                               {item.id === "core-hr"
                                 ? role === "DEPT_MANAGER"
                                   ? 6
-                                  : 27
+                                  : 28
                                 : item.badgeCount}
                             </span>
                           )}

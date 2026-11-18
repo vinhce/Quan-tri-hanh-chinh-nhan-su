@@ -123,13 +123,13 @@ function normalizeVietnamese(text: string): string {
 function renderCategoryIcon(category: AssetCategory) {
   switch (category) {
     case 'LAPTOP':
-      return <Laptop className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />;
+      return <Laptop className="h-4 w-4 shrink-0 text-[#415A54] dark:text-zinc-400" strokeWidth={1.5} />;
     case 'MONITOR':
-      return <Monitor className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />;
+      return <Monitor className="h-4 w-4 shrink-0 text-[#415A54] dark:text-zinc-400" strokeWidth={1.5} />;
     case 'ACCESS_CARD':
-      return <KeyRound className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />;
+      return <KeyRound className="h-4 w-4 shrink-0 text-[#415A54] dark:text-zinc-400" strokeWidth={1.5} />;
     case 'PERIPHERAL':
-      return <Usb className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" strokeWidth={1.5} />;
+      return <Usb className="h-4 w-4 shrink-0 text-[#415A54] dark:text-zinc-400" strokeWidth={1.5} />;
   }
 }
 
@@ -805,10 +805,10 @@ export function OnboardingView() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center" role="alert">
           <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" strokeWidth={1.5} />
-          <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
             Không thể tải dữ liệu Onboarding &amp; Tài sản
           </p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
             Kết nối dữ liệu hồ sơ hội nhập hoặc kho thiết bị đang gián đoạn, vui lòng thử lại
           </p>
           <Button
@@ -833,18 +833,18 @@ export function OnboardingView() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Onboarding &amp; Tài sản cấp phát
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{roleScopeSubtitle}</p>
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">{roleScopeSubtitle}</p>
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-14 text-center">
-            <ClipboardCheck className="h-8 w-8 text-zinc-400 dark:text-zinc-500" strokeWidth={1.5} />
-            <p className="mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            <ClipboardCheck className="h-8 w-8 text-[#5C7871] dark:text-zinc-500" strokeWidth={1.5} />
+            <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
               Chưa ghi nhận hồ sơ hội nhập hoặc thiết bị trong danh sách
             </p>
-            <p className="mt-1 max-w-md text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 max-w-md text-xs text-[#415A54] dark:text-zinc-400">
               Hồ sơ hội nhập sẽ tự động khởi tạo khi chuyển ứng viên đạt yêu cầu từ bảng tuyển dụng ATS sang nhận việc
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -877,10 +877,10 @@ export function OnboardingView() {
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Onboarding &amp; Tài sản cấp phát
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{roleScopeSubtitle}</p>
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">{roleScopeSubtitle}</p>
         </div>
         {canManageAll && (
           <div className="flex flex-wrap items-center gap-2">
@@ -894,15 +894,15 @@ export function OnboardingView() {
 
       {/* 4 KPI Cards (Unslop: clean numbers, semantic left border, zero filler icons) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-l-4 border-l-teal-600 dark:border-l-teal-400">
+        <Card className="border-l-4 border-l-[#0F766E] dark:border-l-teal-400">
           <CardContent className="p-4">
-            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đang hội nhập
             </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
               {kpiStats.inProgressCount}
             </div>
-            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
               {isEmployee ? 'Hồ sơ cá nhân đang mở' : 'Nhân sự thử việc đang theo dõi'}
             </div>
           </CardContent>
@@ -910,13 +910,13 @@ export function OnboardingView() {
 
         <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
           <CardContent className="p-4">
-            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Hoàn tất hội nhập
             </div>
             <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
               {kpiStats.completedCount}
             </div>
-            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
               Đã chuyển sang làm việc chính thức
             </div>
           </CardContent>
@@ -924,13 +924,13 @@ export function OnboardingView() {
 
         <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
           <CardContent className="p-4">
-            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Tỷ lệ checklist trung bình
             </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
               {scopedRecords.length > 0 ? `${kpiStats.avgChecklistPercent}%` : '—'}
             </div>
-            <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+            <div className="mt-1 font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
               {scopedRecords.length > 0
                 ? `${kpiStats.doneItemsTotal}/${kpiStats.allItemsTotal} mục hoàn thành`
                 : 'Không có checklist đang mở'}
@@ -940,13 +940,13 @@ export function OnboardingView() {
 
         <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
           <CardContent className="p-4">
-            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Thiết bị đã bàn giao
             </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
               {kpiStats.assignedDevicesCount}
             </div>
-            <div className="mt-1 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+            <div className="mt-1 font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
               {isEmployee
                 ? `Đứng tên mã ${actorCode}`
                 : `${kpiStats.availableDevicesCount} sẵn sàng trong kho`}
@@ -960,18 +960,34 @@ export function OnboardingView() {
         value={activeTab}
         onValueChange={(val) => setActiveTab(val as OnboardingSubTab)}
       >
-        <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
-          <TabsTrigger value="progress" className="gap-1.5">
+        <TabsList className="w-full justify-start overflow-x-auto border border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-900 sm:w-auto">
+          <TabsTrigger
+            value="progress"
+            className={cn(
+              'gap-1.5',
+              activeTab === 'progress'
+                ? 'border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100'
+                : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200'
+            )}
+          >
             <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
             Tiến độ Onboarding
-            <span className="ml-0.5 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            <span className="ml-0.5 font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
               ({scopedRecords.length})
             </span>
           </TabsTrigger>
-          <TabsTrigger value="assets" className="gap-1.5">
+          <TabsTrigger
+            value="assets"
+            className={cn(
+              'gap-1.5',
+              activeTab === 'assets'
+                ? 'border border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100'
+                : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200'
+            )}
+          >
             <Laptop className="h-4 w-4" strokeWidth={1.5} />
             {isEmployee ? 'Tài sản đang giữ' : 'Kho & Tài sản cấp phát'}
-            <span className="ml-0.5 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            <span className="ml-0.5 font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
               ({scopedAssets.length})
             </span>
           </TabsTrigger>
@@ -980,16 +996,16 @@ export function OnboardingView() {
         {/* TAB 1: TIẾN ĐỘ ONBOARDING */}
         <TabsContent value="progress" className="space-y-4">
           {isEmployee && scopedRecords.length === 0 ? (
-            <Card className="border-l-4 border-l-teal-600 dark:border-l-teal-400">
+            <Card className="border-l-4 border-l-[#0F766E] dark:border-l-teal-400">
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                       Hồ sơ nhân sự chính thức ({actorCode})
                     </span>
                     <Badge variant="success">Đã hoàn tất hội nhập</Badge>
                   </div>
-                  <p className="text-xs leading-5 text-zinc-600 dark:text-zinc-400">
+                  <p className="text-xs leading-5 text-[#415A54] dark:text-zinc-400">
                     Tài khoản {actorName} không có quy trình hội nhập nhân viên mới đang chờ xử lý. Bạn có thể kiểm tra danh sách máy tính, màn hình và thẻ từ đang được bàn giao tại tab Tài sản đang giữ.
                   </p>
                 </div>
@@ -1012,7 +1028,7 @@ export function OnboardingView() {
                   <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative flex-1 sm:max-w-sm">
                       <Search
-                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                         strokeWidth={1.5}
                       />
                       <Input
@@ -1054,13 +1070,13 @@ export function OnboardingView() {
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                     <ClipboardCheck
-                      className="h-7 w-7 text-zinc-400 dark:text-zinc-500"
+                      className="h-7 w-7 text-[#5C7871] dark:text-zinc-500"
                       strokeWidth={1.5}
                     />
-                    <p className="mt-2.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <p className="mt-2.5 text-sm font-medium text-[#11221E] dark:text-zinc-100">
                       Không có hồ sơ hội nhập khớp điều kiện lọc
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
                       Thử xóa từ khóa tìm kiếm hoặc chuyển bộ lọc trạng thái về Tất cả
                     </p>
                     {(progressSearch || progressStatusFilter !== 'ALL') && (
@@ -1105,30 +1121,30 @@ export function OnboardingView() {
                             }
                           }}
                           className={cn(
-                            'cursor-pointer rounded-xl border border-l-4 bg-white p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:bg-zinc-900',
+                            'cursor-pointer rounded-[12px] border border-l-4 p-4 shadow-[0_1px_3px_rgba(17,34,30,0.05)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:bg-zinc-900 dark:shadow-none',
                             rec.status === 'COMPLETED'
                               ? 'border-l-emerald-500 dark:border-l-emerald-400'
-                              : 'border-l-teal-600 dark:border-l-teal-400',
+                              : 'border-l-[#0F766E] dark:border-l-teal-400',
                             isSelected
-                              ? 'border-zinc-400 bg-zinc-50/70 ring-1 ring-teal-700/25 dark:border-zinc-600 dark:bg-zinc-800/50 dark:ring-teal-400/25'
-                              : 'border-zinc-200/80 hover:border-zinc-300 dark:border-zinc-800/80 dark:hover:border-zinc-700'
+                              ? 'border-[#0F766E] bg-[#E8F3EF] ring-1 ring-[#0F766E]/25 dark:border-zinc-600 dark:bg-zinc-800/50 dark:ring-teal-400/25'
+                              : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E]/60 hover:bg-[#F5FAF8] dark:border-zinc-800/80 dark:hover:border-zinc-700'
                           )}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono text-xs font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
+                            <span className="font-mono text-xs font-medium tabular-nums text-[#415A54] dark:text-zinc-400">
                               {rec.id} · {rec.employee_code}
                             </span>
                             <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                           </div>
 
-                          <div className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          <div className="mt-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                             {rec.full_name}
                           </div>
-                          <div className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                          <div className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
                             {rec.position_name} · {rec.department_name}
                           </div>
 
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#5C7871] dark:text-zinc-400">
                             <span className="font-mono tabular-nums">
                               Nhận việc: {formatDateVN(rec.start_date)}
                             </span>
@@ -1138,22 +1154,22 @@ export function OnboardingView() {
                           </div>
 
                           {/* Progress bar */}
-                          <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 dark:border-zinc-800/80">
+                          <div className="mt-3 space-y-1.5 border-t border-[#D5E3DF] pt-3 dark:border-zinc-800/80">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-zinc-600 dark:text-zinc-400">
+                              <span className="text-[#415A54] dark:text-zinc-400">
                                 Hoàn thành checklist
                               </span>
-                              <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                              <span className="font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                                 {stats.done}/{stats.total} ({stats.percent}%)
                               </span>
                             </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-[#E4EEEB] dark:bg-zinc-800">
                               <div
                                 className={cn(
                                   'h-full rounded-full',
                                   rec.status === 'COMPLETED' || stats.percent === 100
                                     ? 'bg-emerald-600 dark:bg-emerald-400'
-                                    : 'bg-teal-700 dark:bg-teal-400'
+                                    : 'bg-[#0F766E] dark:bg-teal-400'
                                 )}
                                 style={{ width: `${stats.percent}%` }}
                               />
@@ -1176,26 +1192,26 @@ export function OnboardingView() {
                         <Card>
                           <CardContent className="space-y-5 p-5">
                             {/* Detail Header */}
-                            <div className="flex flex-col gap-3 border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex flex-col gap-3 border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-start sm:justify-between">
                               <div className="space-y-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                                  <h2 className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
                                     {selectedRecord.full_name}
                                   </h2>
                                   <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                                 </div>
-                                <div className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                                <div className="font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                                   {selectedRecord.id} · Mã NV: {selectedRecord.employee_code} ·{' '}
                                   {selectedRecord.email}
                                 </div>
-                                <div className="text-xs text-zinc-600 dark:text-zinc-300">
+                                <div className="text-xs text-[#415A54] dark:text-zinc-300">
                                   {selectedRecord.position_name} · {selectedRecord.department_name} · Quản lý:{' '}
-                                  <span className="font-medium">{selectedRecord.manager_name}</span>
+                                  <span className="font-semibold text-[#11221E] dark:text-zinc-100">{selectedRecord.manager_name}</span>
                                 </div>
                               </div>
 
                               <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                                <div className="font-mono text-lg font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                                <div className="font-mono text-lg font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                                   {stats.percent}% ({stats.done}/{stats.total})
                                 </div>
                                 {isReadyToComplete && canManageAll && (
@@ -1217,7 +1233,7 @@ export function OnboardingView() {
                             </div>
 
                             {/* Role permission guidance banner */}
-                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200/80 bg-zinc-50/80 px-3.5 py-2.5 text-xs text-zinc-600 dark:border-zinc-800/80 dark:bg-zinc-950/60 dark:text-zinc-400">
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-3.5 py-2.5 text-xs text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-950/60 dark:text-zinc-400">
                               <span>
                                 {selectedRecord.status === 'COMPLETED'
                                   ? 'Hồ sơ đã chốt hoàn tất hội nhập, danh mục công việc ở chế độ lưu trữ'
@@ -1227,7 +1243,7 @@ export function OnboardingView() {
                                   ? 'Quyền Trưởng bộ phận: được tích xác nhận các mục thuộc nhóm MANAGER — Hội nhập chuyên môn'
                                   : 'Chế độ tra cứu: chỉ xem tiến độ thực hiện của các bộ phận phụ trách'}
                               </span>
-                              <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                              <span className="font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
                                 Ngày nhận việc: {formatDateVN(selectedRecord.start_date)}
                               </span>
                             </div>
@@ -1249,23 +1265,23 @@ export function OnboardingView() {
                                 return (
                                   <div
                                     key={groupKey}
-                                    className="rounded-xl border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900/60"
+                                    className="overflow-hidden rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800/80 dark:bg-zinc-900/60"
                                   >
-                                    <div className="flex items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50/70 px-4 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-800/40">
+                                    <div className="flex items-center justify-between gap-2 border-b border-[#D5E3DF] bg-[#F2F7F5] px-4 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-800/40">
                                       <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                                        <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                                           {TASK_GROUP_LABELS[groupKey]}
                                         </span>
                                         {isDeptManager && groupKey === 'MANAGER' && selectedRecord.status === 'IN_PROGRESS' && (
                                           <Badge variant="teal">Phụ trách đánh giá</Badge>
                                         )}
                                       </div>
-                                      <span className="font-mono text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-400">
+                                      <span className="font-mono text-xs font-semibold tabular-nums text-[#415A54] dark:text-zinc-400">
                                         {groupDone}/{groupItems.length}
                                       </span>
                                     </div>
 
-                                    <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                                    <div className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                                       {groupItems.map((item) => (
                                         <button
                                           key={item.id}
@@ -1283,18 +1299,18 @@ export function OnboardingView() {
                                             )
                                           }
                                           className={cn(
-                                            'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-700/30',
+                                            'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0F766E]/30',
                                             canToggleGroup
-                                              ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                                              : 'cursor-default opacity-80'
+                                              ? 'cursor-pointer hover:bg-[#E8F3EF] dark:hover:bg-zinc-800/50'
+                                              : 'cursor-default opacity-85'
                                           )}
                                         >
                                           <span
                                             className={cn(
                                               'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
                                               item.completed
-                                                ? 'border-teal-700 bg-teal-700 text-white dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950'
-                                                : 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'
+                                                ? 'border-[#0F766E] bg-[#0F766E] text-white dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950'
+                                                : 'border-[#5C7871] bg-[#FCFEFD] dark:border-zinc-600 dark:bg-zinc-900'
                                             )}
                                           >
                                             {item.completed && (
@@ -1307,16 +1323,16 @@ export function OnboardingView() {
                                               className={cn(
                                                 'text-sm',
                                                 item.completed
-                                                  ? 'text-zinc-500 line-through dark:text-zinc-400'
-                                                  : 'font-medium text-zinc-900 dark:text-zinc-100'
+                                                  ? 'text-[#5C7871] line-through dark:text-zinc-400'
+                                                  : 'font-medium text-[#11221E] dark:text-zinc-100'
                                               )}
                                             >
                                               {item.title}
                                             </div>
-                                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[#415A54] dark:text-zinc-400">
                                               <span>Đầu mối: {item.assignee_role_label}</span>
                                               {item.completed && item.completed_by && (
-                                                <span className="font-mono text-[11px] tabular-nums text-teal-700 dark:text-teal-400">
+                                                <span className="font-mono text-[11px] tabular-nums text-[#0F766E] dark:text-teal-400">
                                                   Xác nhận: {item.completed_by}
                                                   {item.completed_at
                                                     ? ` · ${formatDateVN(item.completed_at)}`
@@ -1334,9 +1350,9 @@ export function OnboardingView() {
                             </div>
 
                             {/* Attached Assets Summary inside Detail */}
-                            <div className="rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
+                            <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800/80 dark:bg-transparent">
                               <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                                <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                                   Thiết bị đính kèm ({selectedRecordAssets.length})
                                 </span>
                                 <button
@@ -1347,14 +1363,14 @@ export function OnboardingView() {
                                     setAssetCategoryFilter('ALL');
                                     setAssetStatusFilter('ALL');
                                   }}
-                                  className="text-xs font-medium text-teal-700 transition-colors hover:underline dark:text-teal-400"
+                                  className="text-xs font-medium text-[#0F766E] transition-colors hover:underline dark:text-teal-400"
                                 >
                                   Mở trong kho tài sản
                                 </button>
                               </div>
 
                               {selectedRecordAssets.length === 0 ? (
-                                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                <p className="mt-2 text-xs text-[#5C7871] dark:text-zinc-400">
                                   Chưa có thiết bị nào được gán cho mã {selectedRecord.employee_code}
                                 </p>
                               ) : (
@@ -1362,14 +1378,14 @@ export function OnboardingView() {
                                   {selectedRecordAssets.map((asset) => (
                                     <div
                                       key={asset.id}
-                                      className="flex items-center gap-2.5 rounded-lg border border-zinc-200/80 bg-zinc-50/70 px-3 py-2 text-xs dark:border-zinc-800/80 dark:bg-zinc-800/40"
+                                      className="flex items-center gap-2.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-xs dark:border-zinc-800/80 dark:bg-zinc-800/40"
                                     >
                                       {renderCategoryIcon(asset.category)}
                                       <div className="min-w-0 flex-1">
-                                        <div className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                                        <div className="truncate font-medium text-[#11221E] dark:text-zinc-100">
                                           {asset.name}
                                         </div>
-                                        <div className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                        <div className="font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
                                           {asset.asset_code} · S/N: {asset.serial_number}
                                         </div>
                                       </div>
@@ -1396,7 +1412,7 @@ export function OnboardingView() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="relative sm:col-span-2">
                   <Search
-                    className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400"
+                    className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
                     strokeWidth={1.5}
                   />
                   <Input
@@ -1435,8 +1451,8 @@ export function OnboardingView() {
               </div>
 
               {hasActiveAssetFilters && (
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-2.5 text-xs dark:border-zinc-800/80">
-                  <div className="flex flex-wrap items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#D5E3DF] pt-2.5 text-xs dark:border-zinc-800/80">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[#415A54] dark:text-zinc-400">
                     <span>Đang lọc:</span>
                     {assetSearch.trim() && (
                       <Badge variant="secondary" className="font-mono text-[11px]">
@@ -1461,7 +1477,7 @@ export function OnboardingView() {
                       setAssetCategoryFilter('ALL');
                       setAssetStatusFilter('ALL');
                     }}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 transition-colors hover:underline dark:text-teal-400"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] transition-colors hover:underline dark:text-teal-400"
                   >
                     <X className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Xóa bộ lọc
@@ -1471,12 +1487,12 @@ export function OnboardingView() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                    <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                       <th className="whitespace-nowrap px-4 py-3">Mã tài sản</th>
                       <th className="px-4 py-3">Thiết bị</th>
                       <th className="whitespace-nowrap px-4 py-3">Phân loại</th>
@@ -1487,12 +1503,12 @@ export function OnboardingView() {
                       <th className="whitespace-nowrap px-4 py-3 text-right">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
+                  <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/80">
                     {filteredAssets.length === 0 ? (
-                      <tr>
+                      <tr className="bg-[#FCFEFD] dark:bg-transparent">
                         <td
                           colSpan={8}
-                          className="px-5 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
+                          className="px-5 py-12 text-center text-sm text-[#415A54] dark:text-zinc-400"
                         >
                           <div>
                             {isEmployee
@@ -1522,21 +1538,21 @@ export function OnboardingView() {
                         return (
                           <tr
                             key={asset.id}
-                            className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
+                            className="transition-colors odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                           >
-                            <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium tabular-nums text-teal-700 dark:text-teal-400">
+                            <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium tabular-nums text-[#0F766E] dark:text-teal-400">
                               {asset.asset_code}
                             </td>
-                            <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                            <td className="px-4 py-3 font-semibold text-[#11221E] dark:text-zinc-100">
                               <div className="flex items-center gap-2">
                                 {renderCategoryIcon(asset.category)}
                                 <span>{asset.name}</span>
                               </div>
                             </td>
-                            <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
+                            <td className="whitespace-nowrap px-4 py-3 text-xs text-[#415A54] dark:text-zinc-400">
                               {catMeta.shortLabel}
                             </td>
-                            <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                            <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                               {asset.serial_number}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3">
@@ -1545,10 +1561,10 @@ export function OnboardingView() {
                             <td className="px-4 py-3 text-xs">
                               {asset.status === 'ASSIGNED' && asset.assigned_to_code ? (
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                                  <span className="font-semibold text-[#11221E] dark:text-zinc-100">
                                     {asset.assigned_to_name}
                                   </span>
-                                  <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                  <span className="font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
                                     ({asset.assigned_to_code}
                                     {asset.assigned_at
                                       ? ` · ${formatDateVN(asset.assigned_at)}`
@@ -1557,15 +1573,15 @@ export function OnboardingView() {
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-zinc-400 dark:text-zinc-500">—</span>
+                                <span className="text-[#5C7871] dark:text-zinc-500">—</span>
                               )}
                             </td>
-                            <td className="max-w-xs truncate px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400" title={asset.condition_note}>
+                            <td className="max-w-xs truncate px-4 py-3 text-xs text-[#415A54] dark:text-zinc-400" title={asset.condition_note}>
                               {asset.condition_note}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 text-right">
                               {!canManageAll ? (
-                                <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                                <span className="text-xs text-[#5C7871] dark:text-zinc-500">
                                   Chỉ xem
                                 </span>
                               ) : asset.status === 'AVAILABLE' ? (
@@ -1626,7 +1642,7 @@ export function OnboardingView() {
               <div>
                 <label
                   htmlFor="new-asset-code"
-                  className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Mã tài sản *
                 </label>
@@ -1643,7 +1659,7 @@ export function OnboardingView() {
               <div>
                 <label
                   htmlFor="new-asset-category"
-                  className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Loại tài sản *
                 </label>
@@ -1668,7 +1684,7 @@ export function OnboardingView() {
             <div>
               <label
                 htmlFor="new-asset-name"
-                className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Tên thiết bị / quy cách *
               </label>
@@ -1685,7 +1701,7 @@ export function OnboardingView() {
               <div>
                 <label
                   htmlFor="new-asset-serial"
-                  className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Số Serial / Mã định danh *
                 </label>
@@ -1702,7 +1718,7 @@ export function OnboardingView() {
               <div>
                 <label
                   htmlFor="new-asset-status"
-                  className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                  className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
                   Trạng thái nhập kho
                 </label>
@@ -1721,7 +1737,7 @@ export function OnboardingView() {
             <div>
               <label
                 htmlFor="new-asset-note"
-                className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
               >
                 Ghi chú tình trạng thiết bị
               </label>
@@ -1767,19 +1783,19 @@ export function OnboardingView() {
               </DialogHeader>
 
               <form onSubmit={handleConfirmAssign} className="mt-4 space-y-4">
-                <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-3.5 text-xs dark:border-zinc-800/80 dark:bg-zinc-900/60">
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-3.5 text-xs dark:border-zinc-800/80 dark:bg-zinc-900/60">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                    <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                       {assignTargetAsset.asset_code}
                     </span>
                     <Badge variant="secondary">
                       {ASSET_CATEGORY_META[assignTargetAsset.category].shortLabel}
                     </Badge>
                   </div>
-                  <div className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="mt-1 text-sm font-medium text-[#11221E] dark:text-zinc-100">
                     {assignTargetAsset.name}
                   </div>
-                  <div className="mt-0.5 font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                     S/N: {assignTargetAsset.serial_number} · {assignTargetAsset.condition_note}
                   </div>
                 </div>
@@ -1787,7 +1803,7 @@ export function OnboardingView() {
                 <div>
                   <label
                     htmlFor="assign-emp-select"
-                    className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
                     Nhân viên tiếp nhận *
                   </label>
@@ -1805,7 +1821,7 @@ export function OnboardingView() {
                 <div>
                   <label
                     htmlFor="assign-date-input"
-                    className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
                     Ngày bàn giao *
                   </label>
@@ -1859,9 +1875,9 @@ export function OnboardingView() {
                   <div className="font-mono font-semibold tabular-nums text-amber-800 dark:text-amber-300">
                     {revokeTargetAsset.asset_code} — {revokeTargetAsset.name}
                   </div>
-                  <div className="mt-1 text-zinc-700 dark:text-zinc-300">
+                  <div className="mt-1 text-[#11221E] dark:text-zinc-300">
                     Người đang giữ:{' '}
-                    <span className="font-medium">
+                    <span className="font-semibold">
                       {revokeTargetAsset.assigned_to_name ?? 'Không xác định'}
                     </span>{' '}
                     {revokeTargetAsset.assigned_to_code && (
@@ -1870,7 +1886,7 @@ export function OnboardingView() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-0.5 font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                     S/N: {revokeTargetAsset.serial_number}
                   </div>
                 </div>
@@ -1878,7 +1894,7 @@ export function OnboardingView() {
                 <div>
                   <label
                     htmlFor="revoke-condition-note"
-                    className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
                     Ghi chú tình trạng thiết bị khi thu hồi *
                   </label>

@@ -47,8 +47,8 @@ import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function formatVnd(amount: number, masked: boolean): string {
-  if (masked) return '••• ••• ••• đ';
-  return `${new Intl.NumberFormat('vi-VN').format(amount)} đ`;
+  if (masked) return '•••\u00A0•••\u00A0•••\u00A0đ';
+  return `${new Intl.NumberFormat('vi-VN').format(amount)}\u00A0đ`;
 }
 
 function formatTimeNow(date: Date): string {
@@ -398,7 +398,7 @@ export function PayslipSelfView() {
           <CardContent className="space-y-5 pt-5">
             {/* Net Salary Highlight */}
             <div className="flex flex-col justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-4 dark:border-emerald-400/20 dark:bg-emerald-950/20 sm:flex-row sm:items-center">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
                   Thực lĩnh chuyển khoản (Net Salary)
                 </p>
@@ -407,57 +407,57 @@ export function PayslipSelfView() {
                   <span className="font-mono tabular-nums">{payslip.bank_account_no}</span>
                 </p>
               </div>
-              <p className="font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <p className="shrink-0 whitespace-nowrap text-right font-mono text-xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400 xl:text-2xl">
                 {formatVnd(payslip.net_salary_vnd, maskSalary)}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:gap-4">
               {/* Income */}
-              <div className="space-y-2.5 rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
+              <div className="space-y-2.5 rounded-xl border border-zinc-200/80 p-3 dark:border-zinc-800/80 xl:p-4">
                 <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                   Các khoản thu nhập
                 </p>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 text-xs xl:text-sm">
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Lương cơ bản</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Lương cơ bản</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.prorated_base_salary_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Phụ cấp ăn trưa</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Phụ cấp ăn trưa</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.allowance_meal_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Phụ cấp đi lại</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Phụ cấp đi lại</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.allowance_transport_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Phụ cấp chức vụ</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Phụ cấp chức vụ</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.allowance_position_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Lương tăng ca (OT)</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Lương tăng ca (OT)</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.overtime_pay_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Thưởng KPI</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Thưởng KPI</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.kpi_bonus_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2 border-t border-zinc-200/80 pt-2 font-medium dark:border-zinc-800/80">
-                    <span className="text-zinc-900 dark:text-zinc-100">Tổng thu nhập (Gross)</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-900 dark:text-zinc-100">Tổng thu nhập (Gross)</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       {formatVnd(payslip.gross_salary_vnd, maskSalary)}
                     </span>
                   </div>
@@ -465,38 +465,38 @@ export function PayslipSelfView() {
               </div>
 
               {/* Deductions */}
-              <div className="space-y-2.5 rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
+              <div className="space-y-2.5 rounded-xl border border-zinc-200/80 p-3 dark:border-zinc-800/80 xl:p-4">
                 <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                   Các khoản khấu trừ
                 </p>
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 text-xs xl:text-sm">
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">BHXH (8.0%)</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">BHXH (8.0%)</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       -{formatVnd(payslip.bhxh_employee_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">BHYT (1.5%)</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">BHYT (1.5%)</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       -{formatVnd(payslip.bhyt_employee_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">BHTN (1.0%)</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">BHTN (1.0%)</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       -{formatVnd(payslip.bhtn_employee_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-zinc-600 dark:text-zinc-400">Thuế TNCN</span>
-                    <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <span className="min-w-0 text-zinc-600 dark:text-zinc-400">Thuế TNCN</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
                       -{formatVnd(payslip.pit_tax_vnd, maskSalary)}
                     </span>
                   </div>
                   <div className="flex justify-between gap-2 border-t border-zinc-200/80 pt-2 text-xs text-zinc-500 dark:border-zinc-800/80 dark:text-zinc-400">
-                    <span>Giảm trừ bản thân + {payslip.dependents_count} NPT</span>
-                    <span className="font-mono tabular-nums">
+                    <span className="min-w-0">Giảm trừ bản thân + {payslip.dependents_count} NPT</span>
+                    <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums">
                       {formatVnd(
                         payslip.personal_deduction_vnd + payslip.dependent_deduction_vnd,
                         maskSalary
@@ -537,48 +537,66 @@ export function PayslipSelfView() {
 
             <div className="space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Phòng ban</span>
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="shrink-0 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  Phòng ban
+                </span>
+                <span
+                  className="min-w-0 truncate text-right font-medium text-zinc-900 dark:text-zinc-100"
+                  title={employee.department_name}
+                >
                   {employee.department_name}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  <Mail className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
                   Email công ty
                 </span>
-                <span className="text-zinc-800 dark:text-zinc-200">{employee.email}</span>
+                <span
+                  className="min-w-0 truncate text-right text-zinc-800 dark:text-zinc-200"
+                  title={employee.email}
+                >
+                  {employee.email}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  <Phone className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
                   Số điện thoại
                 </span>
-                <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                <span className="min-w-0 truncate text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                   {employee.phone}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Quản lý trực tiếp</span>
-                <span className="text-zinc-800 dark:text-zinc-200">
+                <span className="shrink-0 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  Quản lý trực tiếp
+                </span>
+                <span className="min-w-0 truncate text-right text-zinc-800 dark:text-zinc-200">
                   {employee.manager_name ?? 'Ban Điều hành'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Mã số thuế TNCN</span>
-                <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                <span className="shrink-0 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  Mã số thuế TNCN
+                </span>
+                <span className="min-w-0 truncate text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                   {employee.tax_code}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Số sổ BHXH</span>
-                <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                <span className="shrink-0 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  Số sổ BHXH
+                </span>
+                <span className="min-w-0 truncate text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                   {employee.social_insurance_no}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Ngày vào làm</span>
-                <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+                <span className="shrink-0 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
+                  Ngày vào làm
+                </span>
+                <span className="min-w-0 truncate text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
                   {employee.join_date}
                 </span>
               </div>

@@ -4,12 +4,23 @@
 
 @layer base {
   :root {
-    --bg-canvas: #FAFAFA;
-    --bg-card: #FFFFFF;
-    --text-primary: #18181B;
-    --text-secondary: #52525B;
-    --text-muted: #71717A;
-    --border-hairline: rgba(228, 228, 231, 0.8);
+    --bg-canvas: #EFF5F3;
+    --bg-sidebar: #E4EEEB;
+    --bg-surface: #FCFEFD;
+    --bg-table-head: #F2F7F5;
+    --bg-row-alt: #F5FAF8;
+    --bg-row-hover: #E8F3EF;
+    --border-subtle: #D5E3DF;
+    --border-strong: #C6D9D3;
+    --text-primary: #11221E;
+    --text-secondary: #415A54;
+    --text-muted: #5C7871;
+    --brand-primary: #0F766E;
+    --brand-primary-hover: #0D5F58;
+    --nav-active-bg: #CBE8E2;
+    --nav-active-text: #0B4F4A;
+    --bg-card: #FCFEFD;
+    --border-hairline: #C6D9D3;
     --accent-primary: #0F766E;
   }
 
@@ -33,16 +44,74 @@
     background-color: var(--bg-canvas);
     color: var(--text-primary);
   }
+
+  html:not(.dark) body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+  }
+}
+
+/* Soft Sage Light Mode System-Wide Synchronization (does not affect .dark) */
+html:not(.dark) table thead,
+html:not(.dark) table thead tr {
+  background-color: var(--bg-table-head);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+html:not(.dark) table thead th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+html:not(.dark) table tbody tr:nth-child(odd) {
+  background-color: var(--bg-surface);
+}
+
+html:not(.dark) table tbody tr:nth-child(even) {
+  background-color: var(--bg-row-alt);
+}
+
+html:not(.dark) table tbody tr:hover {
+  background-color: var(--bg-row-hover);
+}
+
+html:not(.dark) table tbody > tr + tr {
+  border-top-color: var(--border-subtle);
+}
+
+html:not(.dark) table tbody td {
+  border-color: var(--border-subtle);
+}
+
+html:not(.dark) .text-zinc-400,
+html:not(.dark) .text-zinc-500 {
+  color: #5C7871;
+}
+
+html:not(.dark) .text-zinc-600,
+html:not(.dark) .text-zinc-700 {
+  color: #415A54;
+}
+
+html:not(.dark) .text-zinc-800,
+html:not(.dark) .text-zinc-900,
+html:not(.dark) .text-zinc-950 {
+  color: #11221E;
+}
+
+html:not(.dark) .placeholder\:text-zinc-400::placeholder,
+html:not(.dark) .placeholder\:text-zinc-500::placeholder {
+  color: #5C7871;
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Thin, unobtrusive scrollbars for Light & Dark modes */
+/* Thin, unobtrusive scrollbars for Soft Sage Light & Dark modes */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
+  scrollbar-color: rgba(92, 120, 113, 0.36) transparent;
 }
 
 .dark * {
@@ -59,12 +128,12 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(113, 113, 122, 0.35);
+  background-color: rgba(92, 120, 113, 0.36);
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(113, 113, 122, 0.55);
+  background-color: rgba(92, 120, 113, 0.56);
 }
 
 .dark *::-webkit-scrollbar-thumb {

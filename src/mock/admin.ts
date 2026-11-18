@@ -50,7 +50,7 @@ export const MOCK_ROLES: RoleDefinition[] = [
   {
     role_code: 'EMPLOYEE',
     role_name: 'Nhân viên (Employee Self-Service)',
-    description: 'Tra cứu hồ sơ cá nhân, bảng công, phiếu lương chi tiết, tạo đơn xin nghỉ phép/OT và hỏi đáp chế độ qua AI HR Copilot.',
+    description: 'Tra cứu hồ sơ cá nhân, bảng công, phiếu lương chi tiết và tạo đơn xin nghỉ phép/OT.',
     users_count: 90,
     default_employee_code: 'NV-2024-004',
     default_user_name: 'Phạm Minh Tuấn',
@@ -316,7 +316,7 @@ export const MOCK_AUDIT_LOGS: AuditLogEntry[] = [
     module: 'TIME_ATTENDANCE',
     target_entity: 'REQ-202611-084',
     status: 'SUCCESS',
-    detail: 'Khởi tạo đơn xin nghỉ phép năm 2 ngày (23/11/2026 - 24/11/2026) qua trợ lý AI HR Copilot.',
+    detail: 'Khởi tạo đơn xin nghỉ phép năm 2 ngày (23/11/2026 - 24/11/2026) qua cổng tự phục vụ nhân viên (ESS).',
   },
   {
     id: 'log-002',

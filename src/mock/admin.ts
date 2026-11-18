@@ -18,6 +18,16 @@ export const MOCK_ROLES: RoleDefinition[] = [
     default_department: 'Ban Điều hành',
   },
   {
+    role_code: 'DIRECTOR',
+    role_name: 'Giám đốc Điều hành (Director)',
+    description: 'Xem toàn cảnh điều hành nhân sự, quỹ lương, KPI và phê duyệt Cấp 3 các đơn nghỉ phép dài ngày, nghỉ không lương hoặc công tác nước ngoài.',
+    users_count: 1,
+    default_employee_code: 'NV-2024-000',
+    default_user_name: 'Trần Quốc Việt',
+    default_user_title: 'Giám đốc Điều hành',
+    default_department: 'Ban Điều hành',
+  },
+  {
     role_code: 'HR_MANAGER',
     role_name: 'Trưởng phòng Nhân sự (HR Manager)',
     description: 'Quản trị tổng thể hồ sơ nhân sự, hợp đồng, tuyển dụng AI ATS, chấm công, chốt bảng lương và theo dõi rủi ro nghỉ việc.',
@@ -50,6 +60,20 @@ export const MOCK_ROLES: RoleDefinition[] = [
 ];
 
 export const MOCK_SYSTEM_USERS: SystemUserAccount[] = [
+  {
+    id: 'usr-000',
+    user_code: 'USR-000',
+    employee_code: 'NV-2024-000',
+    full_name: 'Trần Quốc Việt',
+    email: 'viet.tran@hrm-enterprise.vn',
+    department_name: 'Ban Điều hành',
+    position_name: 'Giám đốc Điều hành',
+    role_code: 'DIRECTOR',
+    mfa_enabled: true,
+    account_status: 'ACTIVE',
+    last_login_at: '2026-11-17T08:10:00+07:00',
+    last_login_ip: '118.69.72.10',
+  },
   {
     id: 'usr-001',
     user_code: 'USR-001',
@@ -143,6 +167,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     category: 'Quản trị cốt lõi',
     permissions: {
       SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
+      DIRECTOR: { view: true, create: false, edit: false, approve: true, delete: false, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: false, edit: false, approve: false, delete: false, export: true },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
@@ -154,6 +179,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     category: 'Quản trị cốt lõi',
     permissions: {
       SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
+      DIRECTOR: { view: true, create: false, edit: false, approve: true, delete: false, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: true, create: false, edit: false, approve: false, delete: false, export: false },
@@ -165,6 +191,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     category: 'Quản trị cốt lõi',
     permissions: {
       SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
+      DIRECTOR: { view: true, create: false, edit: false, approve: true, delete: false, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
       DEPT_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: false },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
@@ -176,6 +203,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     category: 'Vận hành',
     permissions: {
       SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
+      DIRECTOR: { view: true, create: true, edit: false, approve: true, delete: false, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: true, edit: false, approve: true, delete: false, export: true },
       EMPLOYEE: { view: true, create: true, edit: true, approve: false, delete: false, export: false },
@@ -187,6 +215,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     category: 'Vận hành',
     permissions: {
       SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
+      DIRECTOR: { view: true, create: false, edit: false, approve: true, delete: false, export: true },
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: true, create: false, edit: false, approve: false, delete: false, export: true },
@@ -198,6 +227,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
     category: 'Hệ thống',
     permissions: {
       SUPER_ADMIN: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
+      DIRECTOR: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       HR_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       DEPT_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },

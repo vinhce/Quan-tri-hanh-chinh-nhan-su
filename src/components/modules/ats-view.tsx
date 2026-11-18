@@ -1,27 +1,44 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
   Briefcase,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Cpu,
+  Laptop,
   MessageSquareText,
   Plus,
   RefreshCw,
   Users,
 } from 'lucide-react';
-import { useApp } from '@/context/app-context';
+import { ROLE_DEFAULT_PROFILES, useApp } from '@/context/app-context';
+import { recordAuditLog } from '@/lib/audit-logger';
 import { AtsKanbanStageItem, fetchAtsMock, fetchEmployeesMock } from '@/lib/mock-fetcher';
-import { cn, formatDateVN, formatVND } from '@/lib/utils';
+import {
+  generateNextEmployeeCode,
+  getCompanyAssets,
+  getOnboardingRecords,
+  HRM_RUNTIME_EVENT,
+  initiateCandidateOnboarding,
+  mergeWithRuntimeCandidates,
+  mergeWithRuntimeEmployees,
+  saveRuntimeCandidate,
+} from '@/lib/runtime-store';
+import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import type {
+  AssetCategory,
   AtsStage,
   Candidate,
   CandidateAiEvaluation,
+  CompanyAsset,
   Department,
+  Employee,
   JobPosting,
 } from '@/mock/types';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
@@ -55,18 +72,79 @@ const AI_REC_BADGE: Record<
   REJECT: { label: 'Chưa phù hợp', variant: 'danger' },
 };
 
+const ASSET_CATEGORY_SHORT: Record<AssetCategory, string> = {
+  LAPTOP: 'Laptop',
+  MONITOR: 'Màn hình',
+  ACCESS_CARD: 'Thẻ từ',
+  PERIPHERAL: 'Ngoại vi',
+};
+
+function stripVietnameseAccents(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim();
+}
+
+function suggestCorporateEmail(fullName: string, existingEmployees: Employee[]): string {
+  const tokens = stripVietnameseAccents(fullName).split(/\s+/).filter(Boolean);
+  const baseLocal =
+    tokens.length === 0
+      ? 'nhansu.moi'
+      : tokens.length === 1
+      ? tokens[0]
+      : `${tokens[tokens.length - 1]}.${tokens[0]}`;
+
+  const taken = new Set(existingEmployees.map((e) => e.email.toLowerCase()));
+  let candidateEmail = `${baseLocal}@lacviethrm.vn`;
+  let counter = 2;
+  while (taken.has(candidateEmail.toLowerCase())) {
+    candidateEmail = `${baseLocal}${counter}@lacviethrm.vn`;
+    counter += 1;
+  }
+  return candidateEmail;
+}
+
 export function AtsView() {
-  const { role, showToast } = useApp();
+  const { role, currentUserProfile, showToast, navigateWithIntent } = useApp();
   const hideSalary = role === 'DEPT_MANAGER';
+  const defaultProfile = ROLE_DEFAULT_PROFILES[role];
+  const actorName = currentUserProfile?.fullName || defaultProfile.fullName;
+  const actorCode = currentUserProfile?.employee_code || defaultProfile.employee_code;
+
+  const baseCandidatesRef = useRef<Candidate[]>([]);
+  const baseEmployeesRef = useRef<Employee[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [kanbanStages, setKanbanStages] = useState<AtsKanbanStageItem[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string>('ALL');
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
+
+  // Onboarding initiation dialog state
+  const [onboardingCandidate, setOnboardingCandidate] = useState<Candidate | null>(null);
+  const [onbPosition, setOnbPosition] = useState<string>('');
+  const [onbEmpCode, setOnbEmpCode] = useState<string>('');
+  const [onbEmail, setOnbEmail] = useState<string>('');
+  const [onbDeptId, setOnbDeptId] = useState<string>('dept-tech-swe');
+  const [onbManagerName, setOnbManagerName] = useState<string>('');
+  const [onbStartDate, setOnbStartDate] = useState<string>('2026-11-23');
+  const [onbSalary, setOnbSalary] = useState<string>('22000000');
+  const [availableAssets, setAvailableAssets] = useState<CompanyAsset[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [lastCreatedOnboarding, setLastCreatedOnboarding] = useState<{
+    onboardingId: string;
+    employeeCode: string;
+    fullName: string;
+  } | null>(null);
 
   // New Job form state
   const [newJobTitle, setNewJobTitle] = useState('');
@@ -76,14 +154,26 @@ export function AtsView() {
   const [newJobClosingDate, setNewJobClosingDate] = useState('2026-12-30');
   const [newJobUrgent, setNewJobUrgent] = useState<'OPEN' | 'URGENT'>('OPEN');
 
+  const syncRuntimeData = useCallback(() => {
+    if (baseCandidatesRef.current.length > 0) {
+      setCandidates(mergeWithRuntimeCandidates(baseCandidatesRef.current));
+    }
+    if (baseEmployeesRef.current.length > 0) {
+      setEmployees(mergeWithRuntimeEmployees(baseEmployeesRef.current));
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     Promise.all([fetchAtsMock(), fetchEmployeesMock()])
       .then(([atsData, empData]) => {
         if (!active) return;
+        baseCandidatesRef.current = atsData.MOCK_CANDIDATES;
+        baseEmployeesRef.current = empData.MOCK_EMPLOYEES;
         setKanbanStages(atsData.ATS_KANBAN_STAGES);
         setJobs(atsData.MOCK_JOB_POSTINGS);
-        setCandidates(atsData.MOCK_CANDIDATES);
+        setCandidates(mergeWithRuntimeCandidates(atsData.MOCK_CANDIDATES));
+        setEmployees(mergeWithRuntimeEmployees(empData.MOCK_EMPLOYEES));
         setDepartments(empData.MOCK_DEPARTMENTS);
         if (empData.MOCK_DEPARTMENTS[2]?.id) {
           setNewJobDeptId(empData.MOCK_DEPARTMENTS[2].id);
@@ -101,6 +191,15 @@ export function AtsView() {
     };
   }, [showToast]);
 
+  useEffect(() => {
+    window.addEventListener(HRM_RUNTIME_EVENT, syncRuntimeData);
+    window.addEventListener('storage', syncRuntimeData);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncRuntimeData);
+      window.removeEventListener('storage', syncRuntimeData);
+    };
+  }, [syncRuntimeData]);
+
   const stageOrder = useMemo(() => kanbanStages.map((s) => s.stage), [kanbanStages]);
 
   const filteredCandidates = useMemo(() => {
@@ -108,13 +207,139 @@ export function AtsView() {
     return candidates.filter((c) => c.job_id === selectedJobId);
   }, [candidates, selectedJobId]);
 
+  const openOnboardingInitDialog = (candidate: Candidate) => {
+    const currentMergedEmployees = mergeWithRuntimeEmployees(
+      baseEmployeesRef.current.length > 0 ? baseEmployeesRef.current : employees
+    );
+    setEmployees(currentMergedEmployees);
+
+    const matchedJob = jobs.find((j) => j.id === candidate.job_id);
+    const matchedDept =
+      departments.find(
+        (d) =>
+          (matchedJob && d.id === matchedJob.department_id) ||
+          d.department_name === candidate.department_name
+      ) ?? departments[0];
+
+    const suggestedCode = generateNextEmployeeCode(currentMergedEmployees);
+    const suggestedEmail = suggestCorporateEmail(candidate.full_name, currentMergedEmployees);
+    const suggestedProbationSalary =
+      Math.round((candidate.expected_salary_vnd * 0.85) / 100000) * 100000;
+
+    const currentAvailableAssets = getCompanyAssets().filter((a) => a.status === 'AVAILABLE');
+    const preselectedLaptop = currentAvailableAssets.find((a) => a.category === 'LAPTOP');
+
+    setOnboardingCandidate(candidate);
+    setOnbPosition(candidate.job_title);
+    setOnbEmpCode(suggestedCode);
+    setOnbEmail(suggestedEmail);
+    setOnbDeptId(matchedDept?.id ?? 'dept-tech-swe');
+    setOnbManagerName(
+      matchedJob?.hiring_manager_name || matchedDept?.manager_name || 'Lê Hoàng Nam'
+    );
+    setOnbStartDate('2026-11-23');
+    setOnbSalary(String(suggestedProbationSalary || 22000000));
+    setAvailableAssets(currentAvailableAssets);
+    setSelectedAssetIds(preselectedLaptop ? [preselectedLaptop.id] : []);
+  };
+
+  const handleOnbDeptChange = (nextDeptId: string) => {
+    setOnbDeptId(nextDeptId);
+    const dept = departments.find((d) => d.id === nextDeptId);
+    if (dept) {
+      setOnbManagerName(dept.manager_name);
+    }
+  };
+
+  const toggleAssetSelection = (assetId: string) => {
+    setSelectedAssetIds((prev) =>
+      prev.includes(assetId) ? prev.filter((id) => id !== assetId) : [...prev, assetId]
+    );
+  };
+
+  const handleConfirmInitiateOnboarding = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onboardingCandidate) return;
+
+    const trimmedCode = onbEmpCode.trim().toUpperCase();
+    const trimmedEmail = onbEmail.trim();
+    if (!trimmedCode || !trimmedEmail) {
+      showToast(
+        'Thiếu thông tin tiếp nhận',
+        'Vui lòng kiểm tra mã nhân viên và địa chỉ email công ty.',
+        'warning'
+      );
+      return;
+    }
+
+    const targetDept =
+      departments.find((d) => d.id === onbDeptId) ??
+      departments[0] ?? {
+        id: 'dept-tech-swe',
+        department_name: onboardingCandidate.department_name,
+        manager_name: 'Lê Hoàng Nam',
+      };
+
+    const result = initiateCandidateOnboarding({
+      candidate: onboardingCandidate,
+      employeeCode: trimmedCode,
+      email: trimmedEmail,
+      departmentId: targetDept.id,
+      departmentName: targetDept.department_name,
+      positionName: onbPosition.trim() || onboardingCandidate.job_title,
+      managerName: onbManagerName.trim() || targetDept.manager_name,
+      startDate: onbStartDate || '2026-11-23',
+      baseSalaryVnd: Number(onbSalary) || onboardingCandidate.expected_salary_vnd,
+      assetIds: selectedAssetIds,
+      actorName,
+    });
+
+    recordAuditLog({
+      actor_name: actorName,
+      actor_code: actorCode,
+      actor_role: role,
+      action: 'UPDATE_CONTRACT',
+      module: 'Tuyển dụng & AI CV',
+      target: `${result.onboarding.id} (${result.employee.employee_code} - ${onboardingCandidate.full_name})`,
+      detail: `Chuyển ứng viên ${onboardingCandidate.candidate_code} sang Onboarding tại ${targetDept.department_name}, cấp phát ${selectedAssetIds.length} thiết bị.`,
+      status: 'SUCCESS',
+    });
+
+    setCandidates((prev) =>
+      prev.map((c) =>
+        c.id === onboardingCandidate.id ? { ...c, stage: 'ONBOARDED' } : c
+      )
+    );
+    setSelectedCandidate(null);
+    setOnboardingCandidate(null);
+    setLastCreatedOnboarding({
+      onboardingId: result.onboarding.id,
+      employeeCode: result.employee.employee_code,
+      fullName: result.employee.full_name,
+    });
+
+    showToast(
+      `Đã khởi tạo Onboarding ${result.onboarding.id}`,
+      `${result.employee.full_name} (${result.employee.employee_code}) đã đồng bộ sang Core HR và mở lộ trình hội nhập.`,
+      'success'
+    );
+  };
+
   const handleMoveStage = (candidate: Candidate, targetStage: AtsStage) => {
+    if (targetStage === 'ONBOARDED') {
+      openOnboardingInitDialog(candidate);
+      return;
+    }
+
+    const updatedCandidate: Candidate = { ...candidate, stage: targetStage };
+    saveRuntimeCandidate(updatedCandidate);
+
     const stageMeta = kanbanStages.find((s) => s.stage === targetStage);
     setCandidates((prev) =>
-      prev.map((c) => (c.id === candidate.id ? { ...c, stage: targetStage } : c))
+      prev.map((c) => (c.id === candidate.id ? updatedCandidate : c))
     );
     setSelectedCandidate((prev) =>
-      prev && prev.id === candidate.id ? { ...prev, stage: targetStage } : prev
+      prev && prev.id === candidate.id ? updatedCandidate : prev
     );
     showToast(
       'Đã cập nhật trạng thái ứng viên',
@@ -144,11 +369,14 @@ export function AtsView() {
           : candidate.ai_evaluation.ai_recommendation,
     };
 
+    const updatedCandidate: Candidate = { ...candidate, ai_evaluation: updatedEval };
+    saveRuntimeCandidate(updatedCandidate);
+
     setCandidates((prev) =>
-      prev.map((c) => (c.id === candidate.id ? { ...c, ai_evaluation: updatedEval } : c))
+      prev.map((c) => (c.id === candidate.id ? updatedCandidate : c))
     );
     setSelectedCandidate((prev) =>
-      prev && prev.id === candidate.id ? { ...prev, ai_evaluation: updatedEval } : prev
+      prev && prev.id === candidate.id ? updatedCandidate : prev
     );
     showToast(
       'Đã chạy lại AI chấm điểm CV',
@@ -232,6 +460,34 @@ export function AtsView() {
           Tạo tin tuyển dụng
         </Button>
       </div>
+
+      {lastCreatedOnboarding && (
+        <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-zinc-700 dark:text-zinc-300">
+              Đã khởi tạo hồ sơ hội nhập{' '}
+              <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                {lastCreatedOnboarding.onboardingId}
+              </span>{' '}
+              cho <span className="font-medium">{lastCreatedOnboarding.fullName}</span> (mã NV:{' '}
+              <span className="font-mono tabular-nums">{lastCreatedOnboarding.employeeCode}</span>)
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                navigateWithIntent('onboarding', {
+                  subTab: 'progress',
+                  entityId: lastCreatedOnboarding.onboardingId,
+                })
+              }
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Mở tiến độ Onboarding
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Job Postings Section */}
       <div className="space-y-3">
@@ -557,7 +813,8 @@ export function AtsView() {
                   <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
                   Chạy lại AI chấm điểm
                 </Button>
-                {selectedCandidate.stage !== 'INTERVIEW' && (
+                {(selectedCandidate.stage === 'APPLIED' ||
+                  selectedCandidate.stage === 'AI_SCREENED') && (
                   <Button
                     variant="primary"
                     onClick={() => handleMoveStage(selectedCandidate, 'INTERVIEW')}
@@ -566,7 +823,286 @@ export function AtsView() {
                     <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
                   </Button>
                 )}
+                {(selectedCandidate.stage === 'INTERVIEW' ||
+                  selectedCandidate.stage === 'OFFER') && (
+                  <Button
+                    variant="primary"
+                    onClick={() => openOnboardingInitDialog(selectedCandidate)}
+                  >
+                    <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
+                    Chuyển sang Onboarding
+                  </Button>
+                )}
+                {selectedCandidate.stage === 'ONBOARDED' && (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      const matchedOnb = getOnboardingRecords().find(
+                        (r) =>
+                          r.candidate_id === selectedCandidate.id ||
+                          r.candidate_code === selectedCandidate.candidate_code
+                      );
+                      setSelectedCandidate(null);
+                      navigateWithIntent('onboarding', {
+                        subTab: 'progress',
+                        entityId: matchedOnb?.id ?? selectedCandidate.candidate_code,
+                      });
+                    }}
+                  >
+                    <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
+                    Xem hồ sơ Onboarding
+                  </Button>
+                )}
               </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Initiate Onboarding & Asset Assignment Dialog */}
+      <Dialog
+        open={Boolean(onboardingCandidate)}
+        onOpenChange={(open) => {
+          if (!open) setOnboardingCandidate(null);
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+          {onboardingCandidate && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Khởi tạo Onboarding &amp; Cấp phát tài sản</DialogTitle>
+                <DialogDescription>
+                  Tạo mã nhân viên chính thức trên Core HR, mở lộ trình hội nhập 8 hạng mục và bàn giao thiết bị công tác
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleConfirmInitiateOnboarding} className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="onb-cand-name"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Họ tên ứng viên
+                    </label>
+                    <Input
+                      id="onb-cand-name"
+                      value={`${onboardingCandidate.full_name} (${onboardingCandidate.candidate_code})`}
+                      readOnly
+                      className="bg-zinc-50 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="onb-emp-code"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Mã nhân viên tự sinh *
+                    </label>
+                    <Input
+                      id="onb-emp-code"
+                      value={onbEmpCode}
+                      onChange={(e) => setOnbEmpCode(e.target.value)}
+                      className="font-mono tabular-nums"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="onb-email"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Email công ty *
+                    </label>
+                    <Input
+                      id="onb-email"
+                      type="email"
+                      value={onbEmail}
+                      onChange={(e) => setOnbEmail(e.target.value)}
+                      className="font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="onb-position"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Chức danh tiếp nhận *
+                    </label>
+                    <Input
+                      id="onb-position"
+                      value={onbPosition}
+                      onChange={(e) => setOnbPosition(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="onb-dept"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Phòng ban tiếp nhận *
+                    </label>
+                    <Select
+                      id="onb-dept"
+                      value={onbDeptId}
+                      onValueChange={handleOnbDeptChange}
+                      options={departments.map((d) => ({
+                        label: d.department_name,
+                        value: d.id,
+                      }))}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="onb-manager"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Quản lý trực tiếp *
+                    </label>
+                    <Input
+                      id="onb-manager"
+                      value={onbManagerName}
+                      onChange={(e) => setOnbManagerName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className={cn('grid grid-cols-1 gap-3', !hideSalary && 'sm:grid-cols-2')}>
+                  <div>
+                    <label
+                      htmlFor="onb-start-date"
+                      className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      Ngày nhận việc *
+                    </label>
+                    <Input
+                      id="onb-start-date"
+                      type="date"
+                      value={onbStartDate}
+                      onChange={(e) => setOnbStartDate(e.target.value)}
+                      className="font-mono tabular-nums"
+                      required
+                    />
+                  </div>
+
+                  {!hideSalary && (
+                    <div>
+                      <label
+                        htmlFor="onb-probation-salary"
+                        className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                      >
+                        Mức lương thử việc gợi ý (VND) *
+                      </label>
+                      <Input
+                        id="onb-probation-salary"
+                        type="text"
+                        inputMode="numeric"
+                        value={onbSalary ? formatNumberVN(Number(onbSalary)) : ''}
+                        onChange={(e) => setOnbSalary(e.target.value.replace(/\D/g, ''))}
+                        className="font-mono tabular-nums"
+                        required
+                      />
+                      <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Đề xuất 85% mức kỳ vọng (
+                        <span className="font-mono tabular-nums">
+                          {formatVND(onboardingCandidate.expected_salary_vnd)}
+                        </span>
+                        )
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Available Assets Selection */}
+                <div className="rounded-xl border border-zinc-200/80 p-3.5 dark:border-zinc-800/80">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                      <Laptop className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+                      Cấp phát thiết bị sẵn sàng trong kho
+                    </span>
+                    <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                      Đã chọn: {selectedAssetIds.length}/{availableAssets.length}
+                    </span>
+                  </div>
+
+                  {availableAssets.length === 0 ? (
+                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      Hiện không còn thiết bị trống trong kho, có thể cấp phát bổ sung sau tại phân hệ Onboarding &amp; Tài sản
+                    </p>
+                  ) : (
+                    <div className="mt-2.5 max-h-48 space-y-2 overflow-y-auto pr-1">
+                      {availableAssets.map((asset) => {
+                        const checked = selectedAssetIds.includes(asset.id);
+                        return (
+                          <button
+                            key={asset.id}
+                            type="button"
+                            role="checkbox"
+                            aria-checked={checked}
+                            onClick={() => toggleAssetSelection(asset.id)}
+                            className={cn(
+                              'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-xs transition-colors',
+                              checked
+                                ? 'border-teal-700/50 bg-teal-50/60 dark:border-teal-400/50 dark:bg-teal-950/30'
+                                : 'border-zinc-200/80 bg-white hover:bg-zinc-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:hover:bg-zinc-800/60'
+                            )}
+                          >
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <span
+                                className={cn(
+                                  'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
+                                  checked
+                                    ? 'border-teal-700 bg-teal-700 text-white dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950'
+                                    : 'border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900'
+                                )}
+                              >
+                                {checked && <Check className="h-3 w-3" strokeWidth={2} />}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                                  {asset.name}
+                                </div>
+                                <div className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                  {asset.asset_code} · S/N: {asset.serial_number}
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="shrink-0">
+                              {ASSET_CATEGORY_SHORT[asset.category]}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOnboardingCandidate(null)}
+                  >
+                    Hủy
+                  </Button>
+                  <Button type="submit" variant="primary">
+                    <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
+                    Xác nhận &amp; Khởi tạo Onboarding
+                  </Button>
+                </DialogFooter>
+              </form>
             </>
           )}
         </DialogContent>

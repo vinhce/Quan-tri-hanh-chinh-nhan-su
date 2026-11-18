@@ -1052,9 +1052,6 @@ export function RequestsView() {
                         {req.leave_deducted && (
                           <Badge variant="success">Đã trừ quỹ phép</Badge>
                         )}
-                        {req.source === 'AI_COPILOT' && (
-                          <Badge variant="secondary">Tạo qua Copilot</Badge>
-                        )}
                       </div>
 
                       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

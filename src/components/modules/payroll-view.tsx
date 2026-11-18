@@ -437,16 +437,16 @@ export function PayrollView() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-400">
-                    <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
-                    <th className="px-4 py-3">Họ tên</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Công</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Lương cơ bản</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Phụ cấp + Thưởng</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Gross</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">BHXH/YT/TN</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Thuế TNCN</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">Thực lĩnh Net</th>
-                    <th className="whitespace-nowrap px-4 py-3">Trạng thái</th>
+                    <th className="whitespace-nowrap px-3 py-2.5">Mã NV</th>
+                    <th className="px-3 py-2.5">Họ tên</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Công</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Lương cơ bản</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Phụ cấp + Thưởng</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Gross</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">BHXH/YT/TN</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Thuế TNCN</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right">Thực lĩnh Net</th>
+                    <th className="whitespace-nowrap px-3 py-2.5">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
@@ -465,10 +465,10 @@ export function PayrollView() {
                         onClick={() => openPayrollModal(rec)}
                         className="cursor-pointer transition-colors hover:bg-teal-50/40 dark:hover:bg-teal-950/20"
                       >
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
                           {rec.employee_code}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2.5">
                           <div className="font-medium text-zinc-900 dark:text-zinc-100">
                             {rec.full_name}
                           </div>
@@ -476,28 +476,28 @@ export function PayrollView() {
                             {rec.department_name}
                           </div>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                           {rec.actual_paid_days}/{rec.standard_days}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                           {formatVND(rec.prorated_base_salary_vnd)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
                           {formatVND(allowanceAndBonus)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
                           {formatVND(rec.gross_salary_vnd)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
                           {formatVND(rec.total_insurance_employee_vnd)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
                           {formatVND(rec.pit_tax_vnd)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono font-semibold tabular-nums text-teal-700 dark:text-teal-400">
                           {formatVND(rec.net_salary_vnd)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="whitespace-nowrap px-3 py-2.5">
                           <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
                         </td>
                       </tr>

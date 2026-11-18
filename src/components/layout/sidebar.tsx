@@ -257,7 +257,7 @@ function getRoleBadgeMeta(
   switch (role) {
     case "SUPER_ADMIN":
       return {
-        text: `${ROLE_META.SUPER_ADMIN.label} · Toàn quyền`,
+        text: ROLE_META.SUPER_ADMIN.label,
         className:
           "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800/80 dark:bg-teal-950/40 dark:text-teal-400",
       };

@@ -225,10 +225,10 @@ export function PerformanceView() {
       <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
               KPI & Mục tiêu OKR cá nhân
             </h1>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
               Phạm Minh Tuấn (NV-2024-004) · Phòng Kỹ thuật Phần mềm
             </p>
           </div>
@@ -248,10 +248,10 @@ export function PerformanceView() {
           <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
             <CardContent className="flex items-center justify-between p-5">
               <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Điểm KPI kỳ {activeQuarter.period}
                 </p>
-                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
                   {activeQuarter.kpi_score} / 100
                 </p>
               </div>
@@ -264,10 +264,10 @@ export function PerformanceView() {
           <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
             <CardContent className="flex items-center justify-between p-5">
               <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Tiến độ hoàn thành OKR
                 </p>
-                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                   {activeQuarter.okr_completion_percent}%
                 </p>
               </div>
@@ -280,7 +280,7 @@ export function PerformanceView() {
           <Card className="border-l-4 border-l-violet-500 dark:border-l-violet-400">
             <CardContent className="flex items-center justify-between p-5">
               <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Xếp loại đánh giá
                 </p>
                 <div className="mt-1.5">
@@ -297,7 +297,7 @@ export function PerformanceView() {
         </div>
 
         <Card>
-          <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+          <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
             <CardTitle>Chi tiết mục tiêu OKR & Nhận xét quản lý</CardTitle>
             <CardDescription>
               Người đánh giá: {activeQuarter.reviewer} · Nhận xét: {activeQuarter.note}
@@ -307,19 +307,19 @@ export function PerformanceView() {
             {activeQuarter.objectives.map((obj) => (
               <div
                 key={obj.title}
-                className="rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80"
+                className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/70 p-4 dark:border-zinc-800/80 dark:bg-transparent"
               >
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                     {obj.title}
                   </p>
-                  <span className="font-mono text-xs font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                  <span className="font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                     {obj.progress}%
                   </span>
                 </div>
-                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[#E4EEEB] dark:bg-zinc-800">
                   <div
-                    className="h-full rounded-full bg-teal-700 dark:bg-teal-400"
+                    className="h-full rounded-full bg-[#0F766E] dark:bg-teal-400"
                     style={{ width: `${obj.progress}%` }}
                   />
                 </div>
@@ -342,12 +342,12 @@ export function PerformanceView() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             {role === 'DEPT_MANAGER'
               ? 'Đánh giá KPI & Nhân sự Khối Công nghệ'
               : 'Tổng hợp KPI & Cảnh báo AI Burnout toàn công ty'}
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             {role === 'DEPT_MANAGER'
               ? 'Theo dõi hiệu suất thành viên trong team và can thiệp sớm rủi ro kiệt sức. Dữ liệu lương được ẩn theo phân quyền.'
               : 'Giám sát điểm KPI/OKR toàn doanh nghiệp và danh sách nhân sự có nguy cơ nghỉ việc.'}
@@ -363,10 +363,10 @@ export function PerformanceView() {
         <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 {role === 'DEPT_MANAGER' ? 'Nhân sự trong team' : 'Tổng hồ sơ KPI kỳ 2026-Q3'}
               </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
                 {role === 'DEPT_MANAGER' ? teamEmployees.length : visibleKpiRecords.length}
               </p>
             </div>
@@ -379,10 +379,10 @@ export function PerformanceView() {
         <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Điểm KPI trung bình
               </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                 {avgKpi} / 100
               </p>
             </div>
@@ -395,10 +395,10 @@ export function PerformanceView() {
         <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
           <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Cảnh báo Burnout / Turnover
               </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                 {visibleAlerts.length}
               </p>
             </div>
@@ -411,10 +411,10 @@ export function PerformanceView() {
 
       {/* Team Members Table (DEPT_MANAGER ONLY — STRICTLY NO SALARY COLUMN) */}
       {role === 'DEPT_MANAGER' && (
-        <Card>
-          <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+        <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
+          <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+              <Users className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
               Danh sách nhân sự trực thuộc Khối Công nghệ
             </CardTitle>
             <CardDescription>
@@ -425,7 +425,7 @@ export function PerformanceView() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[780px] border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                  <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                     <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
                     <th className="px-4 py-3">Họ và tên</th>
                     <th className="px-4 py-3">Phòng ban</th>
@@ -435,33 +435,33 @@ export function PerformanceView() {
                     <th className="px-4 py-3">Rủi ro Burnout</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+                <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                   {teamEmployees.map((emp) => {
                     const riskMeta = RISK_BADGE[emp.burnout_risk_level];
                     return (
                       <tr
                         key={emp.id}
-                        className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                        className="transition-colors odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                       >
-                        <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-normal tabular-nums text-[#415A54] dark:text-zinc-300">
                           {emp.employee_code}
                         </td>
                         <td className="px-4 py-3.5">
-                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                          <p className="font-semibold text-[#11221E] dark:text-zinc-100">
                             {emp.full_name}
                           </p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{emp.email}</p>
+                          <p className="text-xs text-[#415A54] dark:text-zinc-400">{emp.email}</p>
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-zinc-700 dark:text-zinc-300">
+                        <td className="px-4 py-3.5 text-xs font-semibold text-[#11221E] dark:text-zinc-300">
                           {emp.department_name}
                         </td>
-                        <td className="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        <td className="px-4 py-3.5 text-xs text-[#415A54] dark:text-zinc-400">
                           {emp.position_name}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-300">
                           {emp.work_shift_code}
                         </td>
-                        <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                        <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                           {emp.kpi_completion_rate}%
                         </td>
                         <td className="px-4 py-3.5">
@@ -480,10 +480,10 @@ export function PerformanceView() {
       )}
 
       {/* KPI Evaluation Table */}
-      <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+      <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <CardTitle className="flex items-center gap-2">
-            <ClipboardCheck className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+            <ClipboardCheck className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
             Bảng đánh giá KPI & OKR kỳ 2026-Q3
           </CardTitle>
           <CardDescription>
@@ -494,7 +494,7 @@ export function PerformanceView() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                   <th className="whitespace-nowrap px-4 py-3">Mã NV</th>
                   <th className="px-4 py-3">Nhân sự</th>
                   <th className="px-4 py-3">Phòng ban</th>
@@ -505,36 +505,36 @@ export function PerformanceView() {
                   <th className="px-4 py-3 text-right">Chấm điểm</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+              <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                 {visibleKpiRecords.map((rec) => (
                   <tr
                     key={rec.id}
-                    className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                    className="transition-colors odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
                   >
-                    <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs font-normal tabular-nums text-[#415A54] dark:text-zinc-300">
                       {rec.employee_code}
                     </td>
                     <td className="px-4 py-3.5">
-                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                      <p className="font-semibold text-[#11221E] dark:text-zinc-100">
                         {rec.full_name}
                       </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="text-xs text-[#415A54] dark:text-zinc-400">
                         {rec.position_name}
                       </p>
                     </td>
-                    <td className="px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400">
+                    <td className="px-4 py-3.5 text-xs font-semibold text-[#11221E] dark:text-zinc-400">
                       {rec.department_name}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <td className="px-4 py-3.5 text-right font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-zinc-100">
                       {rec.kpi_score}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <td className="px-4 py-3.5 text-right font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-300">
                       {rec.okr_completion_percent}%
                     </td>
                     <td className="px-4 py-3.5">
                       <Badge variant={GRADE_BADGE[rec.grade]}>{rec.grade}</Badge>
                     </td>
-                    <td className="max-w-xs px-4 py-3.5 text-xs text-zinc-600 dark:text-zinc-400">
+                    <td className="max-w-xs px-4 py-3.5 text-xs text-[#415A54] dark:text-zinc-400">
                       <p className="line-clamp-2">{rec.review_note}</p>
                     </td>
                     <td className="px-4 py-3.5 text-right">
@@ -554,10 +554,10 @@ export function PerformanceView() {
       {/* Burnout & Turnover Alerts */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+          <h2 className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
             Cảnh báo AI nguy cơ nghỉ việc & Burnout
           </h2>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs text-[#5C7871] dark:text-zinc-400">
             Phân tích từ dữ liệu tăng ca, đi muộn và biến động KPI
           </span>
         </div>
@@ -571,7 +571,7 @@ export function PerformanceView() {
                     <div>
                       <CardTitle className="text-base">
                         {alert.full_name}{' '}
-                        <span className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                        <span className="font-mono text-xs font-normal text-[#415A54] dark:text-zinc-400">
                           ({alert.employee_code})
                         </span>
                       </CardTitle>
@@ -583,28 +583,28 @@ export function PerformanceView() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2 rounded-lg border border-zinc-200/80 bg-zinc-50/70 p-3 text-xs dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                  <div className="grid grid-cols-3 gap-2 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] p-3 text-xs dark:border-zinc-800/80 dark:bg-zinc-900/50">
                     <div>
-                      <p className="text-zinc-500 dark:text-zinc-400">Burnout</p>
+                      <p className="text-[#5C7871] dark:text-zinc-400">Burnout</p>
                       <p className="mt-0.5 font-mono font-semibold tabular-nums text-red-600 dark:text-red-400">
                         {alert.burnout_risk_score}/100
                       </p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 dark:text-zinc-400">Turnover</p>
-                      <p className="mt-0.5 font-mono font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                      <p className="text-[#5C7871] dark:text-zinc-400">Turnover</p>
+                      <p className="mt-0.5 font-mono font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                         {alert.turnover_risk_score}/100
                       </p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 dark:text-zinc-400">OT 30 ngày</p>
-                      <p className="mt-0.5 font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      <p className="text-[#5C7871] dark:text-zinc-400">OT 30 ngày</p>
+                      <p className="mt-0.5 font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                         {alert.overtime_hours_last_30d} giờ
                       </p>
                     </div>
                   </div>
 
-                  <ul className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                  <ul className="space-y-1 text-xs text-[#415A54] dark:text-zinc-400">
                     {alert.key_factors.map((factor) => (
                       <li key={factor} className="flex items-start gap-2">
                         <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
@@ -631,7 +631,7 @@ export function PerformanceView() {
           <form onSubmit={handleSaveKpi} className="mt-4 space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Điểm KPI (0-100)
                 </label>
                 <Input
@@ -644,7 +644,7 @@ export function PerformanceView() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   OKR (%)
                 </label>
                 <Input
@@ -657,7 +657,7 @@ export function PerformanceView() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   Xếp loại
                 </label>
                 <Select
@@ -675,7 +675,7 @@ export function PerformanceView() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Nhận xét đánh giá
               </label>
               <Input

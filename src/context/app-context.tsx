@@ -98,8 +98,6 @@ export interface AppContextValue {
   showToast: (title: string, description?: string, variant?: ToastMessage['variant']) => void;
   toasts: ToastMessage[];
   dismissToast: (id: string) => void;
-  isCopilotOpen: boolean;
-  setIsCopilotOpen: (open: boolean) => void;
 }
 
 const STORAGE_ROLE_KEY = 'lacviet_hrm_role';
@@ -120,7 +118,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [navIntent, setNavIntent] = useState<NavIntent | null>(null);
   const [uiState, setUiState] = useState<UiState>('ready');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -222,7 +219,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUserProfile(null);
     setNavIntent(null);
     setActiveNav('dashboard');
-    setIsCopilotOpen(false);
     try {
       window.localStorage.removeItem(STORAGE_EMAIL_KEY);
       window.localStorage.removeItem(STORAGE_PROFILE_KEY);
@@ -291,8 +287,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         showToast,
         toasts,
         dismissToast,
-        isCopilotOpen,
-        setIsCopilotOpen,
       }}
     >
       {children}

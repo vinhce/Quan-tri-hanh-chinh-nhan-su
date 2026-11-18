@@ -34,6 +34,7 @@ export function Select({
   onChange,
   options,
   className,
+  style,
   children,
   ...rest
 }: SelectProps) {
@@ -83,9 +84,16 @@ export function Select({
             handleValueChange(e.target.value);
           }}
           className={cn(
-            'flex h-9 w-full appearance-none rounded-lg border border-zinc-200/80 bg-white py-1.5 pl-3 pr-8 text-sm text-zinc-900 transition-colors focus-visible:border-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
+            'block h-9 w-full truncate whitespace-nowrap appearance-none rounded-lg border border-zinc-200/80 bg-white [background-image:none] py-1.5 pl-3 pr-8 text-sm text-zinc-900 transition-colors focus-visible:border-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
             className
           )}
+          style={{
+            WebkitAppearance: 'none',
+            MozAppearance: 'none',
+            appearance: 'none',
+            backgroundImage: 'none',
+            ...style,
+          }}
           {...rest}
         >
           {options

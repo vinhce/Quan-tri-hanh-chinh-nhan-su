@@ -5,14 +5,12 @@ import {
   Inbox,
   AlertTriangle,
   RotateCcw,
-  MessageSquareText,
   CheckCircle2,
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { Sidebar, NAV_ITEMS } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AiCopilotWidget } from "@/components/copilot/ai-copilot-widget";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -25,8 +23,6 @@ export function AppShell({ children }: AppShellProps) {
     setUiState,
     activeNav,
     showToast,
-    isCopilotOpen,
-    setIsCopilotOpen,
   } = useApp();
 
   const currentNav =
@@ -149,7 +145,7 @@ export function AppShell({ children }: AppShellProps) {
                 Chưa có bản ghi nào trong {currentNav.label}
               </h2>
               <p className="mt-1.5 max-w-md text-xs leading-relaxed text-[#415A54] dark:text-zinc-400">
-                Kỳ dữ liệu hoặc bộ lọc tìm kiếm hiện tại chưa có phát sinh hồ sơ. Bạn có thể nạp lại dữ liệu mẫu Tháng 11/2026 hoặc khởi tạo yêu cầu mới qua trợ lý AI HR Copilot.
+                Kỳ dữ liệu hoặc bộ lọc tìm kiếm hiện tại chưa có phát sinh hồ sơ. Bạn có thể nạp lại dữ liệu mẫu Tháng 11/2026 để tiếp tục đối soát.
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
                 <button
@@ -159,14 +155,6 @@ export function AppShell({ children }: AppShellProps) {
                 >
                   <RotateCcw className="h-4 w-4" strokeWidth={1.5} />
                   <span>Nạp dữ liệu mẫu kỳ 11/2026</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCopilotOpen(true)}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-4 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  <MessageSquareText className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                  <span>Mở AI HR Copilot</span>
                 </button>
               </div>
             </div>
@@ -208,25 +196,6 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </main>
       </div>
-
-      {/* Floating launcher when Copilot is closed */}
-      {!isCopilotOpen && (
-        <button
-          type="button"
-          onClick={() => setIsCopilotOpen(true)}
-          aria-label="Mở trợ lý AI HR Copilot"
-          className="fixed bottom-5 right-5 z-40 flex h-10 items-center gap-2 rounded-lg border border-[#0B4F4A] bg-[#0F766E] px-3.5 text-xs font-medium text-[#FCFEFD] shadow-sm transition-colors hover:bg-[#0D5F58] dark:border-zinc-700 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-teal-400"
-        >
-          <MessageSquareText className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-          <span>AI HR Copilot</span>
-          <span className="rounded bg-[#0B4F4A] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-[#CBE8E2] dark:bg-zinc-200 dark:text-zinc-700">
-            NLP
-          </span>
-        </button>
-      )}
-
-      {/* AI HR Copilot Floating Panel */}
-      <AiCopilotWidget />
     </div>
   );
 }

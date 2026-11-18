@@ -15,11 +15,32 @@ const config: Config = {
         mono: ['var(--font-mono)', 'JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
+        canvas: 'var(--bg-canvas)',
+        sidebar: 'var(--bg-sidebar)',
         surface: {
-          light: '#FAFAFA',
-          card: '#FFFFFF',
+          DEFAULT: 'var(--bg-surface)',
+          light: '#EFF5F3',
+          card: '#FCFEFD',
           dark: '#09090B',
           'dark-card': '#121214',
+        },
+        'table-head': 'var(--bg-table-head)',
+        'row-alt': 'var(--bg-row-alt)',
+        'row-hover': 'var(--bg-row-hover)',
+        'sage-subtle': 'var(--border-subtle)',
+        'sage-strong': 'var(--border-strong)',
+        ink: {
+          DEFAULT: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)',
+        },
+        brand: {
+          DEFAULT: '#0F766E',
+          hover: '#0D5F58',
+        },
+        'nav-active': {
+          DEFAULT: 'var(--nav-active-bg)',
+          text: 'var(--nav-active-text)',
         },
         accent: {
           DEFAULT: '#0F766E',

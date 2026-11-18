@@ -53,31 +53,31 @@ const CATEGORY_VISUAL_META: Record<
     icon: CalendarCheck,
     label: "Đơn từ",
     iconBoxClass:
-      "border-amber-200/80 bg-amber-50/80 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-400",
+      "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-400",
   },
   PAYROLL: {
     icon: Wallet,
     label: "Bảng lương",
     iconBoxClass:
-      "border-emerald-200/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-400",
+      "border-[#6EE7B7] bg-[#D1FAE5] text-[#065F46] dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-400",
   },
   ONBOARDING: {
     icon: ClipboardCheck,
     label: "Onboarding",
     iconBoxClass:
-      "border-teal-200/80 bg-teal-50/80 text-teal-700 dark:border-teal-800/70 dark:bg-teal-950/40 dark:text-teal-400",
+      "border-[#99D5CA] bg-[#CBE8E2] text-[#0B4F4A] dark:border-teal-800/70 dark:bg-teal-950/40 dark:text-teal-400",
   },
   ASSET: {
     icon: Laptop,
     label: "Tài sản",
     iconBoxClass:
-      "border-blue-200/80 bg-blue-50/80 text-blue-700 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-400",
+      "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-400",
   },
   SYSTEM: {
     icon: ShieldAlert,
     label: "Hệ thống",
     iconBoxClass:
-      "border-zinc-200/80 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+      "border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
   },
 };
 
@@ -220,7 +220,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
     NAV_ITEMS.find((item) => item.id === activeNav) ?? NAV_ITEMS[0];
 
   return (
-    <header className="z-30 shrink-0 border-b border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-950">
+    <header className="z-30 shrink-0 border-b border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-950">
       <div className="flex h-16 items-center justify-between gap-3 px-4 lg:px-6">
         {/* Left: Mobile trigger + Screen title & period context */}
         <div className="flex min-w-0 items-center gap-3">
@@ -228,21 +228,21 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
             type="button"
             onClick={onOpenMobileMenu}
             aria-label="Mở menu điều hướng"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200/80 bg-zinc-50 text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:hidden"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 lg:hidden"
           >
             <Menu className="h-4 w-4" strokeWidth={1.5} />
           </button>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+              <h1 className="truncate text-base font-semibold text-[#11221E] dark:text-zinc-100">
                 {currentNav.label}
               </h1>
-              <span className="shrink-0 rounded border border-zinc-200/80 bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+              <span className="shrink-0 rounded border border-[#C6D9D3] bg-[#FCFEFD] px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                 Tháng 11/2026
               </span>
             </div>
-            <p className="hidden truncate text-xs text-zinc-500 dark:text-zinc-400 sm:block">
+            <p className="hidden truncate text-xs text-[#415A54] dark:text-zinc-400 sm:block">
               {currentNav.summary}
             </p>
           </div>
@@ -256,10 +256,10 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
             onClick={() => setIsCopilotOpen(!isCopilotOpen)}
             aria-label="Bật hoặc tắt AI HR Copilot"
             aria-pressed={isCopilotOpen}
-            className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:focus-visible:ring-teal-400/30 ${
+            className={`flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
               isCopilotOpen
-                ? "border-teal-700 bg-teal-700 text-white dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950"
-                : "border-zinc-200/80 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                ? "border-[#0F766E] bg-[#0F766E] text-[#FCFEFD] hover:bg-[#0D5F58] dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950"
+                : "border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             }`}
           >
             <MessageSquareText className="h-4 w-4 shrink-0" strokeWidth={1.5} />
@@ -284,10 +284,10 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
               }
               aria-expanded={isBellOpen}
               aria-haspopup="dialog"
-              className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:focus-visible:ring-teal-400/30 ${
+              className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
                 isBellOpen
-                  ? "border-teal-700/60 bg-teal-50/70 text-teal-700 dark:border-teal-400/60 dark:bg-teal-950/40 dark:text-teal-400"
-                  : "border-zinc-200/80 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  ? "border-[#0F766E] bg-[#CBE8E2] text-[#0B4F4A] dark:border-teal-400/60 dark:bg-teal-950/40 dark:text-teal-400"
+                  : "border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
               }`}
             >
               <Bell className="w-4 h-4" strokeWidth={1.5} />
@@ -302,13 +302,13 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
               <div
                 role="dialog"
                 aria-label="Thông báo hệ thống"
-                className="fixed inset-x-3 top-[4.25rem] z-50 flex flex-col overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-lg dark:border-zinc-800/80 dark:bg-zinc-900 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px]"
+                className="fixed inset-x-3 top-[4.25rem] z-50 flex flex-col overflow-hidden rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_8px_24px_rgba(17,34,30,0.12)] dark:border-zinc-800/80 dark:bg-zinc-900 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px]"
               >
                 {/* Popover Header */}
-                <div className="border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800/80">
+                <div className="border-b border-[#C6D9D3] bg-[#F2F7F5] px-4 py-3 dark:border-zinc-800/80 dark:bg-transparent">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      <h2 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                         Thông báo hệ thống
                       </h2>
                       {unreadCount > 0 && (
@@ -322,7 +322,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                       type="button"
                       onClick={handleMarkAllRead}
                       disabled={unreadCount === 0}
-                      className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-teal-700 transition-colors hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 disabled:cursor-not-allowed disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-teal-400 dark:hover:bg-teal-950/40 dark:disabled:text-zinc-600 dark:disabled:hover:bg-transparent"
+                      className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-[#0F766E] transition-colors hover:bg-[#E8F3EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 disabled:cursor-not-allowed disabled:text-[#5C7871]/60 disabled:hover:bg-transparent dark:text-teal-400 dark:hover:bg-teal-950/40 dark:disabled:text-zinc-600 dark:disabled:hover:bg-transparent"
                     >
                       <CheckCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
                       <span>Đánh dấu đã đọc</span>
@@ -330,32 +330,32 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                   </div>
 
                   {/* Quick Filter */}
-                  <div className="mt-2.5 inline-flex rounded-lg border border-zinc-200/80 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="mt-2.5 inline-flex rounded-lg border border-[#C6D9D3] bg-[#E4EEEB] p-0.5 dark:border-zinc-800 dark:bg-zinc-950">
                     <button
                       type="button"
                       onClick={() => setFilter("all")}
-                      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${
+                      className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors ${
                         filter === "all"
-                          ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
-                          : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                          ? "border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100"
+                          : "border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                       }`}
                     >
                       <span>Tất cả</span>
-                      <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      <span className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                         {notifications.length}
                       </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setFilter("unread")}
-                      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${
+                      className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors ${
                         filter === "unread"
-                          ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
-                          : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                          ? "border-[#C6D9D3] bg-[#FCFEFD] font-semibold text-[#11221E] shadow-[0_1px_2px_rgba(17,34,30,0.06)] dark:border-transparent dark:bg-zinc-800 dark:text-zinc-100"
+                          : "border-transparent font-medium text-[#415A54] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
                       }`}
                     >
                       <span>Chưa đọc</span>
-                      <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      <span className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                         {unreadCount}
                       </span>
                     </button>
@@ -366,15 +366,15 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                 <div className="max-h-[360px] overflow-y-auto">
                   {filteredNotifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center px-6 py-8 text-center">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200/80 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
                         <BellOff className="h-4 w-4" strokeWidth={1.5} />
                       </div>
-                      <p className="mt-3 text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                      <p className="mt-3 text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                         {filter === "unread"
                           ? "Không có thông báo chưa đọc"
                           : "Chưa có thông báo hệ thống"}
                       </p>
-                      <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      <p className="mt-1 text-xs leading-relaxed text-[#415A54] dark:text-zinc-400">
                         {filter === "unread"
                           ? "Mọi cập nhật phê duyệt, bảng lương và tài sản đều đã được xem."
                           : "Các cập nhật về đơn từ, hội nhập và phiếu lương sẽ hiển thị tại đây."}
@@ -383,14 +383,14 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                         <button
                           type="button"
                           onClick={() => setFilter("all")}
-                          className="mt-3 inline-flex h-7 items-center rounded-md border border-zinc-200/80 bg-zinc-50 px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="mt-3 inline-flex h-7 items-center rounded-md border border-[#C6D9D3] bg-[#F2F7F5] px-2.5 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800"
                         >
                           Xem tất cả thông báo
                         </button>
                       )}
                     </div>
                   ) : (
-                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                    <ul className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                       {filteredNotifications.map((item) => {
                         const visual =
                           CATEGORY_VISUAL_META[item.category] ??
@@ -402,10 +402,10 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                             <button
                               type="button"
                               onClick={() => handleSelectNotification(item)}
-                              className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-700/30 dark:hover:bg-zinc-800/50 dark:focus-visible:ring-teal-400/30 ${
+                              className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#E8F3EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0F766E]/30 dark:hover:bg-zinc-800/50 dark:focus-visible:ring-teal-400/30 ${
                                 !item.isRead
-                                  ? "bg-teal-50/35 dark:bg-teal-950/15"
-                                  : ""
+                                  ? "bg-[#F5FAF8] dark:bg-teal-950/15"
+                                  : "bg-[#FCFEFD] dark:bg-transparent"
                               }`}
                             >
                               <span
@@ -422,8 +422,8 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                                   <span
                                     className={`line-clamp-1 text-xs ${
                                       !item.isRead
-                                        ? "font-semibold text-zinc-900 dark:text-zinc-100"
-                                        : "font-medium text-zinc-700 dark:text-zinc-300"
+                                        ? "font-semibold text-[#11221E] dark:text-zinc-100"
+                                        : "font-medium text-[#415A54] dark:text-zinc-300"
                                     }`}
                                   >
                                     {item.title}
@@ -431,23 +431,23 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                                   {!item.isRead && (
                                     <span
                                       aria-label="Chưa đọc"
-                                      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-teal-600 dark:bg-teal-400"
+                                      className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#0F766E] dark:bg-teal-400"
                                     />
                                   )}
                                 </span>
 
-                                <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                                <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-[#415A54] dark:text-zinc-400">
                                   {item.message}
                                 </span>
 
-                                <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                <span className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-[#5C7871] dark:text-zinc-400">
                                   <span className="font-mono tabular-nums">
                                     {formatNotificationTimestamp(item.created_at)}
                                   </span>
                                   <span>·</span>
                                   <span>{visual.label}</span>
                                   {item.entity_id && (
-                                    <span className="rounded border border-zinc-200/80 bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+                                    <span className="rounded border border-[#C6D9D3] bg-[#F2F7F5] px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-[#415A54] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
                                       {item.entity_id}
                                     </span>
                                   )}
@@ -463,12 +463,12 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
 
                 {/* SUPER_ADMIN Exclusive Footer: Demo Data Reset */}
                 {role === "SUPER_ADMIN" && (
-                  <div className="border-t border-zinc-200/80 bg-zinc-50/80 px-4 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
+                  <div className="border-t border-[#C6D9D3] bg-[#F2F7F5] px-4 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
                     {!confirmResetOpen ? (
                       <button
                         type="button"
                         onClick={() => setConfirmResetOpen(true)}
-                        className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200/80 bg-white px-3 text-xs font-medium text-zinc-700 transition-colors hover:border-rose-200 hover:bg-rose-50/60 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-rose-900/70 dark:hover:bg-rose-950/30 dark:hover:text-rose-400"
+                        className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs font-medium text-[#11221E] transition-colors hover:border-rose-300 hover:bg-rose-50/70 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-rose-900/70 dark:hover:bg-rose-950/30 dark:hover:text-rose-400"
                       >
                         <RotateCcw
                           className="h-3.5 w-3.5 shrink-0"
@@ -478,14 +478,14 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                       </button>
                     ) : (
                       <div className="space-y-2">
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                        <p className="text-xs text-[#415A54] dark:text-zinc-400">
                           Khôi phục toàn bộ thông báo, đơn từ và hồ sơ phát sinh về mặc định?
                         </p>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
                             onClick={() => setConfirmResetOpen(false)}
-                            className="flex h-8 items-center justify-center rounded-lg border border-zinc-200/80 bg-white px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            className="flex h-8 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                           >
                             Hủy
                           </button>
@@ -516,7 +516,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
               toggleTheme();
               showToast(
                 `Chế độ giao diện: ${theme === "light" ? "Tối (Dark)" : "Sáng (Light)"}`,
-                "Đã đồng bộ bảng màu trung tính zinc và độ tương phản",
+                "Đã đồng bộ bảng màu hiển thị và độ tương phản hệ thống",
                 "default"
               );
             }}
@@ -525,7 +525,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
                 ? "Chuyển sang giao diện tối"
                 : "Chuyển sang giao diện sáng"
             }
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200/80 bg-zinc-50 text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-700/30 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:focus-visible:ring-teal-400/30"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] transition-colors hover:bg-[#E8F3EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:focus-visible:ring-teal-400/30"
           >
             {theme === "light" ? (
               <Moon className="h-4 w-4" strokeWidth={1.5} />

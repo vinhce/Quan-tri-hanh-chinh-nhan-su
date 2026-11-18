@@ -11,14 +11,15 @@ import {
   ArrowRight,
   Clock,
 } from "lucide-react";
-import { useApp } from "@/context/app-context";
+import { useApp, ROLE_DEFAULT_PROFILES } from "@/context/app-context";
 import { ROLE_META } from "@/components/layout/sidebar";
 import type {
+  AnnualLeaveBalance,
   CopilotSampleQA,
   NaturalLanguageLeaveDraft,
   RequestCategory,
 } from "@/mock";
-import { fetchCopilotMock } from "@/lib/mock-fetcher";
+import { fetchAttendanceMock, fetchCopilotMock } from "@/lib/mock-fetcher";
 
 function parseNaturalLanguageLeave(rawText: string): {
   category: RequestCategory;
@@ -116,7 +117,13 @@ interface SubmittedLeaveItem {
 }
 
 export function AiCopilotWidget() {
-  const { isCopilotOpen, setIsCopilotOpen, role, showToast } = useApp();
+  const {
+    isCopilotOpen,
+    setIsCopilotOpen,
+    role,
+    currentUserProfile,
+    showToast,
+  } = useApp();
   const [activeTab, setActiveTab] = useState<"chat" | "nlp-leave">("nlp-leave");
 
   // Chat state
@@ -138,9 +145,10 @@ export function AiCopilotWidget() {
   ]);
   const [chatInput, setChatInput] = useState("");
 
-  // Mock data loaded from /mock/copilot.json
+  // Mock data loaded from /mock/copilot.json & /mock/attendance.json
   const [qaList, setQaList] = useState<CopilotSampleQA[]>([]);
   const [nlpPresets, setNlpPresets] = useState<NaturalLanguageLeaveDraft[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<AnnualLeaveBalance[]>([]);
 
   // Natural Language Leave state
   const [nlpText, setNlpText] = useState<string>("");
@@ -158,6 +166,16 @@ export function AiCopilotWidget() {
       .catch(() => {
         // Keep empty presets if mock fetch fails
       });
+
+    fetchAttendanceMock()
+      .then((data) => {
+        if (cancelled) return;
+        setLeaveBalances(data.MOCK_ANNUAL_LEAVE_BALANCES ?? []);
+      })
+      .catch(() => {
+        // Keep empty leave balances if mock fetch fails
+      });
+
     return () => {
       cancelled = true;
     };
@@ -165,10 +183,115 @@ export function AiCopilotWidget() {
 
   const parsedLeave = useMemo(() => parseNaturalLanguageLeave(nlpText), [nlpText]);
   const currentActor = ROLE_META[role];
+  const defaultProfile = ROLE_DEFAULT_PROFILES[role];
+  const displayName =
+    currentUserProfile?.fullName || defaultProfile?.fullName || currentActor.empName;
+  const empCode =
+    currentUserProfile?.employee_code ||
+    defaultProfile?.employee_code ||
+    currentActor.empCode;
 
   if (!isCopilotOpen) return null;
 
+  const buildPersonalLeaveReply = (
+    balances: AnnualLeaveBalance[],
+    policy?: string
+  ): {
+    text: string;
+    policy?: string;
+    metrics: Array<{ label: string; value: string }>;
+  } => {
+    const customName = currentUserProfile?.fullName?.trim();
+    const isCustomNameWithoutCode =
+      Boolean(customName) &&
+      !currentUserProfile?.employee_code &&
+      customName!.toLowerCase() !== defaultProfile.fullName.toLowerCase();
+
+    const balance = isCustomNameWithoutCode
+      ? balances.find(
+          (b) => b.full_name.trim().toLowerCase() === customName!.toLowerCase()
+        )
+      : balances.find((b) => b.employee_code === empCode) ??
+        balances.find(
+          (b) => b.full_name.trim().toLowerCase() === displayName.trim().toLowerCase()
+        );
+
+    const resolvedPolicy =
+      policy ?? "Điều 14 - Quy chế Nghỉ phép & Thời giờ làm việc 2026";
+
+    if (!balance) {
+      return {
+        text: `Theo dữ liệu chấm công cập nhật đến ngày 17/11/2026, hồ sơ ${displayName} (${empCode}) hiện chưa có bản ghi quỹ phép năm chi tiết trong bảng dữ liệu chấm công kỳ này. Theo Điều 14 Nội quy lao động, tiêu chuẩn phép năm cơ bản là 12 ngày/năm và phép chuyển giao từ năm cũ có hiệu lực sử dụng đến hết ngày 31/03 năm kế tiếp.`,
+        policy: resolvedPolicy,
+        metrics: [
+          { label: "Nhân sự tra cứu", value: empCode },
+          { label: "Đã nghỉ / Chờ duyệt", value: "Chưa đồng bộ" },
+          { label: "Còn khả dụng", value: "Chưa đồng bộ" },
+        ],
+      };
+    }
+
+    const totalQuota = balance.total_entitled_days + balance.carried_over_days;
+    const carryOverNote =
+      balance.carried_over_days > 0
+        ? ` cộng ${balance.carried_over_days} ngày phép chuyển giao từ năm ${balance.year - 1}`
+        : "";
+    const pendingNote =
+      balance.pending_days > 0
+        ? ` và đang có ${balance.pending_days} ngày phép chờ duyệt`
+        : ", hiện chưa có đơn phép năm nào chờ duyệt";
+
+    return {
+      text: `Theo dữ liệu chấm công cập nhật đến ngày 17/11/2026, hồ sơ ${displayName} (${empCode}) có tổng tiêu chuẩn ${balance.total_entitled_days} ngày phép năm ${balance.year}${carryOverNote}. Bạn đã sử dụng ${balance.used_days} ngày${pendingNote}, số dư phép khả dụng còn lại là ${balance.remaining_days} ngày. Theo Điều 14 Nội quy lao động, phép chuyển giao từ năm cũ có hiệu lực sử dụng đến hết ngày 31/03 năm kế tiếp.`,
+      policy: resolvedPolicy,
+      metrics: [
+        { label: `Tổng quỹ phép ${balance.year}`, value: `${totalQuota} ngày` },
+        {
+          label: "Đã nghỉ / Chờ duyệt",
+          value: `${balance.used_days} / ${balance.pending_days} ngày`,
+        },
+        { label: "Còn khả dụng", value: `${balance.remaining_days} ngày` },
+      ],
+    };
+  };
+
+  const appendPersonalLeaveAnswer = (
+    userText: string,
+    balances: AnnualLeaveBalance[],
+    policy?: string
+  ) => {
+    const reply = buildPersonalLeaveReply(balances, policy);
+    setChatHistory((prev) => [
+      ...prev,
+      { id: `u-${Date.now()}`, sender: "user", text: userText },
+      {
+        id: `a-${Date.now() + 1}`,
+        sender: "assistant",
+        text: reply.text,
+        policy: reply.policy,
+        metrics: reply.metrics,
+      },
+    ]);
+  };
+
   const handleSelectPromptQA = (qa: CopilotSampleQA) => {
+    if (qa.id === "qa-001") {
+      if (leaveBalances.length > 0) {
+        appendPersonalLeaveAnswer(qa.user_query, leaveBalances, qa.referenced_policy);
+        return;
+      }
+      void fetchAttendanceMock()
+        .then((attData) => {
+          const list = attData.MOCK_ANNUAL_LEAVE_BALANCES ?? [];
+          setLeaveBalances(list);
+          appendPersonalLeaveAnswer(qa.user_query, list, qa.referenced_policy);
+        })
+        .catch(() => {
+          appendPersonalLeaveAnswer(qa.user_query, [], qa.referenced_policy);
+        });
+      return;
+    }
+
     setChatHistory((prev) => [
       ...prev,
       { id: `u-${Date.now()}`, sender: "user", text: qa.user_query },
@@ -187,10 +310,21 @@ export function AiCopilotWidget() {
     const trimmed = chatInput.trim();
     if (!trimmed) return;
 
+    const lower = trimmed.toLowerCase();
+    const isLeaveBalanceQuery =
+      (lower.includes("phép năm") ||
+        lower.includes("ngày phép") ||
+        lower.includes("số phép") ||
+        lower.includes("số dư phép") ||
+        (lower.includes("tra cứu") && lower.includes("phép")) ||
+        ((lower.includes("còn lại") || lower.includes("còn bao nhiêu")) &&
+          lower.includes("phép"))) &&
+      !lower.includes("xin nghỉ");
+
     // Check if user typed a leave request inside chat
     if (
-      trimmed.toLowerCase().includes("xin nghỉ") ||
-      trimmed.toLowerCase().includes("nghỉ phép")
+      !isLeaveBalanceQuery &&
+      (lower.includes("xin nghỉ") || lower.includes("nghỉ phép"))
     ) {
       setNlpText(trimmed);
       setActiveTab("nlp-leave");
@@ -203,10 +337,36 @@ export function AiCopilotWidget() {
       return;
     }
 
+    const leaveQa = qaList.find((q) => q.id === "qa-001");
     const matched =
-      qaList.find((q) =>
-        trimmed.toLowerCase().includes(q.prompt_label.toLowerCase().slice(0, 8))
-      ) ?? qaList[0];
+      (isLeaveBalanceQuery ? leaveQa : undefined) ??
+      qaList.find(
+        (q) =>
+          lower.includes(q.prompt_label.toLowerCase().slice(0, 8)) ||
+          q.prompt_label.toLowerCase().includes(lower)
+      ) ??
+      qaList[0];
+
+    if (isLeaveBalanceQuery || matched?.id === "qa-001") {
+      const policy =
+        matched?.referenced_policy ??
+        "Điều 14 - Quy chế Nghỉ phép & Thời giờ làm việc 2026";
+      setChatInput("");
+      if (leaveBalances.length > 0) {
+        appendPersonalLeaveAnswer(trimmed, leaveBalances, policy);
+        return;
+      }
+      void fetchAttendanceMock()
+        .then((attData) => {
+          const list = attData.MOCK_ANNUAL_LEAVE_BALANCES ?? [];
+          setLeaveBalances(list);
+          appendPersonalLeaveAnswer(trimmed, list, policy);
+        })
+        .catch(() => {
+          appendPersonalLeaveAnswer(trimmed, [], policy);
+        });
+      return;
+    }
 
     setChatHistory((prev) => [
       ...prev,
@@ -215,8 +375,8 @@ export function AiCopilotWidget() {
         id: `a-${Date.now() + 1}`,
         sender: "assistant",
         text: matched
-          ? `Phản hồi cho ${currentActor.empName} (${currentActor.empCode}): ${matched.ai_response}`
-          : `Phản hồi cho ${currentActor.empName} (${currentActor.empCode}): Dữ liệu chính sách đang được đồng bộ từ hệ thống.`,
+          ? `Phản hồi cho ${displayName} (${empCode}): ${matched.ai_response}`
+          : `Phản hồi cho ${displayName} (${empCode}): Dữ liệu chính sách đang được đồng bộ từ hệ thống.`,
         policy: matched?.referenced_policy,
         metrics: matched?.metrics_cited,
       },
@@ -262,7 +422,7 @@ export function AiCopilotWidget() {
                 AI HR Copilot
               </span>
               <span className="rounded border border-zinc-200/80 bg-white px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-teal-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
-                {currentActor.empCode}
+                {empCode}
               </span>
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -365,9 +525,9 @@ export function AiCopilotWidget() {
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-zinc-500 dark:text-zinc-400">Nhân sự lập đơn:</dt>
                 <dd className="font-medium text-zinc-900 dark:text-zinc-100">
-                  {currentActor.empName}{" "}
+                  {displayName}{" "}
                   <span className="font-mono tabular-nums text-teal-700 dark:text-teal-400">
-                    ({currentActor.empCode})
+                    ({empCode})
                   </span>
                 </dd>
               </div>

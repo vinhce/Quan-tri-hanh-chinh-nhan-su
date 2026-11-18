@@ -172,6 +172,7 @@ export const MOCK_CANDIDATES: Candidate[] = [
       interview_questions: [
         'Chị kiểm soát hiện tượng ảo giác (hallucination) như thế nào khi nhân viên hỏi AI về số liệu bảng lương và quy định thuế TNCN?',
         'Chiến lược chunking nào hiệu quả nhất đối với văn bản Thỏa ước lao động tập thể có nhiều bảng biểu và phụ lục?',
+        'Chị thiết kế quy trình ẩn danh dữ liệu cá nhân (PII masking) và đánh giá độ chính xác (RAG Evaluation) bằng bộ dữ liệu kiểm thử tự động ra sao khi triển khai cho doanh nghiệp?',
       ],
       ai_recommendation: 'PROCEED_INTERVIEW',
       evaluated_by_model: 'gemini-2.5-pro-hr-ats',
@@ -207,6 +208,7 @@ export const MOCK_CANDIDATES: Candidate[] = [
       interview_questions: [
         'Khi tỷ lệ từ chối offer của ứng viên Senior Backend tăng cao, anh phối hợp với Hiring Manager điều chỉnh quy trình như thế nào?',
         'Anh đánh giá thế nào về việc sử dụng AI sàng lọc CV bước đầu để tránh bỏ sót ứng viên có hồ sơ trình bày ngắn gọn?',
+        'Anh sử dụng những chỉ số tuyển dụng cốt lõi nào (Time-to-Hire, Offer Acceptance Rate, Quality of Hire) để thuyết phục ban lãnh đạo tối ưu ngân sách kênh tìm kiếm ứng viên kỹ thuật?',
       ],
       ai_recommendation: 'STRONG_HIRE',
       evaluated_by_model: 'gemini-2.5-pro-hr-ats',
@@ -243,6 +245,7 @@ export const MOCK_CANDIDATES: Candidate[] = [
       interview_questions: [
         'Anh hãy chia sẻ một tình huống xử lý memory leak hoặc nghẽn kết nối cơ sở dữ liệu trên môi trường production?',
         'Nếu đảm nhận vai trò Senior, anh dự kiến mất bao lâu để làm chủ hoàn toàn các dịch vụ viết bằng Golang hiện có?',
+        'Khi thiết kế hàng đợi xử lý tác vụ bất đồng bộ bằng Redis hoặc message broker cho hệ thống nhiều người dùng đồng thời, anh xử lý cơ chế retry và tránh xử lý trùng lặp như thế nào?',
       ],
       ai_recommendation: 'HOLD',
       evaluated_by_model: 'gemini-2.5-pro-hr-ats',
@@ -278,6 +281,7 @@ export const MOCK_CANDIDATES: Candidate[] = [
       interview_questions: [
         'Chị xây dựng kịch bản thuyết phục Giám đốc Nhân sự và Giám đốc Tài chính như thế nào khi chu kỳ chốt hợp đồng B2B kéo dài trên 3 tháng?',
         'Chị tổ chức đánh giá pipeline hàng tuần ra sao để dự báo doanh số chính xác trên 85%?',
+        'Chị huấn luyện đội ngũ tư vấn xử lý các lo ngại của khách hàng Enterprise về bảo mật dữ liệu nhân sự và tính tuân thủ khi triển khai giải pháp SaaS tích hợp AI như thế nào?',
       ],
       ai_recommendation: 'STRONG_HIRE',
       evaluated_by_model: 'gemini-2.5-pro-hr-ats',
@@ -310,6 +314,8 @@ export const MOCK_CANDIDATES: Candidate[] = [
       gaps: ['Đang trong giai đoạn hoàn thiện quy trình bảo mật dữ liệu nội bộ'],
       interview_questions: [
         'Quy trình kiểm tra chất lượng dữ liệu đầu vào trước khi đưa vào mô hình dự báo Burnout gồm những bước nào?',
+        'Anh thiết kế pipeline Apache Airflow và mô hình biến đổi dữ liệu với dbt như thế nào để đảm bảo khả năng chạy lại (idempotency) và tránh trùng dữ liệu bảng công cuối tháng?',
+        'Đối với dữ liệu nhạy cảm như bảng lương và thông tin định danh nhân viên trong Data Warehouse, anh áp dụng cơ chế phân quyền theo cột và mã hóa dữ liệu ra sao?',
       ],
       ai_recommendation: 'STRONG_HIRE',
       evaluated_by_model: 'gemini-2.5-pro-hr-ats',

@@ -201,10 +201,10 @@ export function AdminSettingsView() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Cấu hình hệ thống & Tham số vận hành
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             Thiết lập giờ làm việc chuẩn, ngày nghỉ lễ, tỷ lệ BHXH/TNCN và động cơ AI HR Copilot.
           </p>
         </div>
@@ -216,9 +216,9 @@ export function AdminSettingsView() {
 
       {/* Block 1: Company & Working Hours */}
       <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+            <Building2 className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
             Thông tin doanh nghiệp & Giờ làm việc chuẩn
           </CardTitle>
           <CardDescription>
@@ -228,7 +228,7 @@ export function AdminSettingsView() {
         <CardContent className="space-y-5 pt-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Tên pháp nhân doanh nghiệp
               </label>
               <Input
@@ -239,7 +239,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Mã số thuế doanh nghiệp
               </label>
               <Input
@@ -254,8 +254,8 @@ export function AdminSettingsView() {
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                <Clock className="h-3.5 w-3.5 text-zinc-400" strokeWidth={1.5} />
+              <label className="flex items-center gap-1.5 text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                <Clock className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
                 Giờ vào chuẩn
               </label>
               <Input
@@ -268,7 +268,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Giờ tan ca chuẩn
               </label>
               <Input
@@ -281,7 +281,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Ngưỡng đi muộn (phút)
               </label>
               <Input
@@ -297,7 +297,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Phép năm cơ bản (ngày)
               </label>
               <Input
@@ -316,7 +316,7 @@ export function AdminSettingsView() {
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Nghỉ trưa từ
               </label>
               <Input
@@ -329,7 +329,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Nghỉ trưa đến
               </label>
               <Input
@@ -342,7 +342,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Ngày chốt công hàng tháng
               </label>
               <Input
@@ -360,7 +360,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Ngày chi trả lương
               </label>
               <Input
@@ -379,9 +379,9 @@ export function AdminSettingsView() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50 md:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Số ngày nghỉ tối thiểu cần Giám đốc duyệt (ngày)
               </label>
               <Input
@@ -397,7 +397,7 @@ export function AdminSettingsView() {
                 }
                 className="font-mono tabular-nums"
               />
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs text-[#5C7871] dark:text-zinc-400">
                 Đơn nghỉ phép có số ngày vượt ngưỡng này (hoặc nghỉ không lương, công tác nước ngoài) sẽ tự động chuyển thêm tới Giám đốc (DIRECTOR) phê duyệt.
               </p>
             </div>
@@ -407,9 +407,9 @@ export function AdminSettingsView() {
 
       {/* Block 2: Public Holidays */}
       <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+            <Calendar className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
             Lịch nghỉ lễ trong năm 2026
           </CardTitle>
           <CardDescription>
@@ -419,10 +419,10 @@ export function AdminSettingsView() {
         <CardContent className="space-y-4 pt-5">
           <form
             onSubmit={handleAddHoliday}
-            className="grid grid-cols-1 gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50 md:grid-cols-12"
+            className="grid grid-cols-1 gap-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50 md:grid-cols-12"
           >
             <div className="md:col-span-5">
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Tên ngày lễ
               </label>
               <Input
@@ -432,7 +432,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Từ ngày
               </label>
               <Input
@@ -443,7 +443,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Đến ngày
               </label>
               <Input
@@ -454,7 +454,7 @@ export function AdminSettingsView() {
               />
             </div>
             <div className="md:col-span-1">
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-400">
                 Số ngày
               </label>
               <Input
@@ -473,10 +473,10 @@ export function AdminSettingsView() {
             </div>
           </form>
 
-          <div className="overflow-x-auto rounded-xl border border-zinc-200/80 dark:border-zinc-800/80">
+          <div className="overflow-x-auto rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-transparent">
             <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <thead className="bg-[#F2F7F5] dark:bg-zinc-900/50">
+                <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                   <th className="whitespace-nowrap px-4 py-2.5">Mã lễ</th>
                   <th className="px-4 py-2.5">Tên kỳ nghỉ</th>
                   <th className="px-4 py-2.5">Từ ngày</th>
@@ -485,22 +485,25 @@ export function AdminSettingsView() {
                   <th className="px-4 py-2.5 text-right">Xóa</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+              <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                 {config.public_holidays_2026.map((holiday) => (
-                  <tr key={holiday.holiday_code} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-900/40">
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-zinc-600 dark:text-zinc-400">
+                  <tr
+                    key={holiday.holiday_code}
+                    className="odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-[#415A54] dark:text-zinc-400">
                       {holiday.holiday_code}
                     </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                    <td className="px-4 py-3 font-semibold text-[#11221E] dark:text-zinc-100">
                       {holiday.holiday_name}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                       {holiday.start_date}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                       {holiday.end_date}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                    <td className="px-4 py-3 text-right font-mono text-xs font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                       {holiday.paid_days} ngày
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -510,7 +513,7 @@ export function AdminSettingsView() {
                         onClick={() => handleRemoveHoliday(holiday.holiday_code)}
                         aria-label={`Xóa ${holiday.holiday_name}`}
                       >
-                        <Trash2 className="h-4 w-4 text-zinc-500 hover:text-red-600" strokeWidth={1.5} />
+                        <Trash2 className="h-4 w-4 text-[#5C7871] hover:text-red-600 dark:text-zinc-400" strokeWidth={1.5} />
                       </Button>
                     </td>
                   </tr>
@@ -524,9 +527,9 @@ export function AdminSettingsView() {
       {/* Block 3: Insurance & PIT Tax Brackets */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Card className="lg:col-span-5">
-          <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+          <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
             <CardTitle className="flex items-center gap-2">
-              <Landmark className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+              <Landmark className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
               Tỷ lệ BHXH / BHYT / BHTN & Giảm trừ
             </CardTitle>
             <CardDescription>
@@ -536,7 +539,7 @@ export function AdminSettingsView() {
           <CardContent className="space-y-4 pt-5">
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   BHXH (%)
                 </label>
                 <Input
@@ -553,7 +556,7 @@ export function AdminSettingsView() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   BHYT (%)
                 </label>
                 <Input
@@ -570,7 +573,7 @@ export function AdminSettingsView() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                   BHTN (%)
                 </label>
                 <Input
@@ -589,7 +592,7 @@ export function AdminSettingsView() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Giảm trừ bản thân (VND / tháng)
               </label>
               <Input
@@ -604,13 +607,13 @@ export function AdminSettingsView() {
                 }
                 className="font-mono tabular-nums"
               />
-              <p className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              <p className="font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
                 Hiển thị: {formatVnd(config.personal_deduction_vnd)}
               </p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Giảm trừ mỗi người phụ thuộc (VND / tháng)
               </label>
               <Input
@@ -625,44 +628,47 @@ export function AdminSettingsView() {
                 }
                 className="font-mono tabular-nums"
               />
-              <p className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              <p className="font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
                 Hiển thị: {formatVnd(config.dependent_deduction_vnd)}
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-7">
-          <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+        <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 lg:col-span-7">
+          <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
             <CardTitle>Biểu thuế TNCN lũy tiến từng phần (7 bậc)</CardTitle>
             <CardDescription>
               Tham chiếu tự động khi chạy bảng lương và xuất phiếu lương cá nhân.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto bg-[#FCFEFD] dark:bg-transparent">
               <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                <thead className="bg-[#F2F7F5] dark:bg-zinc-900/50">
+                  <tr className="border-b border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                     <th className="px-4 py-2.5">Bậc</th>
                     <th className="px-4 py-2.5">Phần thu nhập tính thuế / tháng</th>
                     <th className="px-4 py-2.5 text-right">Thuế suất</th>
                     <th className="px-4 py-2.5 text-right">Số trừ nhanh</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+                <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                   {pitBrackets.map((bracket) => (
-                    <tr key={bracket.level} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-900/40">
-                      <td className="px-4 py-2.5 font-mono text-xs font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <tr
+                      key={bracket.level}
+                      className="odd:bg-[#FCFEFD] even:bg-[#F5FAF8] transition-colors hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40"
+                    >
+                      <td className="px-4 py-2.5 font-mono text-xs font-medium tabular-nums text-[#415A54] dark:text-zinc-300">
                         Bậc {bracket.level}
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-zinc-800 dark:text-zinc-200">
+                      <td className="px-4 py-2.5 text-xs font-medium text-[#11221E] dark:text-zinc-200">
                         {bracket.label}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold tabular-nums text-teal-700 dark:text-teal-400">
+                      <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                         {bracket.rate_percent}%
                       </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                      <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                         {formatVnd(bracket.quick_subtract_vnd)}
                       </td>
                     </tr>
@@ -676,11 +682,11 @@ export function AdminSettingsView() {
 
       {/* Block 4: AI HR Copilot Config */}
       <Card>
-        <CardHeader className="border-b border-zinc-200/80 pb-4 dark:border-zinc-800/80">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-teal-700 dark:text-teal-400" strokeWidth={1.5} />
+                <Bot className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
                 Cấu hình AI HR Copilot & Bảo mật dữ liệu
               </CardTitle>
               <CardDescription className="mt-1">
@@ -693,7 +699,7 @@ export function AdminSettingsView() {
         <CardContent className="space-y-5 pt-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Mô hình ngôn ngữ chính
               </label>
               <Select
@@ -713,7 +719,7 @@ export function AdminSettingsView() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Giới hạn token / tháng
               </label>
               <Input
@@ -734,7 +740,7 @@ export function AdminSettingsView() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
                 Lịch quét cảnh báo Burnout
               </label>
               <Input
@@ -753,20 +759,20 @@ export function AdminSettingsView() {
           </div>
 
           {/* Token usage bar */}
-          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+          <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="font-semibold text-[#11221E] dark:text-zinc-300">
                 Mức tiêu thụ Token tháng 11/2026
               </span>
-              <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+              <span className="font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
                 {new Intl.NumberFormat('vi-VN').format(config.ai_engine_config.tokens_used_month)} /{' '}
                 {new Intl.NumberFormat('vi-VN').format(config.ai_engine_config.monthly_token_budget)}{' '}
                 tokens ({tokenUsagePercent}%)
               </span>
             </div>
-            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[#D5E3DF] dark:bg-zinc-800">
               <div
-                className="h-full rounded-full bg-teal-700 dark:bg-teal-400"
+                className="h-full rounded-full bg-[#0F766E] dark:bg-teal-400"
                 style={{ width: `${tokenUsagePercent}%` }}
               />
             </div>
@@ -774,12 +780,12 @@ export function AdminSettingsView() {
 
           {/* Switches */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
               <div>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                   Che dữ liệu định danh cá nhân (PII Masking)
                 </p>
-                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
                   Ẩn số CCCD, SĐT và số tài khoản trước khi gửi ngữ cảnh sang AI Copilot.
                 </p>
               </div>
@@ -798,12 +804,12 @@ export function AdminSettingsView() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-zinc-200/80 p-4 dark:border-zinc-800/80">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
               <div>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                   Tự động quét cảnh báo Burnout & Turnover
                 </p>
-                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
                   Phân tích giờ tăng ca, tần suất đi muộn và biến động KPI hàng tuần.
                 </p>
               </div>

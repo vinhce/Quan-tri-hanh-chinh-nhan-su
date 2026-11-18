@@ -479,7 +479,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           })}
         </nav>
       {/* Account card footer */}
-      <div className="relative shrink-0 border-t border-zinc-200/80 p-2.5 dark:border-zinc-800/80">
+      <div className="relative shrink-0 border-t border-zinc-200/80 p-2 dark:border-zinc-800/80">
         {roleMenuOpen && (
           <div
             role="menu"
@@ -522,8 +522,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </div>
         )}
 
-        <div className="rounded-xl border border-zinc-200/80 bg-white p-2.5 dark:border-zinc-800/80 dark:bg-zinc-900">
-          <div className="flex items-center gap-2.5">
+        <div className="rounded-xl border border-zinc-200/80 bg-white p-2 dark:border-zinc-800/80 dark:bg-zinc-900">
+          <div className="flex min-w-0 items-center gap-2.5">
             <button
               type="button"
               onClick={() => setRoleMenuOpen((prev) => !prev)}
@@ -533,17 +533,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             >
               {initials}
             </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                {displayName}
-              </p>
-              <span
-                title={roleBadge.text}
-                className={`mt-1 inline-flex max-w-full items-center overflow-hidden rounded border px-1.5 py-0.5 text-[11px] font-medium leading-tight ${roleBadge.className}`}
-              >
-                <span className="truncate">{roleBadge.text}</span>
-              </span>
-            </div>
+            <p className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              {displayName}
+            </p>
+          </div>
+
+          <div className="mt-2">
+            <span
+              title={roleBadge.text}
+              className={`inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-medium leading-tight ${roleBadge.className}`}
+            >
+              <span className="truncate">{roleBadge.text}</span>
+            </span>
           </div>
 
           <div className="mt-2.5 grid grid-cols-2 gap-1.5">

@@ -1,10 +1,10 @@
 # TRẠNG THÁI HIỆN TẠI (STATE)
 
 ## 1. Việc vừa hoàn thành
-- Hoàn thành đầy đủ **Bước 1 → Bước 5 (Giai đoạn 1 Frontend UI + Mock Data)**:
-  - App Shell cố định (`h-dvh overflow-hidden`), `sidebar.tsx`, `header.tsx` (bỏ Role Switcher, có Đăng xuất -> `/login`), `src/app/login/page.tsx` (Đăng nhập + Đăng ký).
-  - Đủ 12 phân hệ giao diện trong `src/components/modules/*` kết nối trực tiếp vào `src/app/page.tsx` theo `activeNav` và bảo vệ quyền theo `role`.
-  - Cập nhật `TASKS.md` và `PROGRESS.md` đánh dấu hoàn thành Bước 1 → Bước 5.
+- Hoàn thành **Bước 1 → Bước 5 (Giai đoạn 1)** và **Bước 1 (Giai đoạn 2 `web/` trên `feature/static-web`)**.
+- Hoàn thành toàn bộ sửa lỗi UI/UX, RBAC 5 vai trò (`DIRECTOR` & phê duyệt Cấp 3), Nhật ký bảo mật bất biến, thẻ tài khoản Sidebar + thu gọn Header, đồng bộ dữ liệu mock (`badge` Sidebar, Copilot phép năm động, 3 câu hỏi AI ATS, bỏ `CA-CHIEU`) và ESS `Phiếu lương cá nhân` trên nhánh `fix-ui`.
+- Đã nghiệm thu `tsc --noEmit` (`npm.cmd run typecheck` PASS), kiểm thử trình duyệt (`1123x800`, `1280x800`, `375x812`) PASS và đạt `[QA PASS]`.
+- Cập nhật đồng bộ `TASKS.md` (Bước 6), `PROGRESS.md` và `STATE.md`.
 
 ## 2. Bước tiếp theo
-- Nghiệm thu cuối cùng (`npx.cmd tsc --noEmit` & `npm.cmd run build`) qua `@verifier` và bàn giao Giai đoạn 1 cho người dùng.
+- Chuẩn bị tách thay đổi trên nhánh `fix-ui` thành 19 commit riêng lẻ và `git push origin fix-ui`.

@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useApp } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchPayrollMock, type PitTaxBracketItem } from '@/lib/mock-fetcher';
+import { pushNotification } from '@/lib/runtime-store';
 import { formatNumberVN, formatVND } from '@/lib/utils';
 import { calculateProgressivePitVnd } from '@/mock';
 import type { PayrollFormulaConfig, PayrollRecord } from '@/mock/types';
@@ -162,6 +163,14 @@ export function PayrollView() {
       target: `${updatedRec.payslip_code} (${updatedRec.full_name})`,
       detail: `Điều chỉnh thưởng KPI: ${formatVND(nextKpiBonus)}, trạng thái: ${editPaymentStatus}, Net mới: ${formatVND(nextNet)}`,
     });
+    pushNotification({
+      title: `Cập nhật phiếu lương ${updatedRec.payslip_code}`,
+      message: `Phiếu lương kỳ ${updatedRec.period_month} của ${updatedRec.full_name} đã được cập nhật trạng thái ${PAYMENT_STATUS_CONFIG[editPaymentStatus].label.toLowerCase()}, thực lĩnh ${formatVND(nextNet)}.`,
+      category: 'PAYROLL',
+      target_employee_codes: [updatedRec.employee_code],
+      nav_id: 'payslip',
+      entity_id: updatedRec.payslip_code,
+    });
   };
 
   useEffect(() => {
@@ -256,6 +265,13 @@ export function PayrollView() {
       module: 'Bảng lương & Thuế',
       target: 'Phiếu lương kỳ 11/2026',
       detail: `Phát hành phiếu lương điện tử tới ${records.length} nhân sự`,
+    });
+    pushNotification({
+      title: 'Phiếu lương kỳ 11/2026 đã phát hành',
+      message: `Phòng Nhân sự đã chốt và phát hành phiếu lương điện tử kỳ 11/2026 tới ${records.length} nhân sự qua cổng tự phục vụ.`,
+      category: 'PAYROLL',
+      target_roles: ['EMPLOYEE', 'DEPT_MANAGER', 'HR_MANAGER', 'DIRECTOR'],
+      nav_id: 'payslip',
     });
   };
 

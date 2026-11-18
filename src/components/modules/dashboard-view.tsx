@@ -183,10 +183,10 @@ export function DashboardView() {
     );
   };
 
-  const chartStrokeColor = theme === 'dark' ? '#27272a' : '#e4e4e7';
-  const chartTickColor = theme === 'dark' ? '#a1a1aa' : '#71717a';
-  const barPrimaryColor = theme === 'dark' ? '#2dd4bf' : '#0f766e';
-  const barSecondaryColor = theme === 'dark' ? '#52525b' : '#d4d4d8';
+  const chartStrokeColor = theme === 'dark' ? '#27272a' : '#D5E3DF';
+  const chartTickColor = theme === 'dark' ? '#a1a1aa' : '#415A54';
+  const barPrimaryColor = theme === 'dark' ? '#2dd4bf' : '#0F766E';
+  const barSecondaryColor = theme === 'dark' ? '#52525b' : '#B5CEC7';
 
   if (isLoading) {
     return (
@@ -212,10 +212,10 @@ export function DashboardView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
             Dashboard tổng quan
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             {ROLE_SUBTITLE[role] ?? ROLE_SUBTITLE.HR_MANAGER}
           </p>
         </div>
@@ -251,24 +251,24 @@ export function DashboardView() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card
             onClick={() => setActiveNav('employees')}
-            className="cursor-pointer border-l-4 border-l-emerald-500 dark:border-l-emerald-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-emerald-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-emerald-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Nhân sự đang làm việc
                 </span>
                 <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                   {activeEmployees}/{totalEmployees}
                 </span>
                 <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
                   +2 tháng 11
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Tổng định biên toàn công ty: 104 nhân sự
               </p>
             </CardContent>
@@ -276,24 +276,24 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('leaves')}
-            className="cursor-pointer border-l-4 border-l-amber-500 dark:border-l-amber-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-amber-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-amber-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Đơn từ chờ phê duyệt
                 </span>
                 <ClipboardCheck className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                   {pendingRequests.length}
                 </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-[#5C7871] dark:text-zinc-400">
                   / {leaveRequests.length} tổng đơn
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Nghỉ phép năm, tăng ca OT và làm từ xa
               </p>
             </CardContent>
@@ -301,21 +301,21 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('payroll')}
-            className="cursor-pointer border-l-4 border-l-blue-500 dark:border-l-blue-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-blue-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-blue-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Quỹ lương Gross (11/2026)
                 </span>
                 <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
                   {formatVND(totalGrossPayroll)}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Trên {payrollRecords.length} bảng lương mẫu kỳ hiện tại
               </p>
             </CardContent>
@@ -323,11 +323,11 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('contracts')}
-            className="cursor-pointer border-l-4 border-l-rose-500 dark:border-l-rose-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-rose-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-rose-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Cảnh báo AI & Hợp đồng
                 </span>
                 <FileWarning className="h-4 w-4 text-rose-600 dark:text-rose-400" strokeWidth={1.5} />
@@ -336,11 +336,11 @@ export function DashboardView() {
                 <span className="font-mono text-2xl font-semibold tabular-nums text-rose-600 dark:text-rose-400">
                   {burnoutAlerts.length}
                 </span>
-                <span className="font-mono text-xs tabular-nums text-rose-600 dark:text-rose-400">
+                <span className="font-mono text-xs tabular-nums text-rose-700 dark:text-rose-400">
                   {expiringContractsCount} HĐ sắp hết hạn
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Cần rà soát gia hạn trong 30 ngày tới
               </p>
             </CardContent>
@@ -352,22 +352,22 @@ export function DashboardView() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card
             onClick={() => setActiveNav('employees')}
-            className="cursor-pointer border-l-4 border-l-emerald-500 dark:border-l-emerald-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-emerald-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-emerald-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Nhân sự phòng Kỹ thuật PM
                 </span>
                 <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                   {deptEmployees.length}
                 </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">hồ sơ trọng tâm</span>
+                <span className="text-xs text-[#5C7871] dark:text-zinc-400">hồ sơ trọng tâm</span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Định biên toàn phòng: 28 kỹ sư
               </p>
             </CardContent>
@@ -375,21 +375,21 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('leaves')}
-            className="cursor-pointer border-l-4 border-l-amber-500 dark:border-l-amber-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-amber-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-amber-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Đơn chờ duyệt của team
                 </span>
                 <ClipboardCheck className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                   {deptPendingRequests.length}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Yêu cầu nghỉ phép và OT cần xác nhận
               </p>
             </CardContent>
@@ -397,21 +397,21 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('ats')}
-            className="cursor-pointer border-l-4 border-l-blue-500 dark:border-l-blue-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-blue-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-blue-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Ứng viên đang theo dõi
                 </span>
                 <Briefcase className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
                   {candidates.filter((c) => c.stage === 'INTERVIEW').length}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Hồ sơ đang ở vòng phỏng vấn chuyên môn
               </p>
             </CardContent>
@@ -419,11 +419,11 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('performance')}
-            className="cursor-pointer border-l-4 border-l-rose-500 dark:border-l-rose-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-rose-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-rose-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Cảnh báo quá tải trong team
                 </span>
                 <ShieldAlert className="h-4 w-4 text-rose-600 dark:text-rose-400" strokeWidth={1.5} />
@@ -433,7 +433,7 @@ export function DashboardView() {
                   {deptAlerts.length}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Phát hiện tăng ca vượt ngưỡng an toàn
               </p>
             </CardContent>
@@ -445,22 +445,22 @@ export function DashboardView() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card
             onClick={() => setActiveNav('payslip')}
-            className="cursor-pointer border-l-4 border-l-emerald-500 dark:border-l-emerald-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-emerald-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-emerald-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Ngày công tháng 11/2026
                 </span>
                 <CalendarClock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                   21/22
                 </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">công chuẩn</span>
+                <span className="text-xs text-[#5C7871] dark:text-zinc-400">công chuẩn</span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Ca làm việc: HC-08:30 (08:30 - 17:30)
               </p>
             </CardContent>
@@ -468,22 +468,22 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('payslip')}
-            className="cursor-pointer border-l-4 border-l-blue-500 dark:border-l-blue-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-blue-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-blue-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Phép năm còn lại
                 </span>
                 <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
                   {personalLeave?.remaining_days ?? 8}
                 </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">ngày phép</span>
+                <span className="text-xs text-[#5C7871] dark:text-zinc-400">ngày phép</span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Đã dùng {personalLeave?.used_days ?? 4} / {personalLeave?.total_entitled_days ?? 12} ngày năm 2026
               </p>
             </CardContent>
@@ -491,22 +491,22 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('performance')}
-            className="cursor-pointer border-l-4 border-l-violet-500 dark:border-l-violet-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-violet-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-violet-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Điểm KPI kỳ 2026-Q3
                 </span>
                 <TrendingUp className="h-4 w-4 text-violet-600 dark:text-violet-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-violet-600 dark:text-violet-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-violet-700 dark:text-violet-400">
                   {personalKpi?.kpi_score ?? 91}
                 </span>
                 <Badge variant="teal">Xếp loại {personalKpi?.grade ?? 'A'}</Badge>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Hoàn thành OKR: {personalKpi?.okr_completion_percent ?? 94}%
               </p>
             </CardContent>
@@ -514,21 +514,21 @@ export function DashboardView() {
 
           <Card
             onClick={() => setActiveNav('leaves')}
-            className="cursor-pointer border-l-4 border-l-amber-500 dark:border-l-amber-400 transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/50"
+            className="cursor-pointer border-l-4 border-l-amber-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-amber-400 dark:hover:bg-zinc-900/50"
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
                   Đơn từ đã gửi
                 </span>
                 <ClipboardCheck className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
               </div>
               <div className="mt-2">
-                <span className="font-mono text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                <span className="font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                   {leaveRequests.slice(0, 2).length}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
                 Theo dõi trạng thái duyệt theo thời gian thực
               </p>
             </CardContent>
@@ -546,13 +546,13 @@ export function DashboardView() {
                 Quy mô nhân sự toàn công ty từ 06/2026 đến 11/2026 (đơn vị: người)
               </CardDescription>
             </div>
-            <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center gap-4 text-xs text-[#415A54] dark:text-zinc-400">
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-teal-700 dark:bg-teal-400" />
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#0F766E] dark:bg-teal-400" />
                 Tổng nhân sự
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-zinc-300 dark:bg-zinc-600" />
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#B5CEC7] dark:bg-zinc-600" />
                 Tuyển mới
               </span>
             </div>
@@ -582,31 +582,31 @@ export function DashboardView() {
                     tick={{ fill: chartTickColor, fontSize: 11, fontFamily: 'monospace' }}
                   />
                   <Tooltip
-                    cursor={{ fill: theme === 'dark' ? 'rgba(39,39,42,0.5)' : 'rgba(244,244,245,0.8)' }}
+                    cursor={{ fill: theme === 'dark' ? 'rgba(39,39,42,0.5)' : 'rgba(232,243,239,0.75)' }}
                     content={({ active, payload, label }) => {
                       if (!active || !payload || !payload.length) return null;
                       const row = payload[0].payload as HeadcountTrendItem;
                       return (
-                        <div className="rounded-lg border border-zinc-200/80 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900">
-                          <p className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                        <div className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-xs shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900">
+                          <p className="font-mono font-semibold text-[#11221E] dark:text-zinc-100">
                             Tháng {label}
                           </p>
                           <div className="mt-1.5 space-y-1">
-                            <p className="flex items-center justify-between gap-4 text-zinc-600 dark:text-zinc-400">
+                            <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
                               <span>Tổng nhân sự:</span>
-                              <span className="font-mono font-medium tabular-nums text-teal-700 dark:text-teal-400">
+                              <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                                 {formatNumberVN(row.total_headcount)}
                               </span>
                             </p>
-                            <p className="flex items-center justify-between gap-4 text-zinc-600 dark:text-zinc-400">
+                            <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
                               <span>Tuyển mới:</span>
-                              <span className="font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                              <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
                                 +{row.new_hires}
                               </span>
                             </p>
-                            <p className="flex items-center justify-between gap-4 text-zinc-600 dark:text-zinc-400">
+                            <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
                               <span>Nghỉ việc:</span>
-                              <span className="font-mono font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                              <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
                                 -{row.resigned}
                               </span>
                             </p>
@@ -639,27 +639,27 @@ export function DashboardView() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle>Tác vụ ưu tiên</CardTitle>
-              <BarChart3 className="h-4 w-4 text-zinc-400" strokeWidth={1.5} />
+              <BarChart3 className="h-4 w-4 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
             </div>
             <CardDescription>Các đầu việc cần xử lý trong tuần này</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div
               onClick={() => setActiveNav('leaves')}
-              className="cursor-pointer rounded-lg border border-zinc-200/80 p-3 transition-colors hover:border-teal-700/50 hover:bg-zinc-50/70 dark:border-zinc-800/80 dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
+              className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                   Đơn nghỉ phép & OT chờ duyệt
                 </span>
                 <Badge variant="warning" className="font-mono tabular-nums">
                   {pendingRequests.length}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
                 Ưu tiên phản hồi các đơn đăng ký trong 24 giờ.
               </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-teal-700 dark:text-teal-400">
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] dark:text-teal-400">
                 Mở danh sách đơn từ
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </span>
@@ -668,20 +668,20 @@ export function DashboardView() {
             {role !== 'EMPLOYEE' && (
               <div
                 onClick={() => setActiveNav('contracts')}
-                className="cursor-pointer rounded-lg border border-zinc-200/80 p-3 transition-colors hover:border-teal-700/50 hover:bg-zinc-50/70 dark:border-zinc-800/80 dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
+                className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                  <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                     Hợp đồng sắp hết hạn (&lt;= 30 ngày)
                   </span>
                   <Badge variant="danger" className="font-mono tabular-nums">
                     {expiringContractsCount}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
                   Cần rà soát tái ký trước khi hết hiệu lực.
                 </p>
-                <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-teal-700 dark:text-teal-400">
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] dark:text-teal-400">
                   Kiểm tra hợp đồng
                   <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </span>
@@ -690,20 +690,20 @@ export function DashboardView() {
 
             <div
               onClick={() => setActiveNav('ats')}
-              className="cursor-pointer rounded-lg border border-zinc-200/80 p-3 transition-colors hover:border-teal-700/50 hover:bg-zinc-50/70 dark:border-zinc-800/80 dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
+              className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                   Ứng viên đang chờ phỏng vấn
                 </span>
                 <Badge variant="teal" className="font-mono tabular-nums">
                   {candidates.filter((c) => c.stage === 'INTERVIEW').length}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
                 Đã có báo cáo AI Match Score & bộ câu hỏi gợi ý.
               </p>
-              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-teal-700 dark:text-teal-400">
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] dark:text-teal-400">
                 Xem bảng Kanban ATS
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
               </span>
@@ -714,7 +714,7 @@ export function DashboardView() {
 
       {/* Burnout / Turnover Alerts Table */}
       {visibleAlerts.length > 0 && (
-        <Card>
+        <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 dark:shadow-none">
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
@@ -733,7 +733,7 @@ export function DashboardView() {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-y border-zinc-200/80 bg-zinc-50/70 text-xs font-medium text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
+                  <tr className="border-y border-[#C6D9D3] bg-[#F2F7F5] text-xs font-semibold text-[#415A54] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:text-zinc-400">
                     <th className="px-5 py-3">Mã NV</th>
                     <th className="px-4 py-3">Nhân sự</th>
                     <th className="px-4 py-3">Mức rủi ro</th>
@@ -742,7 +742,7 @@ export function DashboardView() {
                     <th className="px-5 py-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
+                <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/80">
                   {visibleAlerts.map((alert) => {
                     const riskBadge = RISK_BADGE_MAP[alert.risk_level];
                     const isSent = Boolean(sentAlertIds[alert.id]);
@@ -758,18 +758,18 @@ export function DashboardView() {
                       <tr
                         key={alert.id}
                         className={cn(
-                          'transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40',
+                          'transition-colors odd:bg-[#FCFEFD] even:bg-[#F5FAF8] hover:bg-[#E8F3EF] dark:odd:bg-transparent dark:even:bg-transparent dark:hover:bg-zinc-900/40',
                           rowAccent
                         )}
                       >
-                        <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+                        <td className="whitespace-nowrap px-5 py-3.5 font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
                           {alert.employee_code}
                         </td>
                         <td className="px-4 py-3.5">
-                          <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                          <div className="font-semibold text-[#11221E] dark:text-zinc-100">
                             {alert.full_name}
                           </div>
-                          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="text-xs text-[#415A54] dark:text-zinc-400">
                             {alert.department_name}
                           </div>
                         </td>
@@ -777,18 +777,18 @@ export function DashboardView() {
                           <Badge variant={riskBadge.variant}>{riskBadge.label}</Badge>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs tabular-nums">
-                          <div className="text-zinc-900 dark:text-zinc-100">
+                          <div className="text-[#11221E] dark:text-zinc-100">
                             Burnout: <span className="font-semibold">{alert.burnout_risk_score}</span>/100
                           </div>
-                          <div className="text-zinc-500 dark:text-zinc-400">
+                          <div className="text-[#5C7871] dark:text-zinc-400">
                             Nghỉ việc: {alert.turnover_risk_score}/100
                           </div>
                         </td>
                         <td className="max-w-md px-4 py-3.5">
-                          <p className="line-clamp-2 text-xs leading-5 text-zinc-700 dark:text-zinc-300">
+                          <p className="line-clamp-2 text-xs leading-5 text-[#11221E] dark:text-zinc-300">
                             {alert.key_factors[0]}
                           </p>
-                          <p className="mt-0.5 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                          <p className="mt-0.5 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                             OT 30 ngày: {alert.overtime_hours_last_30d}h · Đi muộn: {alert.late_count_last_30d} lần
                           </p>
                         </td>
@@ -844,48 +844,48 @@ export function DashboardView() {
 
               <div className="mt-4 space-y-4">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">Điểm Burnout</div>
-                    <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                    <div className="text-xs text-[#5C7871] dark:text-zinc-400">Điểm Burnout</div>
+                    <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                       {selectedAlert.burnout_risk_score}/100
                     </div>
                   </div>
-                  <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">Nguy cơ nghỉ việc</div>
-                    <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                    <div className="text-xs text-[#5C7871] dark:text-zinc-400">Nguy cơ nghỉ việc</div>
+                    <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                       {selectedAlert.turnover_risk_score}/100
                     </div>
                   </div>
-                  <div className="rounded-lg border border-zinc-200/80 p-3 dark:border-zinc-800/80">
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">Giờ OT (30 ngày)</div>
-                    <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 dark:border-zinc-800/80 dark:bg-transparent">
+                    <div className="text-xs text-[#5C7871] dark:text-zinc-400">Giờ OT (30 ngày)</div>
+                    <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                       {selectedAlert.overtime_hours_last_30d} giờ
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  <h4 className="text-xs font-semibold text-[#415A54] dark:text-zinc-400">
                     Các dấu hiệu AI ghi nhận
                   </h4>
-                  <ul className="mt-2 space-y-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+                  <ul className="mt-2 space-y-1.5 text-sm text-[#11221E] dark:text-zinc-300">
                     {selectedAlert.key_factors.map((factor, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-700 dark:bg-teal-400" />
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0F766E] dark:bg-teal-400" />
                         <span>{factor}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="rounded-lg border border-teal-700/20 bg-teal-50/60 p-3.5 dark:border-teal-400/20 dark:bg-teal-950/30">
-                  <div className="text-xs font-semibold text-teal-800 dark:text-teal-300">
+                <div className="rounded-lg border border-[#0F766E]/25 bg-[#CBE8E2]/45 p-3.5 dark:border-teal-400/20 dark:bg-teal-950/30">
+                  <div className="text-xs font-semibold text-[#0B4F4A] dark:text-teal-300">
                     Hành động khuyến nghị
                   </div>
-                  <p className="mt-1 text-sm leading-5 text-zinc-800 dark:text-zinc-200">
+                  <p className="mt-1 text-sm leading-5 text-[#11221E] dark:text-zinc-200">
                     {selectedAlert.recommended_action}
                   </p>
-                  <p className="mt-2 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-2 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
                     Phát hiện lúc: {formatDateVN(selectedAlert.detected_at)}
                   </p>
                 </div>

@@ -34,3 +34,17 @@ Mọi file trong `src/` phải vượt qua cổng kiểm tra `/unslop` trước 
 - **Lệnh kiểm tra bắt buộc trước khi báo cáo hoàn thành:**
   - Chạy `npx tsc --noEmit` đảm bảo `0 errors`.
   - Rà soát không còn bất kỳ vi phạm nào trong checklist `/unslop`.
+
+## 4. QUY TẮC WEB TĨNH (web/) & ĐÓNG BĂNG src/
+- **Đóng băng `src/`:** Đóng băng hoàn toàn thư mục `src/` (bản tham chiếu Next.js); mọi phát triển giao diện mới thực hiện trong `web/` trên nhánh `feature/static-web`.
+- **Quy tắc giới hạn 500 dòng/file & Ngoại lệ bắt buộc:**
+  - Mọi file code viết tay trong `web/` (`HTML`, `CSS`, `JS`) phải **< 500 dòng** (chủ động tách module con nếu sắp vượt 400 dòng).
+  - **Ngoại lệ KHÔNG áp dụng quy tắc 500 dòng cho:**
+    - `web/assets/css/tailwind.css` (file sinh tự động bởi Tailwind CLI).
+    - `web/mock/*.json` (file dữ liệu sinh tự động bởi `scripts/export-mock-json.mjs`).
+    - `web/assets/vendor/*` (thư viện ngoài đặt local).
+- **An toàn hiển thị, liên kết & tài nguyên tĩnh:**
+  - Mọi dữ liệu render qua `innerHTML` bắt buộc phải đi qua `escapeHtml()`.
+  - Mọi URL/link động bắt buộc phải đi qua `toUrl()` hoặc `sanitizeHref()`.
+  - Không dùng CDN ngoài; toàn bộ thư viện bên thứ ba đặt local trong `web/assets/vendor/`.
+  - Không ghép chuỗi class Tailwind động trong JS (sử dụng bảng ánh xạ class đầy đủ để Tailwind CLI nhận diện khi build).

@@ -56,14 +56,22 @@ export type UiState = 'ready' | 'loading' | 'empty' | 'error';
 export interface UserProfileOverride {
   fullName?: string;
   department?: string;
+  department_id?: string;
   employee_code?: string;
+}
+
+export interface NavIntent {
+  navId: string;
+  entityId?: string;
+  subTab?: string;
+  ts: number;
 }
 
 export interface ToastMessage {
   id: string;
   title: string;
   description?: string;
-  variant?: 'default' | 'success' | 'warning' | 'error';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
 }
 
 export interface AppContextValue {
@@ -82,6 +90,9 @@ export interface AppContextValue {
   toggleTheme: () => void;
   activeNav: string;
   setActiveNav: (id: string) => void;
+  navIntent: NavIntent | null;
+  navigateWithIntent: (navId: string, intent?: { entityId?: string; subTab?: string }) => void;
+  clearNavIntent: () => void;
   uiState: UiState;
   setUiState: (s: UiState) => void;
   showToast: (title: string, description?: string, variant?: ToastMessage['variant']) => void;
@@ -106,6 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfileOverride | null>(null);
   const [theme, setThemeState] = useState<'light' | 'dark'>('dark');
   const [activeNav, setActiveNavState] = useState<string>('dashboard');
+  const [navIntent, setNavIntent] = useState<NavIntent | null>(null);
   const [uiState, setUiState] = useState<UiState>('ready');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
@@ -146,6 +158,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const navigateWithIntent = useCallback(
+    (navId: string, intent?: { entityId?: string; subTab?: string }) => {
+      setActiveNav(navId);
+      setNavIntent({
+        navId,
+        entityId: intent?.entityId,
+        subTab: intent?.subTab,
+        ts: Date.now(),
+      });
+    },
+    [setActiveNav]
+  );
+
+  const clearNavIntent = useCallback(() => {
+    setNavIntent(null);
+  }, []);
+
   const setRole = useCallback((nextRole: RoleCode) => {
     setRoleState(nextRole);
     try {
@@ -166,6 +195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentUserEmail(normalizedEmail);
       setCurrentUserProfile(profile ?? null);
       setActiveNavState('dashboard');
+      setNavIntent(null);
 
       try {
         window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
@@ -190,6 +220,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setCurrentUserEmail(null);
     setCurrentUserProfile(null);
+    setNavIntent(null);
     setActiveNav('dashboard');
     setIsCopilotOpen(false);
     try {
@@ -252,6 +283,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleTheme,
         activeNav,
         setActiveNav,
+        navIntent,
+        navigateWithIntent,
+        clearNavIntent,
         uiState,
         setUiState,
         showToast,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Ban,
@@ -35,6 +35,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useApp, type RoleCode } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchAttendanceMock } from '@/lib/mock-fetcher';
+import {
+  HRM_RUNTIME_EVENT,
+  mergeWithRuntimeRequests,
+  pushNotification,
+  saveRuntimeRequest,
+} from '@/lib/runtime-store';
 import { formatDateVN } from '@/lib/utils';
 import type {
   ApprovalStep,
@@ -220,13 +226,31 @@ function StepperBadge({
   );
 }
 
+function resolveDepartmentId(deptName: string, fallbackDeptId?: string): string {
+  if (fallbackDeptId && fallbackDeptId.trim()) return fallbackDeptId.trim();
+  if (TECH_DIVISION_DEPARTMENTS.has(deptName)) return 'dept-tech';
+  if (deptName === 'Phòng Nhân sự & Hành chính') return 'dept-hr';
+  if (deptName === 'Phòng Tài chính - Kế toán') return 'dept-fin';
+  if (deptName === 'Khối Kinh doanh') return 'dept-sales';
+  return 'dept-board';
+}
+
 export function RequestsView() {
-  const { role, currentUserProfile, uiState, setUiState, showToast } = useApp();
+  const {
+    role,
+    currentUserProfile,
+    navIntent,
+    clearNavIntent,
+    uiState,
+    setUiState,
+    showToast,
+  } = useApp();
   const actorInfo = ROLE_ACTOR_DEFAULT[role];
-  const currentEmployeeCode = actorInfo.code;
+  const currentEmployeeCode = currentUserProfile?.employee_code ?? actorInfo.code;
   const currentEmployeeName = currentUserProfile?.fullName ?? actorInfo.name;
   const currentDepartment = currentUserProfile?.department ?? actorInfo.dept;
 
+  const baseRequestsRef = useRef<LeaveOvertimeRequest[]>([]);
   const [requests, setRequests] = useState<LeaveOvertimeRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilterTab>('ALL');
@@ -238,7 +262,8 @@ export function RequestsView() {
     fetchAttendanceMock()
       .then((data) => {
         if (!active) return;
-        setRequests(data.MOCK_LEAVE_OVERTIME_REQUESTS);
+        baseRequestsRef.current = data.MOCK_LEAVE_OVERTIME_REQUESTS;
+        setRequests(mergeWithRuntimeRequests(data.MOCK_LEAVE_OVERTIME_REQUESTS));
         setIsLoading(false);
       })
       .catch(() => {
@@ -249,9 +274,49 @@ export function RequestsView() {
     };
   }, []);
 
+  useEffect(() => {
+    const syncFromRuntime = () => {
+      const merged = mergeWithRuntimeRequests(baseRequestsRef.current);
+      setRequests(merged);
+      setSelectedRequest((prev) => {
+        if (!prev) return null;
+        return (
+          merged.find(
+            (item) => item.id === prev.id || item.request_code === prev.request_code
+          ) ?? null
+        );
+      });
+    };
+
+    window.addEventListener(HRM_RUNTIME_EVENT, syncFromRuntime);
+    window.addEventListener('storage', syncFromRuntime);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncFromRuntime);
+      window.removeEventListener('storage', syncFromRuntime);
+    };
+  }, []);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<LeaveOvertimeRequest | null>(null);
   const [checklistChecked, setChecklistChecked] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || !navIntent || navIntent.navId !== 'leaves') return;
+    if (navIntent.entityId) {
+      const matched = requests.find(
+        (r) => r.request_code === navIntent.entityId || r.id === navIntent.entityId
+      );
+      if (matched) {
+        setStatusFilter('ALL');
+        setCategoryFilter('ALL');
+        setSearchQuery('');
+        setChecklistChecked(false);
+        setIsEditingRequest(false);
+        setSelectedRequest(matched);
+      }
+    }
+    clearNavIntent();
+  }, [isLoading, navIntent, requests, clearNavIntent]);
 
   const [rejectTarget, setRejectTarget] = useState<LeaveOvertimeRequest | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
@@ -399,11 +464,68 @@ export function RequestsView() {
     setRequests((prev) => prev.map((item) => (item.id === req.id ? updatedReq : item)));
     setSelectedRequest((prev) => (prev && prev.id === req.id ? updatedReq : prev));
     setChecklistChecked(false);
+    saveRuntimeRequest(updatedReq);
+
+    if (targetStepRole === 'DEPT_MANAGER' && nextPendingStep?.role === 'HR_MANAGER') {
+      pushNotification({
+        title: `Đơn ${req.request_code} chờ Nhân sự kiểm tra`,
+        message: `${currentEmployeeName} đã duyệt Cấp 1 cho đơn ${req.category_label.toLowerCase()} của ${req.full_name}.`,
+        category: 'LEAVE_REQUEST',
+        target_roles: ['HR_MANAGER'],
+        nav_id: 'leaves',
+        entity_id: req.request_code,
+      });
+      pushNotification({
+        title: `Đơn ${req.request_code} đã qua duyệt Cấp 1`,
+        message: `Trưởng bộ phận đã duyệt bước 1, đơn đã chuyển tiếp tới Phòng Nhân sự kiểm tra.`,
+        category: 'LEAVE_REQUEST',
+        target_employee_codes: [req.employee_code],
+        nav_id: 'leaves',
+        entity_id: req.request_code,
+      });
+    } else if (targetStepRole === 'HR_MANAGER') {
+      if (!isFinal && nextPendingStep?.role === 'DIRECTOR') {
+        pushNotification({
+          title: `Đơn ${req.request_code} chờ Giám đốc phê duyệt Cấp 3`,
+          message: `Phòng Nhân sự đã kiểm tra hợp lệ đơn ${req.category_label.toLowerCase()} (${req.duration_days_or_hours} ${req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}) của ${req.full_name}.`,
+          category: 'LEAVE_REQUEST',
+          target_roles: ['DIRECTOR'],
+          nav_id: 'leaves',
+          entity_id: req.request_code,
+        });
+        pushNotification({
+          title: `Đơn ${req.request_code} đã chuyển Giám đốc phê duyệt`,
+          message: `Phòng Nhân sự đã duyệt Cấp 2, đơn đang chờ Giám đốc phê duyệt bước cuối.`,
+          category: 'LEAVE_REQUEST',
+          target_employee_codes: [req.employee_code],
+          nav_id: 'leaves',
+          entity_id: req.request_code,
+        });
+      } else {
+        pushNotification({
+          title: 'Đơn đã được phê duyệt',
+          message: `Đơn ${req.request_code} (${req.category_label.toLowerCase()}) của ${req.full_name} đã được phê duyệt hoàn tất.`,
+          category: 'LEAVE_REQUEST',
+          target_employee_codes: [req.employee_code],
+          nav_id: 'leaves',
+          entity_id: req.request_code,
+        });
+      }
+    } else if (isFinal) {
+      pushNotification({
+        title: 'Đơn đã được phê duyệt',
+        message: `Giám đốc đã phê duyệt hoàn tất đơn ${req.request_code} (${req.category_label.toLowerCase()}).`,
+        category: 'LEAVE_REQUEST',
+        target_employee_codes: [req.employee_code],
+        nav_id: 'leaves',
+        entity_id: req.request_code,
+      });
+    }
 
     showToast(
       isFinal
         ? `Đã phê duyệt hoàn tất đơn ${req.request_code}`
-        : `Đã duyệt bước ${role === 'DEPT_MANAGER' ? 'Cấp 1' : 'Cấp 2'} đơn ${req.request_code}`,
+        : `Đã duyệt bước ${targetStepRole === 'DEPT_MANAGER' ? 'Cấp 1' : 'Cấp 2'} đơn ${req.request_code}`,
       nextPendingStep
         ? `Đơn đã chuyển tiếp sang ${nextPendingStep.label}.`
         : `${req.full_name} — ${req.category_label}`,
@@ -462,6 +584,15 @@ export function RequestsView() {
 
     setRequests((prev) => prev.map((item) => (item.id === rejectTarget.id ? updatedReq : item)));
     setSelectedRequest((prev) => (prev && prev.id === rejectTarget.id ? updatedReq : prev));
+    saveRuntimeRequest(updatedReq);
+    pushNotification({
+      title: `Đơn ${rejectTarget.request_code} bị từ chối`,
+      message: `${currentEmployeeName} đã từ chối đơn ${rejectTarget.category_label.toLowerCase()}. Lý do: ${reasonTrimmed}`,
+      category: 'LEAVE_REQUEST',
+      target_employee_codes: [rejectTarget.employee_code],
+      nav_id: 'leaves',
+      entity_id: rejectTarget.request_code,
+    });
     setRejectTarget(null);
     setRejectReasonInput('');
     setRejectError('');
@@ -494,6 +625,7 @@ export function RequestsView() {
     };
     setRequests((prev) => prev.map((item) => (item.id === cancelTarget.id ? updatedReq : item)));
     setSelectedRequest((prev) => (prev && prev.id === cancelTarget.id ? updatedReq : prev));
+    saveRuntimeRequest(updatedReq);
     showToast(
       `Đã hủy đơn ${cancelTarget.request_code}`,
       'Đơn đề xuất đã được rút lại.',
@@ -530,6 +662,7 @@ export function RequestsView() {
     setRequests((prev) => prev.map((item) => (item.id === updatedReq.id ? updatedReq : item)));
     setSelectedRequest(updatedReq);
     setIsEditingRequest(false);
+    saveRuntimeRequest(updatedReq);
     showToast(
       `Đã cập nhật đơn ${updatedReq.request_code}`,
       `${updatedReq.full_name} — ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
@@ -639,8 +772,13 @@ export function RequestsView() {
     }
 
     const catOption = NEW_REQUEST_OPTIONS.find((o) => o.value === formCategory);
-    const nextCodeNum = String(87 + requests.length).padStart(3, '0');
+    const maxCodeNum = requests.reduce((max, r) => {
+      const m = /^REQ-202611-(\d+)$/.exec(r.request_code);
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 87);
+    const nextCodeNum = String(maxCodeNum + 1).padStart(3, '0');
     const firstStepRole: 'DEPT_MANAGER' | 'HR_MANAGER' = isDeptMgr ? 'HR_MANAGER' : 'DEPT_MANAGER';
+    const targetDeptId = resolveDepartmentId(currentDepartment, currentUserProfile?.department_id);
 
     const newItem: LeaveOvertimeRequest = {
       id: `req-${Date.now()}`,
@@ -672,6 +810,29 @@ export function RequestsView() {
     };
 
     setRequests((prev) => [newItem, ...prev]);
+    saveRuntimeRequest(newItem);
+
+    if (isDeptMgr) {
+      pushNotification({
+        title: `Đơn mới ${newItem.request_code} chờ Nhân sự kiểm tra`,
+        message: `${newItem.full_name} tạo đơn ${newItem.category_label.toLowerCase()} (${numericDuration} ${formUnit === 'NGAY' ? 'ngày' : 'giờ'}).`,
+        category: 'LEAVE_REQUEST',
+        target_roles: ['HR_MANAGER'],
+        nav_id: 'leaves',
+        entity_id: newItem.request_code,
+      });
+    } else {
+      pushNotification({
+        title: `Đơn mới ${newItem.request_code} chờ duyệt Cấp 1`,
+        message: `${newItem.full_name} gửi đơn ${newItem.category_label.toLowerCase()} (${numericDuration} ${formUnit === 'NGAY' ? 'ngày' : 'giờ'}).`,
+        category: 'LEAVE_REQUEST',
+        target_roles: ['DEPT_MANAGER'],
+        target_department_id: targetDeptId,
+        nav_id: 'leaves',
+        entity_id: newItem.request_code,
+      });
+    }
+
     setIsCreateOpen(false);
     setFormError('');
     setFormReason('');

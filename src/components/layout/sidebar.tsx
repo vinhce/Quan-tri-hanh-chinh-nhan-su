@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid,
   Users,
   FileText,
   UserCheck,
+  ClipboardCheck,
   Clock,
   CalendarCheck,
   Wallet,
@@ -28,6 +29,8 @@ import {
   ROLE_DEFAULT_PROFILES,
   type RoleCode,
 } from "@/context/app-context";
+import { HRM_RUNTIME_EVENT, getOnboardingRecords } from "@/lib/runtime-store";
+import type { OnboardingRecord } from "@/mock/types";
 import {
   Dialog,
   DialogContent,
@@ -88,6 +91,15 @@ export const NAV_ITEMS: NavItem[] = [
     badgeCount: 6,
     deliverableStep: "Bước 2",
     summary: "Kanban 5 bước tuyển dụng và chấm điểm hồ sơ ứng viên tự động",
+  },
+  {
+    id: "onboarding",
+    label: "Onboarding & Tài sản",
+    section: "Quản trị cốt lõi",
+    icon: ClipboardCheck,
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    deliverableStep: "Bước 2",
+    summary: "Theo dõi lộ trình hội nhập nhân sự mới và quản lý cấp phát tài sản công ty",
   },
   {
     id: "attendance",
@@ -289,6 +301,16 @@ function getRoleBadgeMeta(
   }
 }
 
+const TECH_DEPT_SCOPE = new Set([
+  "dept-tech",
+  "dept-tech-swe",
+  "dept-tech-data",
+  "dept-data",
+  "Khối Công nghệ",
+  "Phòng Kỹ thuật Phần mềm",
+  "Phòng Dữ liệu & AI",
+]);
+
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const router = useRouter();
   const {
@@ -302,6 +324,21 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   } = useApp();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [onboardingRecords, setOnboardingRecords] = useState<OnboardingRecord[]>([]);
+
+  const syncOnboardingRecords = useCallback(() => {
+    setOnboardingRecords(getOnboardingRecords());
+  }, []);
+
+  useEffect(() => {
+    syncOnboardingRecords();
+    window.addEventListener(HRM_RUNTIME_EVENT, syncOnboardingRecords);
+    window.addEventListener("storage", syncOnboardingRecords);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncOnboardingRecords);
+      window.removeEventListener("storage", syncOnboardingRecords);
+    };
+  }, [syncOnboardingRecords]);
 
   useEffect(() => {
     if (!roleMenuOpen && !(mobileOpen && !logoutDialogOpen)) return;
@@ -322,8 +359,41 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const defaultProfile = ROLE_DEFAULT_PROFILES[role];
   const displayName = currentUserProfile?.fullName || currentMeta.empName;
   const displayDept = currentUserProfile?.department || currentMeta.department;
+  const displayDeptId = currentUserProfile?.department_id;
   const displayEmpCode =
     currentUserProfile?.employee_code || currentMeta.empCode || defaultProfile.employee_code;
+
+  const onboardingInProgressCount = useMemo(() => {
+    const activeRecords = onboardingRecords.filter(
+      (rec) => rec.status === "IN_PROGRESS"
+    );
+    if (
+      role === "SUPER_ADMIN" ||
+      role === "HR_MANAGER" ||
+      role === "DIRECTOR"
+    ) {
+      return activeRecords.length;
+    }
+    if (role === "DEPT_MANAGER") {
+      const actorDeptKey = (displayDeptId || displayDept || "dept-tech").trim();
+      const isTechScope = TECH_DEPT_SCOPE.has(actorDeptKey);
+      return activeRecords.filter((rec) => {
+        if (isTechScope) {
+          return (
+            TECH_DEPT_SCOPE.has(rec.department_id) ||
+            TECH_DEPT_SCOPE.has(rec.department_name)
+          );
+        }
+        return (
+          rec.department_id === actorDeptKey ||
+          rec.department_name === displayDept
+        );
+      }).length;
+    }
+    return activeRecords.filter(
+      (rec) => rec.employee_code === displayEmpCode
+    ).length;
+  }, [onboardingRecords, role, displayDeptId, displayDept, displayEmpCode]);
 
   const initials =
     displayName
@@ -453,22 +523,41 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                             />
                             <span className="truncate">{item.label}</span>
                           </span>
-                          {typeof item.badgeCount === "number" &&
-                            !(item.id === "leaves" && role === "EMPLOYEE") && (
-                            <span
-                              className={`ml-2 shrink-0 font-mono text-xs tabular-nums ${
-                                isActive
-                                  ? "text-teal-700 dark:text-teal-400"
-                                  : "text-zinc-500 dark:text-zinc-400"
-                              }`}
-                            >
-                              {item.id === "core-hr"
-                                ? role === "DEPT_MANAGER"
-                                  ? 6
-                                  : 28
-                                : item.badgeCount}
-                            </span>
-                          )}
+                          {(() => {
+                            let resolvedBadge: number | null = null;
+                            if (item.id === "onboarding") {
+                              resolvedBadge =
+                                onboardingInProgressCount > 0
+                                  ? onboardingInProgressCount
+                                  : null;
+                            } else if (
+                              item.id === "leaves" &&
+                              role === "EMPLOYEE"
+                            ) {
+                              resolvedBadge = null;
+                            } else if (item.id === "core-hr") {
+                              resolvedBadge =
+                                role === "DEPT_MANAGER" ? 6 : 28;
+                            } else if (
+                              typeof item.badgeCount === "number" &&
+                              item.badgeCount > 0
+                            ) {
+                              resolvedBadge = item.badgeCount;
+                            }
+
+                            if (resolvedBadge === null) return null;
+                            return (
+                              <span
+                                className={`ml-2 shrink-0 font-mono text-xs tabular-nums ${
+                                  isActive
+                                    ? "text-teal-700 dark:text-teal-400"
+                                    : "text-zinc-500 dark:text-zinc-400"
+                                }`}
+                              >
+                                {resolvedBadge}
+                              </span>
+                            );
+                          })()}
                         </button>
                       </li>
                     );

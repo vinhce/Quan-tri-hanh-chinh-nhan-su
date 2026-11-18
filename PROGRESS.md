@@ -17,3 +17,17 @@
 
 ## 4. BƯỚC HÀNH ĐỘNG KẾ TIẾP (NEXT IMMEDIATE ACTION)
 - Chờ `@verifier` nghiệm thu `npx.cmd tsc --noEmit`, `npm.cmd run build` và checklist toàn bộ Giai đoạn 1 (Frontend UI + Mock Data).
+
+## 5. GIAI ĐOẠN 2 — THEO DÕI WEB TĨNH THUẦN (web/)
+- **Nhánh phát triển:** `feature/static-web` (`src/` đã đóng băng làm bản tham chiếu Next.js).
+- **Trạng thái các bước Deliverables (Giai đoạn 2):**
+  - [x] **Bước 1:** Hoàn thành nền tảng `web/` trên nhánh `feature/static-web` (cấu trúc thư mục `web/`, mở rộng `scripts/export-mock-json.mjs`, cấu hình `tailwind.web.config.mjs`, CSS nền, Core JS, partials `sidebar`/`header`, `login.html` và khung `index.html`).
+  - [ ] **Bước 2:** `index.html` (Dashboard) kèm biểu đồ.
+  - [ ] **Bước 3:** `pages/core-hr.html` và `pages/ats.html`.
+  - [ ] **Bước 4:** `pages/attendance.html`, `pages/requests.html`, `pages/payroll.html`, `pages/payslip.html`.
+  - [ ] **Bước 5:** `pages/performance.html`, `pages/admin-roles.html`, `pages/admin-settings.html`, `pages/admin-audit.html`.
+  - [ ] **Bước 6:** AI Copilot (`partials/copilot.html` + `copilot.js`), kiểm tra responsive và rà soát `< 500` dòng toàn bộ file viết tay.
+- **URL kiểm tra trên Laragon:**
+  - `http://localhost/Quan-tri-hanh-chinh-nhan-su/web/login.html`
+  - `http://localhost/Quan-tri-hanh-chinh-nhan-su/web/`
+- **Bước tiếp theo:** Chờ người dùng nghiệm thu Bước 1 trước khi triển khai Bước 2.

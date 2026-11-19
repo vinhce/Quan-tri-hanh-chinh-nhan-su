@@ -84,6 +84,12 @@
   - **4. Layout Tổng thể & Header:**
     - Sidebar hỗ trợ thu gọn (Collapse mode `w-[68px]`, lưu trạng thái vào `localStorage`), mở rộng tối đa chiều ngang làm việc cho Kanban.
     - Khối thẻ tin tuyển dụng phía trên Kanban được trang bị nút Thu gọn / Mở rộng (`showJobCards`), thu gọn vào Dropdown Selector gọn nhẹ, tiết kiệm 15-20% chiều cao màn hình *(Hoàn thành)*.
+- **B1.6 (Chống quá tải thẻ Kanban & Auto-Archive Onboarding - Swarm verified):**
+  - **1. Auto-Archive (Tự động chuyển luồng)**: Ứng viên trạng thái `ONBOARDED` (Đã nhận việc) quá 3 ngày hoặc đã tạo hồ sơ Onboarding được tự động ẩn khỏi Kanban mặc định; có toggle "Hiện hồ sơ đã bàn giao/lưu trữ" trên toolbar và banner thông báo tại cột 3.
+  - **2. Collapsible Subgroups (Swimlanes)**: Cột 3 ("Đề nghị & Đã nhận việc") hỗ trợ đóng/mở độc lập cho nhóm "Đề nghị nhận việc" và "Đã nhận việc", hiển thị số lượng thẻ và icon chevron.
+  - **3. Compact Mode (Thẻ rút gọn)**: Thẻ tại nhóm Đã nhận việc hiển thị mỏng nhẹ (Avatar, Họ tên, Chức danh, Mã UV); bổ sung nút toggle "Thẻ rút gọn" / "Thẻ chi tiết" trên toolbar cho toàn bảng.
+  - **4. Load More (Giới hạn hiển thị)**: Giới hạn tối đa 8 thẻ/cột (`KANBAN_CARD_LIMIT`), có nút "Xem thêm +X hồ sơ" và "Thu gọn lại" tránh nghẽn DOM khi có hàng chục hồ sơ.
+  - **5. Bộ lọc thời gian mặc định**: Select chọn thời gian trên toolbar ("30 ngày gần nhất" mặc định, "Kỳ hiện tại 11/2026", "Tất cả thời gian") *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

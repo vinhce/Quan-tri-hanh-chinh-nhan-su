@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Archive,
   ArrowRight,
   Briefcase,
   Building,
@@ -67,6 +68,7 @@ import type {
   Employee,
   JobPosting,
 } from '@/mock/types';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -81,6 +83,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 
 const JOB_STATUS_BADGE: Record<JobPosting['status'], { label: string; variant: BadgeVariant }> = {
   URGENT: { label: 'Tuyển gấp', variant: 'danger' },
@@ -136,6 +139,8 @@ export const KANBAN_THREE_COLUMNS: AtsThreeColumnDef[] = [
     stages: ['OFFER', 'ONBOARDED'],
   },
 ];
+
+export const KANBAN_CARD_LIMIT = 8;
 
 export function getStageDisplayLabel(stage: AtsStage): string {
   switch (stage) {
@@ -205,9 +210,22 @@ export function AtsView() {
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [showJobCards, setShowJobCards] = useState(false);
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
+  const [collapsedSubgroups, setCollapsedSubgroups] = useState<Record<string, boolean>>({});
+  const [expandedLimits, setExpandedLimits] = useState<Record<string, boolean>>({});
+  const [timeFilter, setTimeFilter] = useState<'30_DAYS' | 'CURRENT_MONTH' | 'ALL'>('30_DAYS');
+  const [showArchived, setShowArchived] = useState<boolean>(false);
+  const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
 
   const toggleColCollapse = (colId: string) => {
     setCollapsedCols((prev) => ({ ...prev, [colId]: !prev[colId] }));
+  };
+
+  const toggleSubgroup = (subgroupId: 'offer' | 'onboarded') => {
+    setCollapsedSubgroups((prev) => ({ ...prev, [subgroupId]: !prev[subgroupId] }));
+  };
+
+  const toggleLimit = (sectionKey: string) => {
+    setExpandedLimits((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
   };
 
   // Onboarding initiation dialog state
@@ -276,6 +294,13 @@ export function AtsView() {
       }
     }
     setCandidates(baseCandidatesRef.current);
+    setSelectedJobId('ALL');
+    setSelectedSource('ALL');
+    setTimeFilter('30_DAYS');
+    setShowArchived(false);
+    setIsCompactMode(false);
+    setCollapsedSubgroups({});
+    setExpandedLimits({});
     showToast('Đã đặt lại dữ liệu ứng viên', 'Bảng Kanban đã được đồng bộ về dữ liệu ban đầu.', 'success');
   };
 
@@ -342,6 +367,21 @@ export function AtsView() {
 
   const stageOrder = useMemo(() => kanbanStages.map((s) => s.stage), [kanbanStages]);
 
+  const isCandidateArchived = useCallback((c: Candidate) => {
+    if (c.stage !== 'ONBOARDED') return false;
+    const onbRecords = getOnboardingRecords();
+    const hasOnb = onbRecords.some(
+      (rec) =>
+        rec.full_name === c.full_name ||
+        rec.candidate_code === c.candidate_code ||
+        rec.id.toLowerCase().includes(c.id.toLowerCase())
+    );
+    if (hasOnb) return true;
+    const appliedTime = new Date(c.applied_date).getTime();
+    const diffDays = (Date.now() - appliedTime) / (1000 * 60 * 60 * 24);
+    return diffDays >= 3;
+  }, []);
+
   const filteredCandidates = useMemo(() => {
     let list = candidates;
     if (selectedJobId !== 'ALL') {
@@ -350,8 +390,34 @@ export function AtsView() {
     if (selectedSource !== 'ALL') {
       list = list.filter((c) => c.source === selectedSource);
     }
+
+    // Time filter
+    if (timeFilter === '30_DAYS') {
+      const now = Date.now();
+      list = list.filter((c) => {
+        if (showArchived && isCandidateArchived(c)) return true;
+        const time = new Date(c.applied_date).getTime();
+        const diffDays = (now - time) / (1000 * 60 * 60 * 24);
+        return diffDays >= 0 && diffDays <= 30;
+      });
+    } else if (timeFilter === 'CURRENT_MONTH') {
+      list = list.filter((c) => {
+        if (showArchived && isCandidateArchived(c)) return true;
+        return c.applied_date.startsWith('2026-11');
+      });
+    }
+
+    // Auto-Archive: hide archived ONBOARDED candidates unless showArchived is checked
+    if (!showArchived) {
+      list = list.filter((c) => !isCandidateArchived(c));
+    }
+
     return list;
-  }, [candidates, selectedJobId, selectedSource]);
+  }, [candidates, selectedJobId, selectedSource, timeFilter, showArchived, isCandidateArchived]);
+
+  const archivedCount = useMemo(() => {
+    return candidates.filter((c) => isCandidateArchived(c)).length;
+  }, [candidates, isCandidateArchived]);
 
   const openOnboardingInitDialog = (candidate: Candidate) => {
     const currentMergedEmployees = mergeWithRuntimeEmployees(
@@ -985,7 +1051,7 @@ export function AtsView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="w-52">
+            <div className="w-48">
               <Select
                 value={selectedJobId}
                 onValueChange={setSelectedJobId}
@@ -999,7 +1065,7 @@ export function AtsView() {
               />
             </div>
 
-            <div className="w-36">
+            <div className="w-32">
               <Select
                 value={selectedSource}
                 onValueChange={setSelectedSource}
@@ -1013,6 +1079,52 @@ export function AtsView() {
                 ]}
               />
             </div>
+
+            <div className="w-44">
+              <Select
+                value={timeFilter}
+                onValueChange={(val) => setTimeFilter(val as '30_DAYS' | 'CURRENT_MONTH' | 'ALL')}
+                options={[
+                  { label: '30 ngày gần nhất', value: '30_DAYS' },
+                  { label: 'Kỳ hiện tại (Tháng 11/2026)', value: 'CURRENT_MONTH' },
+                  { label: 'Tất cả thời gian', value: 'ALL' },
+                ]}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-1.5 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900">
+              <Switch
+                id="toggle-archive"
+                checked={showArchived}
+                onCheckedChange={setShowArchived}
+              />
+              <label
+                htmlFor="toggle-archive"
+                className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#415A54] select-none dark:text-zinc-300"
+              >
+                <Archive className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" />
+                <span>Hiện hồ sơ đã bàn giao/lưu trữ</span>
+                <span className="rounded-full bg-[#E4EEEB] px-1.5 py-0.2 font-mono text-[10px] font-semibold text-[#0B4F4A] dark:bg-zinc-800 dark:text-zinc-300">
+                  {archivedCount}
+                </span>
+              </label>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCompactMode((prev) => !prev)}
+              className={cn(
+                'text-xs transition-colors',
+                isCompactMode
+                  ? 'border-[#0F766E] bg-[#CBE8E2] text-[#0B4F4A] font-semibold dark:border-teal-400 dark:bg-teal-950/60 dark:text-teal-200'
+                  : 'text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+              )}
+              title={isCompactMode ? 'Chuyển về thẻ chi tiết' : 'Chuyển về thẻ rút gọn tiết kiệm chiều cao'}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              {isCompactMode ? 'Thẻ chi tiết' : 'Thẻ rút gọn'}
+            </Button>
 
             <Button
               variant="outline"
@@ -1043,9 +1155,63 @@ export function AtsView() {
             );
             const offerCandidates = colCandidates.filter((c) => c.stage === 'OFFER');
             const onboardedCandidates = colCandidates.filter((c) => c.stage === 'ONBOARDED');
+            const archivedInOfferColCount = candidates.filter(
+              (c) => col.stages.includes(c.stage) && isCandidateArchived(c)
+            ).length;
             const isColCollapsed = Boolean(collapsedCols[col.id]);
 
-            const renderCandidateCard = (cand: Candidate) => {
+            const renderCandidateCard = (cand: Candidate, forceCompact = false) => {
+              const isCompact = forceCompact || isCompactMode || cand.stage === 'ONBOARDED';
+              const isArchived = isCandidateArchived(cand);
+
+              if (isCompact) {
+                return (
+                  <div
+                    key={cand.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', cand.id);
+                    }}
+                    onClick={() => setSelectedCandidate(cand)}
+                    className="group cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-2 shadow-2xs transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar
+                        name={cand.full_name}
+                        className="h-7 w-7 shrink-0 border-[#C6D9D3] bg-[#E4EEEB] text-[10px] font-bold text-[#0B4F4A] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="truncate text-xs font-bold text-[#11221E] dark:text-zinc-100">
+                            {cand.full_name}
+                          </span>
+                          <span className="shrink-0 font-mono text-[10px] text-[#5C7871] dark:text-zinc-400">
+                            {cand.candidate_code}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex items-center justify-between gap-1">
+                          <span className="truncate text-[11px] text-[#415A54] dark:text-zinc-400">
+                            {cand.job_title}
+                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {cand.stage === 'ONBOARDED' && (
+                              <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                Đã nhận việc
+                              </span>
+                            )}
+                            {isArchived && (
+                              <span className="rounded border border-[#C6D9D3] bg-[#D5E3DF]/50 px-1 py-0.2 text-[9px] font-medium text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                                Lưu trữ
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={cand.id}
@@ -1054,7 +1220,7 @@ export function AtsView() {
                     e.dataTransfer.setData('text/plain', cand.id);
                   }}
                   onClick={() => setSelectedCandidate(cand)}
-                  className="cursor-pointer rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3 shadow-sm transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
+                  className="cursor-pointer rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3 shadow-2xs transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-[#5C7871] dark:text-zinc-400">
@@ -1069,6 +1235,11 @@ export function AtsView() {
                       {cand.stage === 'ONBOARDED' && (
                         <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
                           Đã nhận việc
+                        </span>
+                      )}
+                      {isArchived && (
+                        <span className="rounded-md border border-[#C6D9D3] bg-[#D5E3DF]/50 px-1.5 py-0.5 text-[10px] font-medium text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                          Lưu trữ
                         </span>
                       )}
                       <span className="rounded-md border border-[#D5E3DF] bg-[#F2F7F5] px-2 py-0.5 text-[11px] font-medium text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
@@ -1095,6 +1266,49 @@ export function AtsView() {
                       Chi tiết ›
                     </span>
                   </div>
+                </div>
+              );
+            };
+
+            const renderSectionCards = (cards: Candidate[], sectionKey: string, forceCompact = false) => {
+              if (cards.length === 0) {
+                return (
+                  <div className="rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] p-4 text-center text-xs text-[#5C7871] dark:border-zinc-800/80 dark:bg-transparent dark:text-zinc-500">
+                    Chưa có ứng viên
+                  </div>
+                );
+              }
+
+              const isExpanded = Boolean(expandedLimits[sectionKey]);
+              const visibleCards = isExpanded ? cards : cards.slice(0, KANBAN_CARD_LIMIT);
+              const remainingCount = cards.length - KANBAN_CARD_LIMIT;
+
+              return (
+                <div className="space-y-2">
+                  {visibleCards.map((cand) => renderCandidateCard(cand, forceCompact))}
+                  {cards.length > KANBAN_CARD_LIMIT && (
+                    <div className="pt-1">
+                      {!isExpanded ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleLimit(sectionKey)}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#C6D9D3] bg-[#FCFEFD]/80 py-1.5 text-xs font-semibold text-[#0F766E] transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-teal-400 dark:hover:bg-zinc-800"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                          Xem thêm +{remainingCount} hồ sơ
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => toggleLimit(sectionKey)}
+                          className="flex w-full items-center justify-center gap-1 rounded-lg py-1 text-[11px] font-medium text-[#5C7871] transition-colors hover:text-[#11221E] hover:bg-[#D5E3DF]/50 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                          Thu gọn lại (hiện {KANBAN_CARD_LIMIT} thẻ)
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             };
@@ -1173,7 +1387,14 @@ export function AtsView() {
                     </h3>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] font-medium text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-300">
+                    <span
+                      title={
+                        archivedInOfferColCount > 0 && !showArchived
+                          ? `Đang hiện ${colCandidates.length} hồ sơ (${archivedInOfferColCount} đã lưu trữ tự động)`
+                          : undefined
+                      }
+                      className="rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] font-medium text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-300"
+                    >
                       {colCandidates.length}
                     </span>
                     <button
@@ -1191,23 +1412,58 @@ export function AtsView() {
                 {col.id === 'col-offer-onboarded' ? (
                   <div className="flex-1 space-y-3">
                     {colCandidates.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] p-4 text-center text-xs text-[#5C7871] dark:border-zinc-800/80 dark:bg-transparent dark:text-zinc-500">
-                        Chưa có ứng viên
+                      <div className="space-y-2">
+                        <div className="rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] p-4 text-center text-xs text-[#5C7871] dark:border-zinc-800/80 dark:bg-transparent dark:text-zinc-500">
+                          Chưa có ứng viên đang xử lý
+                        </div>
+                        {!showArchived && archivedInOfferColCount > 0 && (
+                          <div className="flex items-center justify-between rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] px-2.5 py-2 text-[11px] text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+                            <span className="flex items-center gap-1.5 font-medium">
+                              <Archive className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                              Đã ẩn {archivedInOfferColCount} hồ sơ bàn giao (Auto-Archive)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowArchived(true)}
+                              className="font-semibold text-[#0F766E] hover:underline dark:text-teal-300"
+                            >
+                              Hiện lại
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>
                         {offerCandidates.length > 0 && (
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                            <button
+                              type="button"
+                              onClick={() => toggleSubgroup('offer')}
+                              className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[11px] font-semibold text-violet-700 transition-colors hover:bg-violet-500/10 dark:text-violet-300 dark:hover:bg-violet-900/20"
+                            >
                               <span className="flex items-center gap-1.5">
-                                <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                                <span className="h-2 w-2 rounded-full bg-violet-500" />
                                 Đề nghị nhận việc
+                                <span className="rounded-full bg-violet-500/20 px-1.5 py-0.2 font-mono text-[10px] text-violet-700 dark:text-violet-300">
+                                  {offerCandidates.length}
+                                </span>
                               </span>
-                              <span className="font-mono text-[10px] text-violet-600 dark:text-violet-400">
-                                {offerCandidates.length}
+                              <span className="flex items-center gap-1 text-[10px] font-normal text-violet-600 dark:text-violet-400">
+                                {collapsedSubgroups['offer'] ? (
+                                  <>
+                                    <span>Mở rộng</span>
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Thu gọn</span>
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  </>
+                                )}
                               </span>
-                            </div>
-                            {offerCandidates.map((cand) => renderCandidateCard(cand))}
+                            </button>
+                            {!collapsedSubgroups['offer'] &&
+                              renderSectionCards(offerCandidates, 'subgroup-offer')}
                           </div>
                         )}
 
@@ -1219,16 +1475,50 @@ export function AtsView() {
                                 'border-t border-[#C6D9D3]/70 pt-2.5 dark:border-zinc-800'
                             )}
                           >
-                            <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                            <button
+                              type="button"
+                              onClick={() => toggleSubgroup('onboarded')}
+                              className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+                            >
                               <span className="flex items-center gap-1.5">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
                                 Đã nhận việc
+                                <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 font-mono text-[10px] text-emerald-700 dark:text-emerald-300">
+                                  {onboardedCandidates.length}
+                                </span>
                               </span>
-                              <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
-                                {onboardedCandidates.length}
+                              <span className="flex items-center gap-1 text-[10px] font-normal text-emerald-600 dark:text-emerald-400">
+                                {collapsedSubgroups['onboarded'] ? (
+                                  <>
+                                    <span>Mở rộng</span>
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Thu gọn</span>
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  </>
+                                )}
                               </span>
-                            </div>
-                            {onboardedCandidates.map((cand) => renderCandidateCard(cand))}
+                            </button>
+                            {!collapsedSubgroups['onboarded'] &&
+                              renderSectionCards(onboardedCandidates, 'subgroup-onboarded', true)}
+                          </div>
+                        )}
+
+                        {!showArchived && archivedInOfferColCount > 0 && (
+                          <div className="flex items-center justify-between rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] px-2.5 py-2 text-[11px] text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+                            <span className="flex items-center gap-1.5 font-medium">
+                              <Archive className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                              Đã ẩn {archivedInOfferColCount} hồ sơ bàn giao (Auto-Archive)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowArchived(true)}
+                              className="font-semibold text-[#0F766E] hover:underline dark:text-teal-300"
+                            >
+                              Hiện lại
+                            </button>
                           </div>
                         )}
                       </>
@@ -1236,13 +1526,7 @@ export function AtsView() {
                   </div>
                 ) : (
                   <div className="flex-1 space-y-2.5">
-                    {colCandidates.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] p-4 text-center text-xs text-[#5C7871] dark:border-zinc-800/80 dark:bg-transparent dark:text-zinc-500">
-                        Chưa có ứng viên
-                      </div>
-                    ) : (
-                      colCandidates.map((cand) => renderCandidateCard(cand))
-                    )}
+                    {renderSectionCards(colCandidates, col.id)}
                   </div>
                 )}
               </div>

@@ -16,20 +16,26 @@ import {
   ChevronUp,
   ClipboardCheck,
   Clock,
+  Copy,
   Cpu,
   Download,
   FileSpreadsheet,
+  FileText,
   Filter,
   Laptop,
   Layers,
+  Mail,
+  MessageSquarePlus,
   MessageSquareText,
   PanelLeftClose,
   PanelLeftOpen,
+  Phone,
   Plus,
   RefreshCw,
   RotateCcw,
   Send,
   Sparkles,
+  Star,
   Users,
   X,
   XCircle,
@@ -108,6 +114,68 @@ const ASSET_CATEGORY_SHORT: Record<AssetCategory, string> = {
   PERIPHERAL: 'Ngoại vi',
 };
 
+export const CANDIDATE_SOURCE_BADGES: Record<
+  Candidate['source'],
+  { label: string; className: string }
+> = {
+  LinkedIn: {
+    label: 'LinkedIn',
+    className: 'border-sky-500/30 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-950/40 dark:text-sky-300',
+  },
+  TopCV: {
+    label: 'TopCV',
+    className: 'border-emerald-500/30 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300',
+  },
+  ITviec: {
+    label: 'ITviec',
+    className: 'border-rose-500/30 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300',
+  },
+  Referral: {
+    label: 'Referral',
+    className: 'border-purple-500/30 bg-purple-50 text-purple-700 dark:border-purple-500/40 dark:bg-purple-950/40 dark:text-purple-300',
+  },
+  CareerSite: {
+    label: 'CareerSite',
+    className: 'border-teal-500/30 bg-teal-50 text-teal-700 dark:border-teal-500/40 dark:bg-teal-950/40 dark:text-teal-300',
+  },
+};
+
+export const CANDIDATE_STAGE_BADGES: Record<
+  AtsStage,
+  { label: string; className: string; variant: BadgeVariant }
+> = {
+  APPLIED: {
+    label: 'Hồ sơ mới',
+    variant: 'secondary',
+    className: 'border-sky-500/30 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-950/40 dark:text-sky-300',
+  },
+  AI_SCREENED: {
+    label: 'Sàng lọc AI',
+    variant: 'teal',
+    className: 'border-teal-500/30 bg-teal-50 text-teal-700 dark:border-teal-500/40 dark:bg-teal-950/40 dark:text-teal-300',
+  },
+  INTERVIEW: {
+    label: 'Phỏng vấn',
+    variant: 'warning',
+    className: 'border-amber-500/30 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300',
+  },
+  OFFER: {
+    label: 'Đề nghị nhận việc',
+    variant: 'default',
+    className: 'border-violet-500/30 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-950/40 dark:text-violet-300',
+  },
+  ONBOARDED: {
+    label: 'Đã nhận việc',
+    variant: 'success',
+    className: 'border-emerald-500/30 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/40 dark:text-emerald-300',
+  },
+  REJECTED: {
+    label: 'Đã loại',
+    variant: 'danger',
+    className: 'border-rose-500/30 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300',
+  },
+};
+
 export interface AtsThreeColumnDef {
   id: 'col-received' | 'col-interview' | 'col-offer-onboarded';
   label: string;
@@ -145,14 +213,17 @@ export const KANBAN_CARD_LIMIT = 8;
 export function getStageDisplayLabel(stage: AtsStage): string {
   switch (stage) {
     case 'APPLIED':
+      return 'Hồ sơ mới';
     case 'AI_SCREENED':
-      return 'Hồ sơ đã nhận';
+      return 'Sàng lọc';
     case 'INTERVIEW':
       return 'Phỏng vấn';
     case 'OFFER':
-      return 'Đề nghị nhận việc';
+      return 'Đề nghị';
     case 'ONBOARDED':
       return 'Đã nhận việc';
+    case 'REJECTED':
+      return 'Đã loại';
     default:
       return stage;
   }
@@ -207,6 +278,11 @@ export function AtsView() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string>('ALL');
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [copiedQuestionIdx, setCopiedQuestionIdx] = useState<number | null>(null);
+  const [isPreviewCvOpen, setIsPreviewCvOpen] = useState(false);
+  const [isNoteFormOpen, setIsNoteFormOpen] = useState(false);
+  const [noteContent, setNoteContent] = useState('');
+  const [noteRating, setNoteRating] = useState<number>(5);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [showJobCards, setShowJobCards] = useState(false);
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
@@ -563,6 +639,127 @@ export function AtsView() {
       'success'
     );
   };
+
+  const handleQuickStageChange = (newStage: AtsStage) => {
+    if (!selectedCandidate) return;
+    if (newStage === selectedCandidate.stage) return;
+    handleMoveStage(selectedCandidate, newStage);
+  };
+
+  const handleCopyQuestion = (text: string, idx: number) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedQuestionIdx(idx);
+      showToast('Đã sao chép câu hỏi', 'Nội dung câu hỏi phỏng vấn đã được lưu vào clipboard.', 'default');
+      setTimeout(() => {
+        setCopiedQuestionIdx((curr) => (curr === idx ? null : curr));
+      }, 2000);
+    }
+  };
+
+  const handleSaveInterviewNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+    const trimmed = noteContent.trim();
+    if (!trimmed) {
+      showToast('Thiếu nội dung ghi chú', 'Vui lòng nhập nhận xét phỏng vấn trước khi lưu.', 'warning');
+      return;
+    }
+
+    const newNote = {
+      id: `note-${Date.now()}`,
+      author: actorName,
+      content: trimmed,
+      created_at: new Date().toISOString(),
+      rating: noteRating,
+    };
+
+    const updatedCand: Candidate = {
+      ...selectedCandidate,
+      notes: [newNote, ...(selectedCandidate.notes || [])],
+    };
+
+    saveRuntimeCandidate(updatedCand);
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === updatedCand.id ? updatedCand : c))
+    );
+    setSelectedCandidate(updatedCand);
+    setNoteContent('');
+    setIsNoteFormOpen(false);
+    showToast(
+      'Đã lưu đánh giá & ghi chú phỏng vấn',
+      `Đã cập nhật phản hồi của ${actorName} cho ứng viên ${updatedCand.full_name}.`,
+      'success'
+    );
+  };
+
+  const handleDownloadCvPdf = () => {
+    if (!selectedCandidate) return;
+    const cvText = `=====================================================
+HỒ SƠ ỨNG VIÊN (CURRICULUM VITAE)
+Tổng Công ty Công nghệ Lạc Việt - Ban Tuyển dụng ATS
+=====================================================
+
+1. THÔNG TIN CÁ NHÂN
+- Họ và tên: ${selectedCandidate.full_name}
+- Mã ứng viên: ${selectedCandidate.candidate_code}
+- Vị trí ứng tuyển: ${selectedCandidate.job_title} (${selectedCandidate.job_code})
+- Phòng ban: ${selectedCandidate.department_name}
+- Nguồn nộp: ${selectedCandidate.source}
+- Ngày nộp hồ sơ: ${formatDateVN(selectedCandidate.applied_date)}
+- Email: ${selectedCandidate.email}
+- Điện thoại: ${selectedCandidate.phone}
+- Công ty hiện tại: ${selectedCandidate.current_company}
+- Mức lương kỳ vọng: ${formatVND(selectedCandidate.expected_salary_vnd)} / tháng
+
+2. TRÌNH ĐỘ HỌC VẤN & BẰNG CẤP
+- ${selectedCandidate.ai_evaluation.education_fit}
+- Số năm kinh nghiệm: ${selectedCandidate.ai_evaluation.experience_years} năm
+
+3. ĐÁNH GIÁ NĂNG LỰC TỔNG QUAN (AI EVALUATION)
+- Điểm khớp JD: ${selectedCandidate.ai_evaluation.match_score}%
+- Khuyến nghị AI: ${AI_REC_BADGE[selectedCandidate.ai_evaluation.ai_recommendation].label}
+- Kỹ năng cốt lõi: ${selectedCandidate.ai_evaluation.key_skills_matched.join(', ')}
+
+* Điểm mạnh nổi bật:
+${selectedCandidate.ai_evaluation.strengths.map((s) => `  + ${s}`).join('\n')}
+
+* Điểm cần phỏng vấn thêm:
+${selectedCandidate.ai_evaluation.gaps.map((g) => `  - ${g}`).join('\n')}
+
+4. CÂU HỎI PHỎNG VẤN ĐỀ XUẤT
+${selectedCandidate.ai_evaluation.interview_questions.map((q, idx) => `  ${idx + 1}. ${q}`).join('\n')}
+
+=====================================================
+Được xuất từ Hệ thống Quản trị Tuyển dụng Lạc Việt ATS
+Ngày xuất: ${new Date().toLocaleString('vi-VN')}
+=====================================================
+`;
+    const blob = new Blob([cvText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CV_${selectedCandidate.candidate_code}_${stripVietnameseAccents(selectedCandidate.full_name).replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Đã tải hồ sơ CV', `Tệp hồ sơ của ${selectedCandidate.full_name} đã được tải về.`, 'success');
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isPreviewCvOpen) {
+          setIsPreviewCvOpen(false);
+        } else if (selectedCandidate) {
+          setSelectedCandidate(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCandidate, isPreviewCvOpen]);
 
   const handleStepStage = (candidate: Candidate, direction: -1 | 1) => {
     const currentCol =
@@ -1535,89 +1732,545 @@ export function AtsView() {
         </div>
       </div>
 
-      {/* Candidate Profile & Suggested Questions Dialog */}
-      <Dialog
-        open={Boolean(selectedCandidate)}
-        onOpenChange={(open) => {
-          if (!open) setSelectedCandidate(null);
-        }}
-      >
-        <DialogContent className="max-w-md rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] p-6 text-[#11221E] shadow-2xl dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-100">
-          {selectedCandidate && (
-            <>
-              <div>
-                <h3 className="text-xl font-bold tracking-tight text-[#11221E] dark:text-white">
-                  {selectedCandidate.full_name}
-                </h3>
-                <p className="mt-1 text-sm font-medium text-[#415A54] dark:text-zinc-300">
-                  {selectedCandidate.job_title}
-                </p>
-                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                  {selectedCandidate.candidate_code} · {selectedCandidate.source} · {getStageDisplayLabel(selectedCandidate.stage)} · nộp {formatDateVN(selectedCandidate.applied_date)}
-                </p>
-              </div>
+      {/* Candidate Profile Side-Drawer (Slide-over Panel) */}
+      {selectedCandidate && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Light Backdrop (che nhẹ, không che mất bối cảnh Kanban) */}
+          <div
+            className="fixed inset-0 bg-[#11221E]/25 backdrop-blur-[1px] transition-opacity duration-300 dark:bg-zinc-950/40"
+            onClick={() => setSelectedCandidate(null)}
+            aria-hidden="true"
+          />
 
-              <div className="mt-5 space-y-2">
-                <h4 className="text-sm font-semibold text-[#11221E] dark:text-white">
-                  Câu hỏi phỏng vấn gợi ý:
-                </h4>
-                <ul className="space-y-2 text-xs leading-relaxed text-[#415A54] dark:text-zinc-300">
-                  {selectedCandidate.ai_evaluation.interview_questions.map((q, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="font-bold text-[#0F766E] dark:text-zinc-400">•</span>
-                      <span>{q}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          {/* Slide-over panel trượt từ mép phải màn hình */}
+          <div className="fixed inset-y-0 right-0 flex max-w-full pl-6 sm:pl-10">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="candidate-drawer-title"
+              className="flex w-screen max-w-xl flex-col border-l border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] shadow-2xl transition-all duration-300 dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-100"
+            >
+              {/* Drawer Top Header with Close (X) button at top-right */}
+              <div className="flex items-start justify-between border-b border-[#D5E3DF] p-5 dark:border-zinc-800">
+                <div className="min-w-0 flex-1 pr-3">
+                  {/* Cấu trúc Meta-data chuẩn: Mã UV mono, Badge nguồn nộp màu sắc, Badge trạng thái */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded border border-[#C6D9D3] bg-[#F2F7F5] px-2 py-0.5 font-mono text-xs font-semibold text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                      {selectedCandidate.candidate_code}
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold',
+                        CANDIDATE_SOURCE_BADGES[selectedCandidate.source]?.className ||
+                          'border-[#D5E3DF] bg-[#F2F7F5] text-[#415A54]'
+                      )}
+                    >
+                      {CANDIDATE_SOURCE_BADGES[selectedCandidate.source]?.label || selectedCandidate.source}
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold',
+                        CANDIDATE_STAGE_BADGES[selectedCandidate.stage]?.className ||
+                          'border-[#D5E3DF] bg-[#F2F7F5] text-[#415A54]'
+                      )}
+                    >
+                      {getStageDisplayLabel(selectedCandidate.stage)}
+                    </span>
+                  </div>
 
-              <div className="mt-6 flex items-center justify-between pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
+                  <h3
+                    id="candidate-drawer-title"
+                    className="mt-2 text-xl font-bold tracking-tight text-[#11221E] dark:text-white"
+                  >
+                    {selectedCandidate.full_name}
+                  </h3>
+                  <p className="mt-0.5 text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                    {selectedCandidate.job_title} · {selectedCandidate.department_name}
+                  </p>
+
+                  {/* Icon Calendar + ngày nộp & Thông tin bổ sung */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#5C7871] dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      <Calendar className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                      Nộp ngày: <strong className="text-[#11221E] dark:text-zinc-200">{formatDateVN(selectedCandidate.applied_date)}</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Building className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" />
+                      {selectedCandidate.current_company}
+                    </span>
+                    {!hideSalary && (
+                      <span className="inline-flex items-center gap-1 font-mono text-emerald-700 dark:text-emerald-400">
+                        Kỳ vọng: {formatVND(selectedCandidate.expected_salary_vnd)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Nút X đóng ở góc trên bên phải */}
+                <button
+                  type="button"
                   onClick={() => setSelectedCandidate(null)}
-                  className="rounded-lg border-[#C6D9D3] bg-[#F2F7F5] px-4 py-2 text-xs font-semibold text-[#11221E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                  className="rounded-lg p-1.5 text-[#5C7871] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
+                  aria-label="Đóng chi tiết ứng viên"
                 >
-                  Đóng
-                </Button>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  {selectedCandidate.stage !== 'ONBOARDED' ? (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        handleStepStage(selectedCandidate, 1);
-                        setSelectedCandidate(null);
-                      }}
-                      className="text-xs font-semibold"
-                    >
-                      Chuyển bước tiếp theo →
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        const matchedOnb = getOnboardingRecords().find(
-                          (r) =>
-                            r.candidate_id === selectedCandidate.id ||
-                            r.candidate_code === selectedCandidate.candidate_code
-                        );
-                        setSelectedCandidate(null);
-                        navigateWithIntent('onboarding', {
-                          subTab: 'progress',
-                          entityId: matchedOnb?.id ?? selectedCandidate.candidate_code,
-                        });
-                      }}
-                      className="text-xs font-semibold"
-                    >
-                      Xem Onboarding
-                    </Button>
-                  )}
+              {/* Scrollable Drawer Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {/* 1. Thay nút cứng tiến/lùi bằng Dropdown Select trạng thái */}
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/80 p-3.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-200 flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-[#0F766E] dark:text-teal-400" />
+                      Trạng thái tuyển dụng (Chuyển nhanh)
+                    </span>
+                    <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                      Tự động đồng bộ Kanban &amp; Real-time
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={selectedCandidate.stage}
+                        onValueChange={(val) => handleQuickStageChange(val as AtsStage)}
+                        options={[
+                          { label: 'Hồ sơ mới', value: 'APPLIED' },
+                          { label: 'Sàng lọc', value: 'AI_SCREENED' },
+                          { label: 'Phỏng vấn', value: 'INTERVIEW' },
+                          { label: 'Đề nghị', value: 'OFFER' },
+                          { label: 'Đã nhận việc', value: 'ONBOARDED' },
+                          { label: 'Đã loại', value: 'REJECTED' },
+                        ]}
+                      />
+                    </div>
+                    {selectedCandidate.stage === 'ONBOARDED' && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          const matchedOnb = getOnboardingRecords().find(
+                            (r) =>
+                              r.candidate_id === selectedCandidate.id ||
+                              r.candidate_code === selectedCandidate.candidate_code
+                          );
+                          setSelectedCandidate(null);
+                          navigateWithIntent('onboarding', {
+                            subTab: 'progress',
+                            entityId: matchedOnb?.id ?? selectedCandidate.candidate_code,
+                          });
+                        }}
+                        className="shrink-0 text-xs font-semibold"
+                      >
+                        <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                        Xem Onboarding
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Thao tác cốt lõi: Nút 'Xem CV' và Nút 'Thêm đánh giá/Ghi chú' */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPreviewCvOpen(true)}
+                    className="w-full border-[#0F766E]/40 text-[#0F766E] hover:bg-[#E8F3EF] dark:border-teal-500/40 dark:text-teal-300 dark:hover:bg-zinc-800 font-semibold"
+                  >
+                    <FileText className="h-4 w-4 mr-1.5" />
+                    Xem CV ứng viên
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsNoteFormOpen((prev) => !prev)}
+                    className={cn(
+                      'w-full font-semibold transition-colors',
+                      isNoteFormOpen
+                        ? 'border-[#0F766E] bg-[#E8F3EF] text-[#0F766E] dark:border-teal-400 dark:bg-zinc-800 dark:text-teal-300'
+                        : 'border-[#C6D9D3] text-[#11221E] hover:bg-[#F2F7F5] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800'
+                    )}
+                  >
+                    <MessageSquarePlus className="h-4 w-4 mr-1.5" />
+                    {isNoteFormOpen ? 'Thu gọn form' : 'Thêm đánh giá / Ghi chú'}
+                  </Button>
+                </div>
+
+                {/* Form thêm đánh giá / ghi chú phỏng vấn của HR */}
+                {isNoteFormOpen && (
+                  <form
+                    onSubmit={handleSaveInterviewNote}
+                    className="rounded-xl border border-[#0F766E]/30 bg-[#F2F7F5] p-3.5 dark:border-teal-500/30 dark:bg-zinc-900/80 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                        Ghi nhận xét &amp; đánh giá phỏng vấn
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] text-[#5C7871] mr-1">Xếp loại:</span>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setNoteRating(star)}
+                            className="p-0.5 text-amber-500 hover:scale-110 transition-transform"
+                            title={`${star} sao`}
+                          >
+                            <Star
+                              className={cn(
+                                'h-4 w-4',
+                                star <= noteRating
+                                  ? 'fill-amber-400 text-amber-500'
+                                  : 'text-zinc-300 dark:text-zinc-600'
+                              )}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <textarea
+                      rows={3}
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder="Nhập nhận xét phỏng vấn, năng lực chuyên môn, sự phù hợp văn hóa..."
+                      className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                      required
+                    />
+
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsNoteFormOpen(false);
+                          setNoteContent('');
+                        }}
+                        className="text-xs"
+                      >
+                        Hủy
+                      </Button>
+                      <Button type="submit" variant="primary" size="sm" className="text-xs">
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        Lưu ghi chú
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Danh sách ghi chú phỏng vấn đã lưu của ứng viên */}
+                {selectedCandidate.notes && selectedCandidate.notes.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-[#11221E] dark:text-zinc-200 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <MessageSquareText className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                        Ghi chú phỏng vấn đã lưu ({selectedCandidate.notes.length})
+                      </span>
+                    </h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {selectedCandidate.notes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="rounded-lg border border-[#D5E3DF] bg-[#FCFEFD] p-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-[#11221E] dark:text-zinc-100">
+                              {note.author}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {note.rating && (
+                                <div className="flex items-center text-amber-500">
+                                  {[1, 2, 3, 4, 5].map((s) => (
+                                    <Star
+                                      key={s}
+                                      className={cn(
+                                        'h-3 w-3',
+                                        s <= note.rating!
+                                          ? 'fill-amber-400 text-amber-500'
+                                          : 'text-zinc-200 dark:text-zinc-700'
+                                      )}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                              <span className="font-mono text-[10px] text-[#5C7871] dark:text-zinc-500">
+                                {formatDateVN(note.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="mt-1.5 text-[#415A54] dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                            {note.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Tóm tắt Đánh giá năng lực AI */}
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-[#0F766E] dark:text-teal-400" />
+                      <h4 className="text-xs font-bold text-[#11221E] dark:text-zinc-100 uppercase tracking-wider">
+                        Đánh giá năng lực AI
+                      </h4>
+                    </div>
+                    <Badge variant={AI_REC_BADGE[selectedCandidate.ai_evaluation.ai_recommendation].variant}>
+                      {AI_REC_BADGE[selectedCandidate.ai_evaluation.ai_recommendation].label}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#0F766E]/10 font-mono text-sm font-bold text-[#0F766E] dark:bg-teal-500/20 dark:text-teal-300">
+                      {selectedCandidate.ai_evaluation.match_score}%
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                        {selectedCandidate.ai_evaluation.education_fit}
+                      </div>
+                      <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                        Kinh nghiệm: {selectedCandidate.ai_evaluation.experience_years} năm · Mô hình: {selectedCandidate.ai_evaluation.evaluated_by_model}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {selectedCandidate.ai_evaluation.key_skills_matched.map((skill, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="rounded border border-[#C6D9D3] bg-[#F2F7F5] px-2 py-0.5 text-[11px] font-medium text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 pt-1 text-xs">
+                    <div className="rounded-lg bg-emerald-500/10 p-2.5 text-emerald-800 dark:text-emerald-300">
+                      <span className="font-semibold block mb-1">Điểm mạnh nổi bật:</span>
+                      <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                        {selectedCandidate.ai_evaluation.strengths.map((str, sIdx) => (
+                          <li key={sIdx}>{str}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {selectedCandidate.ai_evaluation.gaps.length > 0 && (
+                      <div className="rounded-lg bg-amber-500/10 p-2.5 text-amber-800 dark:text-amber-300">
+                        <span className="font-semibold block mb-1">Cần phỏng vấn thêm:</span>
+                        <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                          {selectedCandidate.ai_evaluation.gaps.map((gap, gIdx) => (
+                            <li key={gIdx}>{gap}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. UX Câu hỏi phỏng vấn gợi ý với Icon nút Copy (Requirement 5) */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-[#11221E] dark:text-zinc-200 flex items-center gap-1.5 uppercase tracking-wider">
+                      <MessageSquareText className="h-4 w-4 text-[#0F766E] dark:text-teal-400" />
+                      Câu hỏi phỏng vấn gợi ý ({selectedCandidate.ai_evaluation.interview_questions.length})
+                    </h4>
+                    <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                      Bấm copy để chép nội dung
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {selectedCandidate.ai_evaluation.interview_questions.map((q, idx) => (
+                      <div
+                        key={idx}
+                        className="group flex items-start justify-between gap-3 rounded-xl border border-[#D5E3DF] bg-[#FCFEFD] p-3 text-xs leading-relaxed transition-colors hover:border-[#0F766E] hover:bg-[#F8FAF9] dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/60"
+                      >
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0F766E]/10 font-mono text-[10px] font-bold text-[#0F766E] dark:bg-teal-500/20 dark:text-teal-300">
+                            {idx + 1}
+                          </span>
+                          <p className="text-[#11221E] dark:text-zinc-200 pt-0.5">{q}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyQuestion(q, idx)}
+                          title={copiedQuestionIdx === idx ? 'Đã sao chép vào clipboard' : 'Sao chép câu hỏi'}
+                          aria-label={copiedQuestionIdx === idx ? 'Đã sao chép câu hỏi' : 'Sao chép câu hỏi'}
+                          className={cn(
+                            'inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-all',
+                            copiedQuestionIdx === idx
+                              ? 'border-emerald-500/50 bg-emerald-50 text-emerald-700 dark:border-emerald-500/60 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : 'border-[#C6D9D3] bg-[#FCFEFD] text-[#5C7871] hover:border-[#0F766E] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:border-teal-400 dark:hover:text-teal-300'
+                          )}
+                        >
+                          {copiedQuestionIdx === idx ? (
+                            <>
+                              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Đã chép</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate CV Preview Modal Dialog */}
+      <Dialog open={isPreviewCvOpen} onOpenChange={setIsPreviewCvOpen}>
+        <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto p-6">
+          {selectedCandidate && (
+            <div className="space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#D5E3DF] pb-4 dark:border-zinc-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded border border-[#C6D9D3] bg-[#F2F7F5] dark:border-zinc-700 dark:bg-zinc-800">
+                      {selectedCandidate.candidate_code}
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold',
+                        CANDIDATE_SOURCE_BADGES[selectedCandidate.source]?.className ||
+                          'border-[#D5E3DF] bg-[#F2F7F5] text-[#415A54]'
+                      )}
+                    >
+                      {CANDIDATE_SOURCE_BADGES[selectedCandidate.source]?.label || selectedCandidate.source}
+                    </span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold',
+                        CANDIDATE_STAGE_BADGES[selectedCandidate.stage]?.className ||
+                          'border-[#D5E3DF] bg-[#F2F7F5] text-[#415A54]'
+                      )}
+                    >
+                      {getStageDisplayLabel(selectedCandidate.stage)}
+                    </span>
+                  </div>
+                  <h3 className="mt-1 text-xl font-bold text-[#11221E] dark:text-zinc-100">
+                    {selectedCandidate.full_name}
+                  </h3>
+                  <p className="text-sm font-medium text-[#415A54] dark:text-zinc-300">
+                    {selectedCandidate.job_title} · {selectedCandidate.department_name}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDownloadCvPdf}
+                    className="text-xs font-semibold"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    Tải CV (PDF/TXT)
+                  </Button>
+                </div>
+              </div>
+
+              {/* CV Document Body */}
+              <div className="rounded-xl border border-[#D5E3DF] bg-[#FCFEFD] p-6 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900/60 space-y-6">
+                {/* 1. Contact Info */}
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F766E] dark:text-teal-400">
+                    1. Thông tin liên hệ &amp; Kỳ vọng đãi ngộ
+                  </h4>
+                  <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs">
+                    <div className="flex items-center gap-2 text-[#415A54] dark:text-zinc-300">
+                      <Mail className="h-3.5 w-3.5 text-[#5C7871]" />
+                      <span>Email: <strong className="text-[#11221E] dark:text-zinc-100">{selectedCandidate.email}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[#415A54] dark:text-zinc-300">
+                      <Phone className="h-3.5 w-3.5 text-[#5C7871]" />
+                      <span>Số điện thoại: <strong className="text-[#11221E] dark:text-zinc-100">{selectedCandidate.phone}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[#415A54] dark:text-zinc-300">
+                      <Building className="h-3.5 w-3.5 text-[#5C7871]" />
+                      <span>Công ty hiện tại: <strong className="text-[#11221E] dark:text-zinc-100">{selectedCandidate.current_company}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[#415A54] dark:text-zinc-300">
+                      <Calendar className="h-3.5 w-3.5 text-[#5C7871]" />
+                      <span>Ngày nộp đơn: <strong className="text-[#11221E] dark:text-zinc-100">{formatDateVN(selectedCandidate.applied_date)}</strong></span>
+                    </div>
+                    {!hideSalary && (
+                      <div className="flex items-center gap-2 text-[#415A54] dark:text-zinc-300 sm:col-span-2">
+                        <span>Mức lương kỳ vọng:</span>
+                        <strong className="font-mono text-emerald-700 dark:text-emerald-400">
+                          {formatVND(selectedCandidate.expected_salary_vnd)} / tháng
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Education */}
+                <div className="border-t border-[#D5E3DF] pt-4 dark:border-zinc-800">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F766E] dark:text-teal-400">
+                    2. Trình độ học vấn &amp; Bằng cấp
+                  </h4>
+                  <div className="mt-2 text-xs text-[#11221E] dark:text-zinc-200">
+                    <p className="font-semibold">{selectedCandidate.ai_evaluation.education_fit}</p>
+                    <p className="text-[#5C7871] dark:text-zinc-400 mt-0.5">
+                      Kinh nghiệm làm việc chuyên môn: {selectedCandidate.ai_evaluation.experience_years} năm
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Key Skills */}
+                <div className="border-t border-[#D5E3DF] pt-4 dark:border-zinc-800">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F766E] dark:text-teal-400">
+                    3. Kỹ năng chuyên môn cốt lõi
+                  </h4>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {selectedCandidate.ai_evaluation.key_skills_matched.map((skill, idx) => (
+                      <Badge key={idx} variant="teal">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. AI Matching Insights */}
+                <div className="border-t border-[#D5E3DF] pt-4 dark:border-zinc-800">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F766E] dark:text-teal-400">
+                    4. Đánh giá sơ bộ từ AI Matching ({selectedCandidate.ai_evaluation.match_score}% Fit)
+                  </h4>
+                  <div className="mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2 text-xs">
+                    <div className="rounded-lg bg-emerald-500/10 p-3 text-emerald-800 dark:text-emerald-300">
+                      <span className="font-bold block mb-1">Điểm mạnh ghi nhận:</span>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {selectedCandidate.ai_evaluation.strengths.map((str, idx) => (
+                          <li key={idx}>{str}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="rounded-lg bg-amber-500/10 p-3 text-amber-800 dark:text-amber-300">
+                      <span className="font-bold block mb-1">Điểm cần làm rõ khi phỏng vấn:</span>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {selectedCandidate.ai_evaluation.gaps.map((gap, idx) => (
+                          <li key={idx}>{gap}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -291,7 +291,7 @@ export interface PayrollRecord {
   paid_at: string | null;
 }
 
-export type AtsStage = 'APPLIED' | 'AI_SCREENED' | 'INTERVIEW' | 'OFFER' | 'ONBOARDED';
+export type AtsStage = 'APPLIED' | 'AI_SCREENED' | 'INTERVIEW' | 'OFFER' | 'ONBOARDED' | 'REJECTED';
 
 export interface JobPosting {
   id: string;
@@ -351,6 +351,14 @@ export interface CandidateAiEvaluation {
   evaluated_by_model: string;
 }
 
+export interface CandidateInterviewNote {
+  id: string;
+  author: string;
+  content: string;
+  created_at: string;
+  rating?: number;
+}
+
 export interface Candidate {
   id: string;
   candidate_code: string;
@@ -367,6 +375,8 @@ export interface Candidate {
   expected_salary_vnd: number;
   current_company: string;
   ai_evaluation: CandidateAiEvaluation;
+  notes?: CandidateInterviewNote[];
+  cv_url?: string;
 }
 
 export interface RoleDefinition {

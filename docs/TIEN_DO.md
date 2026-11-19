@@ -90,6 +90,12 @@
   - **3. Compact Mode (Thẻ rút gọn)**: Thẻ tại nhóm Đã nhận việc hiển thị mỏng nhẹ (Avatar, Họ tên, Chức danh, Mã UV); bổ sung nút toggle "Thẻ rút gọn" / "Thẻ chi tiết" trên toolbar cho toàn bảng.
   - **4. Load More (Giới hạn hiển thị)**: Giới hạn tối đa 8 thẻ/cột (`KANBAN_CARD_LIMIT`), có nút "Xem thêm +X hồ sơ" và "Thu gọn lại" tránh nghẽn DOM khi có hàng chục hồ sơ.
   - **5. Bộ lọc thời gian mặc định**: Select chọn thời gian trên toolbar ("30 ngày gần nhất" mặc định, "Kỳ hiện tại 11/2026", "Tất cả thời gian") *(Hoàn thành)*.
+- **B1.7 (Chuyển đổi Modal sang Side-Drawer Ứng viên & 5 Cải tiến UX/UI - Swarm verified):**
+  - **1. Side-Drawer (Right Panel)**: Thay thế Popup Modal giữa màn hình bằng ngăn kéo trượt mượt mà từ cạnh phải (`fixed inset-y-0 right-0 sm:max-w-lg`), backdrop che nhẹ `bg-[#11221E]/25`, nút X góc trên bên phải, giữ nguyên tầm nhìn tổng thể của bảng Kanban.
+  - **2. Bóc tách & Cấu trúc Meta-data**: Mã hồ sơ font-mono, Badge nguồn nộp màu sắc phân kênh (LinkedIn, TopCV, ITviec, Referral, CareerSite), Badge trạng thái, Icon `<Calendar />` + ngày nộp, thông tin liên hệ và lương kỳ vọng rõ ràng.
+  - **3. Dropdown Trạng thái linh hoạt**: Bỏ nút "Đóng" đáy dư thừa và 2 nút cứng tiến/lùi; tích hợp Dropdown Select 6 trạng thái (`APPLIED`, `AI_SCREENED`, `INTERVIEW`, `OFFER`, `ONBOARDED`, `REJECTED`), cho phép HR nhảy cóc bước hoặc loại hồ sơ nhanh chỉ với 1 click.
+  - **4. Thao tác Cốt lõi (Core Actions)**: Bổ sung 2 nút hành động nổi bật: "Xem CV" (mở modal CV Preview chi tiết và tải tệp) và "Thêm đánh giá/Ghi chú" (nhập nhận xét phỏng vấn, đánh giá sao 1-5, lưu thời gian thực).
+  - **5. Copy Câu hỏi Phỏng vấn 1-click**: Thêm icon Copy ở từng câu hỏi phỏng vấn gợi ý, click để copy vào Clipboard (với hiệu ứng Check xanh trong 2s) dán trực tiếp vào Google Meet/Zoom *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

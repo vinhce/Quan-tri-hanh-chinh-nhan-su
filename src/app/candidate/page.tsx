@@ -87,6 +87,12 @@ const STAGE_META: Record<
     stepNum: 5,
     desc: 'Bạn đã chính thức gia nhập Lạc Việt và hoàn tất thủ tục tiếp nhận nhân sự.',
   },
+  REJECTED: {
+    label: 'Đã loại',
+    variant: 'danger',
+    stepNum: 0,
+    desc: 'Hồ sơ chưa phù hợp trong đợt tuyển dụng hiện tại.',
+  },
 };
 
 export default function CandidatePortalPage() {

@@ -150,8 +150,8 @@ export function PayrollView() {
     setRecords((prev) => prev.map((item) => (item.id === updatedRec.id ? updatedRec : item)));
     setSelectedRecord(updatedRec);
     showToast(
-      `Đã cập nhật phiếu lương ${updatedRec.payslip_code}`,
-      `${updatedRec.full_name} — Thực lĩnh mới: ${formatVND(nextNet)}`,
+      'Cập nhật thành công!',
+      `${updatedRec.full_name} (${updatedRec.payslip_code}) — Thực lĩnh: ${formatVND(nextNet)}`,
       'success'
     );
     recordAuditLog({
@@ -228,7 +228,7 @@ export function PayrollView() {
       )
     );
     showToast(
-      'Đã chạy tính lương toàn công ty kỳ 11/2026',
+      'Cập nhật thành công!',
       'Toàn bộ bản ghi nháp đã được kiểm tra công thức và chuyển trạng thái Đã duyệt lương.',
       'success'
     );
@@ -253,7 +253,7 @@ export function PayrollView() {
       }))
     );
     showToast(
-      'Đã phát hành phiếu lương tháng 11/2026',
+      'Cập nhật thành công!',
       `Đã gửi phiếu lương điện tử tới ${records.length} nhân sự qua cổng tự phục vụ.`,
       'success'
     );

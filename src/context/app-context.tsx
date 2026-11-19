@@ -260,10 +260,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setToasts((prev) => [...prev.slice(-3), { id, title, description, variant }]);
       window.setTimeout(() => {
         setToasts((prev) => prev.filter((item) => item.id !== id));
-      }, 4000);
+      }, 3000);
     },
     []
   );
+
+  // Lắng nghe CustomEvent 'hrm:toast' và nạp Flash Message từ sessionStorage khi chuyển trang
+  useEffect(() => {
+    const handleCustomToast = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        title: string;
+        description?: string;
+        variant?: ToastMessage['variant'];
+      }>;
+      if (customEvent.detail && customEvent.detail.title) {
+        showToast(
+          customEvent.detail.title,
+          customEvent.detail.description,
+          customEvent.detail.variant
+        );
+      }
+    };
+
+    window.addEventListener('hrm:toast', handleCustomToast);
+
+    try {
+      const flashRaw = window.sessionStorage.getItem('hrm_flash_toast');
+      if (flashRaw) {
+        window.sessionStorage.removeItem('hrm_flash_toast');
+        const parsed = JSON.parse(flashRaw);
+        if (parsed && typeof parsed.title === 'string') {
+          window.setTimeout(() => {
+            showToast(parsed.title, parsed.description, parsed.variant ?? 'success');
+          }, 120);
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
+    return () => {
+      window.removeEventListener('hrm:toast', handleCustomToast);
+    };
+  }, [showToast]);
 
   return (
     <AppContext.Provider

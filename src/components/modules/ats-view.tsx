@@ -181,7 +181,7 @@ export function AtsView() {
       })
       .catch(() => {
         if (!active) return;
-        showToast('Không thể tải dữ liệu Tuyển dụng ATS', 'Vui lòng thử làm mới lại trang.', 'error');
+        showToast('Đã xảy ra lỗi, vui lòng thử lại!', 'Không thể tải dữ liệu Tuyển dụng ATS. Vui lòng thử làm mới lại trang.', 'error');
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -265,7 +265,7 @@ export function AtsView() {
     const trimmedEmail = onbEmail.trim();
     if (!trimmedCode || !trimmedEmail) {
       showToast(
-        'Thiếu thông tin tiếp nhận',
+        'Vui lòng nhập đầy đủ thông tin!',
         'Vui lòng kiểm tra mã nhân viên và địa chỉ email công ty.',
         'warning'
       );
@@ -319,8 +319,8 @@ export function AtsView() {
     });
 
     showToast(
-      `Đã khởi tạo Onboarding ${result.onboarding.id}`,
-      `${result.employee.full_name} (${result.employee.employee_code}) đã đồng bộ sang Core HR và mở lộ trình hội nhập.`,
+      'Tạo thành công!',
+      `Đã khởi tạo Onboarding ${result.onboarding.id} cho ${result.employee.full_name} (${result.employee.employee_code}).`,
       'success'
     );
   };
@@ -342,7 +342,7 @@ export function AtsView() {
       prev && prev.id === candidate.id ? updatedCandidate : prev
     );
     showToast(
-      'Đã cập nhật trạng thái ứng viên',
+      'Cập nhật thành công!',
       `${candidate.full_name} (${candidate.candidate_code}) -> ${stageMeta?.label ?? targetStage}.`,
       'success'
     );
@@ -379,7 +379,7 @@ export function AtsView() {
       prev && prev.id === candidate.id ? updatedCandidate : prev
     );
     showToast(
-      'Đã chạy lại AI chấm điểm CV',
+      'Cập nhật thành công!',
       `${candidate.full_name} đạt điểm khớp JD mới: ${bumpedScore}/100.`,
       'success'
     );
@@ -388,7 +388,7 @@ export function AtsView() {
   const handleAddJob = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newJobTitle.trim()) {
-      showToast('Thiếu tiêu đề vị trí', 'Vui lòng nhập tên vị trí cần tuyển dụng.', 'warning');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập tên vị trí cần tuyển dụng.', 'warning');
       return;
     }
 
@@ -417,7 +417,7 @@ export function AtsView() {
     setIsAddJobOpen(false);
     setNewJobTitle('');
     showToast(
-      'Đã đăng tin tuyển dụng mới',
+      'Tạo thành công!',
       `${created.job_code} — ${created.title} đã được mở nhận hồ sơ.`,
       'success'
     );

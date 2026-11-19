@@ -13,7 +13,8 @@
 - [x] Hoàn thiện luồng phê duyệt đơn từ đa cấp (`DEPT_MANAGER -> HR_MANAGER -> DIRECTOR`), ẩn dãy pill phân cấp rườm rà ngoài danh sách (giữ Stepper trong Dialog chi tiết).
 - [x] Khóa cố định App Shell, làm gọn Header, thay khối cuối Sidebar bằng **Thẻ tài khoản** (Avatar 2 chữ cái cuối, badge màu 5 role, `Hồ sơ`, `Đăng xuất` xác nhận, `Đổi vai trò (demo)`).
 - [x] Bổ sung `audit-logger.ts` ghi thao tác thực tế và popup chi tiết Audit Log bất biến (chỉ đọc) với viền nhấn `border-l-4` hỗ trợ cả Light & Dark mode.
-- [x] Kiểm tra `npx.cmd tsc --noEmit` → **PASS (0 lỗi)**.
+- [x] Bổ sung toàn diện Hệ thống Toast Notification cho các thao tác CRUD: hiển thị góc trên bên phải màn hình, icon trạng thái (thành công màu xanh lá, thất bại màu đỏ, cảnh báo hổ phách), bo góc đẹp kèm animation trượt nhẹ, tự động đóng sau 3 giây, nút đóng thủ công, hỗ trợ Session Flash Message khi tải lại hoặc chuyển trang, chuẩn hóa 6 kịch bản thông báo CRUD ở toàn bộ 11 phân hệ và bản web tĩnh song song.
+- [x] Kiểm tra `npx.cmd tsc --noEmit` & `npm run build` → **PASS (0 lỗi, build static thành công)**.
 
 ## 3. LỖI / VẤN ĐỀ ĐANG GẶP (BLOCKERS)
 - *Hiện tại không có lỗi chặn.*

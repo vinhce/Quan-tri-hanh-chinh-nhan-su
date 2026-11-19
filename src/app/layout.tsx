@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/context/app-context';
+import { ToastProvider } from '@/components/ui/toast-provider';
 
 const inter = Inter({
   subsets: ['latin', 'vietnamese'],
@@ -40,7 +41,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} min-h-[100dvh] bg-[#FAFAFA] font-sans text-zinc-900 antialiased selection:bg-teal-700/15 selection:text-teal-900 dark:bg-[#09090B] dark:text-zinc-100 dark:selection:bg-teal-400/20 dark:selection:text-teal-200`}
       >
-        <AppProvider>{children}</AppProvider>
+        <AppProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </AppProvider>
       </body>
     </html>
   );

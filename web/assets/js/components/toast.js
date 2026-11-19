@@ -3,16 +3,17 @@ import { getIcon } from './icons.js';
 
 const TOAST_CONTAINER_ID = 'toast-container';
 const MAX_TOASTS = 4;
-const TOAST_DURATION_MS = 4000;
+const TOAST_DURATION_MS = 3000;
 const LEAVE_ANIMATION_MS = 180;
+const FLASH_TOAST_KEY = 'hrm_flash_toast';
 
 const CONTAINER_CLASSES =
-  'fixed bottom-5 right-5 z-[60] flex flex-col gap-2 w-full max-w-sm pointer-events-none';
+  'fixed top-4 right-4 sm:top-5 sm:right-5 z-[9999] flex flex-col gap-2.5 w-[calc(100vw-2rem)] sm:w-96 max-w-sm pointer-events-none';
 
 const VARIANT_MAP = {
   default: {
     cardClass:
-      'border-zinc-200/80 bg-white text-zinc-900 dark:border-zinc-800/80 dark:bg-[#121214] dark:text-zinc-100',
+      'border-l-4 border-l-teal-600 dark:border-l-teal-400 border-zinc-200/80 bg-white/95 text-zinc-900 shadow-[0_8px_24px_rgba(17,34,30,0.08)] dark:border-zinc-800/80 dark:bg-[#121214]/95 dark:text-zinc-100 dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md',
     iconBoxClass:
       'border-teal-700/20 bg-teal-50/80 text-teal-700 dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-400',
     iconName: 'info',
@@ -20,7 +21,7 @@ const VARIANT_MAP = {
   },
   success: {
     cardClass:
-      'border-emerald-200/90 bg-white text-zinc-900 dark:border-emerald-800/60 dark:bg-[#121214] dark:text-zinc-100',
+      'border-l-4 border-l-emerald-600 dark:border-l-emerald-400 border-emerald-200/90 bg-white/95 text-zinc-900 shadow-[0_8px_24px_rgba(5,150,105,0.12)] dark:border-emerald-800/60 dark:bg-[#121214]/95 dark:text-zinc-100 dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md',
     iconBoxClass:
       'border-emerald-600/20 bg-emerald-50/80 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-950/40 dark:text-emerald-400',
     iconName: 'check-circle-2',
@@ -28,7 +29,7 @@ const VARIANT_MAP = {
   },
   warning: {
     cardClass:
-      'border-amber-200/90 bg-white text-zinc-900 dark:border-amber-800/60 dark:bg-[#121214] dark:text-zinc-100',
+      'border-l-4 border-l-amber-500 dark:border-l-amber-400 border-amber-200/90 bg-white/95 text-zinc-900 shadow-[0_8px_24px_rgba(217,119,6,0.12)] dark:border-amber-800/60 dark:bg-[#121214]/95 dark:text-zinc-100 dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md',
     iconBoxClass:
       'border-amber-600/20 bg-amber-50/80 text-amber-700 dark:border-amber-400/20 dark:bg-amber-950/40 dark:text-amber-400',
     iconName: 'alert-triangle',
@@ -36,7 +37,7 @@ const VARIANT_MAP = {
   },
   error: {
     cardClass:
-      'border-rose-200/90 bg-white text-zinc-900 dark:border-rose-800/60 dark:bg-[#121214] dark:text-zinc-100',
+      'border-l-4 border-l-red-600 dark:border-l-red-400 border-rose-200/90 bg-white/95 text-zinc-900 shadow-[0_8px_24px_rgba(220,38,38,0.12)] dark:border-rose-800/60 dark:bg-[#121214]/95 dark:text-zinc-100 dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md',
     iconBoxClass:
       'border-rose-600/20 bg-rose-50/80 text-rose-700 dark:border-rose-400/20 dark:bg-rose-950/40 dark:text-rose-400',
     iconName: 'alert-triangle',
@@ -99,7 +100,43 @@ function dismissToastElement(toastEl) {
 }
 
 /**
- * Hiển thị thông báo Toast ở góc dưới phải (tối đa 4 toast, tự đóng sau 4000ms).
+ * Lưu flash toast vào sessionStorage để hiển thị sau khi reload / redirect.
+ */
+export function setFlashToast(title, description = '', variant = 'success') {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(
+      FLASH_TOAST_KEY,
+      JSON.stringify({ title, description, variant })
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Kiểm tra và hiển thị flash toast từ sessionStorage.
+ */
+export function checkFlashToast() {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.sessionStorage.getItem(FLASH_TOAST_KEY);
+    if (raw) {
+      window.sessionStorage.removeItem(FLASH_TOAST_KEY);
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.title) {
+        setTimeout(() => {
+          showToast(parsed.title, parsed.description || '', parsed.variant || 'success');
+        }, 120);
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
+ * Hiển thị thông báo Toast ở góc trên phải (tối đa 4 toast, tự đóng sau 3000ms).
  * @param {string} title
  * @param {string} [description='']
  * @param {'default'|'success'|'warning'|'error'} [variant='default']
@@ -127,7 +164,7 @@ export function showToast(title, description = '', variant = 'default') {
   const toastEl = document.createElement('div');
   toastEl.setAttribute('role', style.role);
   toastEl.className = [
-    'toast-item pointer-events-auto flex items-start gap-3 rounded-xl border p-3.5 shadow-sm dark:shadow-none transition-unslop',
+    'toast-item pointer-events-auto flex items-start gap-3 rounded-xl border p-3.5 transition-unslop',
     style.cardClass,
   ].join(' ');
 
@@ -163,4 +200,26 @@ export function showToast(title, description = '', variant = 'default') {
   activeTimers.set(toastEl, { autoDismissId, removeId: null });
 
   return toastEl;
+}
+
+export const notify = {
+  addSuccess: (desc, title = 'Thêm mới thành công!') => showToast(title, desc, 'success'),
+  createSuccess: (desc, title = 'Tạo thành công!') => showToast(title, desc, 'success'),
+  updateSuccess: (desc, title = 'Cập nhật thành công!') => showToast(title, desc, 'success'),
+  deleteSuccess: (desc, title = 'Xóa thành công!') => showToast(title, desc, 'success'),
+  error: (desc, title = 'Đã xảy ra lỗi, vui lòng thử lại!') => showToast(title, desc, 'error'),
+  missingInfo: (desc, title = 'Vui lòng nhập đầy đủ thông tin!') => showToast(title, desc, 'warning'),
+  success: (title, desc) => showToast(title, desc, 'success'),
+  warning: (title, desc) => showToast(title, desc, 'warning'),
+  info: (title, desc) => showToast(title, desc, 'default'),
+  setFlash: setFlashToast,
+};
+
+// Tự động kiểm tra Flash Toast khi script được nạp
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkFlashToast);
+  } else {
+    checkFlashToast();
+  }
 }

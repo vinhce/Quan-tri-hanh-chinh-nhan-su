@@ -181,7 +181,7 @@ export function PerformanceView() {
     );
 
     showToast(
-      'Đã cập nhật đánh giá KPI',
+      'Cập nhật thành công!',
       `Đã lưu điểm KPI ${nextScore}/100 (Xếp loại ${gradeInput}) cho ${editingKpi.full_name}.`,
       'success'
     );

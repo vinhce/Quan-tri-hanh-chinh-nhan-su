@@ -3,7 +3,7 @@ import { DEMO_ACCOUNTS, getDefaultPageForRole, getRoleMeta, normalizeRole } from
 import { getState, setAuthenticatedUser, toggleTheme } from '../../core/state.js';
 import { escapeHtml, formatVND, toUrl } from '../../core/utils.js';
 import { getIcon } from '../../components/icons.js';
-import { showToast } from '../../components/toast.js';
+import { showToast, setFlashToast } from '../../components/toast.js';
 import {
   DEMO_PASSWORD,
   DEPT_HEADCOUNT_SHARES,
@@ -243,7 +243,7 @@ function handleLoginSubmit(event) {
 
   if (firstInvalid) {
     firstInvalid.focus();
-    showToast('Thiếu thông tin đăng nhập', 'Vui lòng điền đầy đủ email và mật khẩu.', 'warning');
+    showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng điền đầy đủ email và mật khẩu.', 'warning');
     return;
   }
 
@@ -253,7 +253,7 @@ function handleLoginSubmit(event) {
   const demoMatch = DEMO_ACCOUNTS.find((acc) => acc.email.toLowerCase() === email.toLowerCase());
   const profile = demoMatch ? { ...demoMatch } : { ...meta, email };
   setAuthenticatedUser({ role, email, profile });
-  showToast('Đăng nhập thành công', `Đã kích hoạt phiên ${meta.shortLabel} (${email}).`, 'success');
+  setFlashToast('Đăng nhập thành công!', `Đã kích hoạt phiên ${meta.shortLabel} (${email}).`, 'success');
   window.location.href = toUrl(getDefaultPageForRole(role));
 }
 
@@ -286,13 +286,13 @@ function handleRegisterSubmit(event) {
 
   if (firstInvalid) {
     firstInvalid.focus();
-    showToast('Thông tin đăng ký chưa hợp lệ', 'Vui lòng kiểm tra lại các trường đã đánh dấu.', 'error');
+    showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng kiểm tra lại các trường đã đánh dấu.', 'error');
     return;
   }
 
   if (el('register-submit-btn')) el('register-submit-btn').disabled = true;
   setAuthenticatedUser({ role: regRole, email: regEmail, profile: { fullName, empName: fullName, department } });
-  showToast('Đăng ký tài khoản thành công', `Đã tạo phiên làm việc cho ${fullName} tại ${department}.`, 'success');
+  setFlashToast('Tạo thành công!', `Đã tạo phiên làm việc cho ${fullName} tại ${department}.`, 'success');
   window.location.href = toUrl(getDefaultPageForRole(regRole));
 }
 

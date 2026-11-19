@@ -110,8 +110,8 @@ export function AttendanceView() {
       )
     );
     showToast(
-      `Đã cập nhật chấm công ${editingRecord.employee_code}`,
-      `${editingRecord.full_name} — ${nextDays} công, ${nextOt}h OT`,
+      'Cập nhật thành công!',
+      `${editingRecord.full_name} (${editingRecord.employee_code}) — ${nextDays} công, ${nextOt}h OT.`,
       'success'
     );
     recordAuditLog({
@@ -130,9 +130,9 @@ export function AttendanceView() {
     if (!deleteTarget) return;
     setRecords((prev) => prev.filter((item) => item.id !== deleteTarget.id));
     showToast(
-      `Đã xóa bản ghi công ${deleteTarget.employee_code}`,
-      deleteTarget.full_name,
-      'warning'
+      'Xóa thành công!',
+      `Đã xóa bản ghi công của ${deleteTarget.full_name} (${deleteTarget.employee_code}).`,
+      'success'
     );
     recordAuditLog({
       actor_name: currentEmployeeName,
@@ -239,7 +239,7 @@ export function AttendanceView() {
     );
     setIsMonthLocked(true);
     showToast(
-      'Đã chốt bảng công tháng 11/2026',
+      'Cập nhật thành công!',
       'Toàn bộ dữ liệu công đã được khóa và đồng bộ sang phân hệ Tính lương.',
       'success'
     );

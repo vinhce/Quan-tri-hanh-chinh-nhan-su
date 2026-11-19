@@ -518,7 +518,7 @@ export function OnboardingView() {
     });
 
     showToast(
-      nextDone ? 'Đã cập nhật hạng mục hội nhập' : 'Đã mở lại hạng mục hội nhập',
+      'Cập nhật thành công!',
       `${record.full_name} — ${title}`,
       'success'
     );
@@ -566,7 +566,7 @@ export function OnboardingView() {
     });
 
     showToast(
-      'Đã hoàn tất quy trình hội nhập',
+      'Cập nhật thành công!',
       `${record.full_name} (${record.employee_code}) đã chuyển sang làm việc chính thức.`,
       'success'
     );
@@ -593,10 +593,12 @@ export function OnboardingView() {
 
     if (!trimmedCode || !trimmedName || !trimmedSerial) {
       setCreateAssetError('Vui lòng nhập đầy đủ mã tài sản, tên thiết bị và số serial');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập đầy đủ mã tài sản, tên thiết bị và số serial.', 'warning');
       return;
     }
     if (assets.some((a) => a.asset_code.toUpperCase() === trimmedCode)) {
       setCreateAssetError(`Mã tài sản ${trimmedCode} đã tồn tại trong kho`);
+      showToast('Đã xảy ra lỗi, vui lòng thử lại!', `Mã tài sản ${trimmedCode} đã tồn tại trong kho.`, 'error');
       return;
     }
 
@@ -625,7 +627,7 @@ export function OnboardingView() {
     });
 
     showToast(
-      'Đã nhập kho tài sản mới',
+      'Thêm mới thành công!',
       `${created.asset_code} — ${created.name} đã sẵn sàng quản lý.`,
       'success'
     );
@@ -694,8 +696,8 @@ export function OnboardingView() {
     });
 
     showToast(
-      `Đã cấp phát ${updatedAsset.asset_code}`,
-      `Bàn giao cho ${emp.full_name} (${emp.employee_code}).`,
+      'Cập nhật thành công!',
+      `Đã cấp phát ${updatedAsset.asset_code} cho ${emp.full_name} (${emp.employee_code}).`,
       'success'
     );
   };
@@ -757,9 +759,9 @@ export function OnboardingView() {
     }
 
     showToast(
-      `Đã thu hồi ${updatedAsset.asset_code}`,
-      `Thiết bị từ ${prevHolderName} đã chuyển về trạng thái sẵn sàng trong kho.`,
-      'default'
+      'Cập nhật thành công!',
+      `Đã thu hồi ${updatedAsset.asset_code} từ ${prevHolderName} về kho.`,
+      'success'
     );
   };
 

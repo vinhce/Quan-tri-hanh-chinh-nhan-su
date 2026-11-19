@@ -523,12 +523,10 @@ export function RequestsView() {
     }
 
     showToast(
+      'Cập nhật thành công!',
       isFinal
-        ? `Đã phê duyệt hoàn tất đơn ${req.request_code}`
-        : `Đã duyệt bước ${targetStepRole === 'DEPT_MANAGER' ? 'Cấp 1' : 'Cấp 2'} đơn ${req.request_code}`,
-      nextPendingStep
-        ? `Đơn đã chuyển tiếp sang ${nextPendingStep.label}.`
-        : `${req.full_name} — ${req.category_label}`,
+        ? `Đã phê duyệt hoàn tất đơn ${req.request_code} (${req.category_label}).`
+        : `Đã duyệt đơn ${req.request_code}, chuyển tiếp sang ${nextPendingStep?.label ?? 'cấp tiếp theo'}.`,
       'success'
     );
     recordAuditLog({
@@ -556,6 +554,7 @@ export function RequestsView() {
     const reasonTrimmed = rejectReasonInput.trim();
     if (reasonTrimmed.length < 3) {
       setRejectError('Vui lòng nhập lý do từ chối tối thiểu 3 ký tự.');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập lý do từ chối tối thiểu 3 ký tự.', 'warning');
       return;
     }
 
@@ -598,8 +597,8 @@ export function RequestsView() {
     setRejectError('');
 
     showToast(
-      `Đã từ chối đơn ${rejectTarget.request_code}`,
-      `Lý do: ${reasonTrimmed}`,
+      'Cập nhật thành công!',
+      `Đã từ chối đơn ${rejectTarget.request_code}. Lý do: ${reasonTrimmed}`,
       'warning'
     );
     recordAuditLog({
@@ -627,9 +626,9 @@ export function RequestsView() {
     setSelectedRequest((prev) => (prev && prev.id === cancelTarget.id ? updatedReq : prev));
     saveRuntimeRequest(updatedReq);
     showToast(
-      `Đã hủy đơn ${cancelTarget.request_code}`,
-      'Đơn đề xuất đã được rút lại.',
-      'default'
+      'Cập nhật thành công!',
+      `Đã hủy đơn ${cancelTarget.request_code}. Đơn đã được rút lại thành công.`,
+      'success'
     );
     recordAuditLog({
       actor_name: currentEmployeeName,
@@ -664,8 +663,8 @@ export function RequestsView() {
     setIsEditingRequest(false);
     saveRuntimeRequest(updatedReq);
     showToast(
-      `Đã cập nhật đơn ${updatedReq.request_code}`,
-      `${updatedReq.full_name} — ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
+      'Cập nhật thành công!',
+      `Đơn ${updatedReq.request_code} (${updatedReq.full_name}) đã được lưu.`,
       'success'
     );
     recordAuditLog({
@@ -687,9 +686,9 @@ export function RequestsView() {
       setIsEditingRequest(false);
     }
     showToast(
-      `Đã xóa đơn ${deleteTarget.request_code}`,
-      deleteTarget.full_name,
-      'warning'
+      'Xóa thành công!',
+      `Đã xóa đơn ${deleteTarget.request_code} (${deleteTarget.full_name}) khỏi hệ thống.`,
+      'success'
     );
     recordAuditLog({
       actor_name: currentEmployeeName,
@@ -719,14 +718,17 @@ export function RequestsView() {
     const numericDuration = Number(formDuration);
     if (!formStartDate || !formEndDate) {
       setFormError('Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc.');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc.', 'warning');
       return;
     }
     if (Number.isNaN(numericDuration) || numericDuration <= 0) {
       setFormError('Số ngày hoặc số giờ phải lớn hơn 0.');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Số ngày hoặc số giờ phải lớn hơn 0.', 'warning');
       return;
     }
     if (formReason.trim().length < 5) {
       setFormError('Vui lòng nhập lý do tối thiểu 5 ký tự.');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập lý do tối thiểu 5 ký tự.', 'warning');
       return;
     }
 
@@ -838,8 +840,8 @@ export function RequestsView() {
     setFormReason('');
     setFormHandover('');
     showToast(
-      `Đã tạo đơn ${newItem.request_code}`,
-      `Đơn đã được chuyển tới ${isDeptMgr ? 'Cấp 2 (HR)' : 'Cấp 1 (Trưởng bộ phận)'}.`,
+      'Tạo thành công!',
+      `Đơn ${newItem.request_code} (${newItem.category_label}) đã được chuyển tới ${isDeptMgr ? 'Cấp 2 (HR)' : 'Cấp 1 (Trưởng bộ phận)'}.`,
       'success'
     );
     recordAuditLog({

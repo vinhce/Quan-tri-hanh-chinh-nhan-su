@@ -153,8 +153,8 @@ export function PayslipSelfView() {
     const timeStr = formatTimeNow(new Date());
     setCheckInTime(timeStr);
     showToast(
-      'Check-in thành công',
-      `Đã ghi nhận giờ vào ca ${employee.work_shift_code} lúc ${timeStr}.`,
+      'Cập nhật thành công!',
+      `Đã ghi nhận check-in giờ vào ca ${employee.work_shift_code} lúc ${timeStr}.`,
       'success'
     );
   };
@@ -164,8 +164,8 @@ export function PayslipSelfView() {
     const timeStr = formatTimeNow(new Date());
     setCheckOutTime(timeStr);
     showToast(
-      'Check-out thành công',
-      `Đã ghi nhận giờ ra ca ${employee.work_shift_code} lúc ${timeStr}.`,
+      'Cập nhật thành công!',
+      `Đã ghi nhận check-out giờ ra ca ${employee.work_shift_code} lúc ${timeStr}.`,
       'success'
     );
   };
@@ -175,7 +175,7 @@ export function PayslipSelfView() {
     if (!employee) return;
     const trimmedReason = reqReason.trim();
     if (!trimmedReason) {
-      showToast('Thiếu lý do', 'Vui lòng nhập lý do gửi đơn.', 'warning');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập lý do gửi đơn.', 'warning');
       return;
     }
 
@@ -292,8 +292,8 @@ export function PayslipSelfView() {
     });
 
     showToast(
-      `Đã gửi ${label} (${newReq.request_code})`,
-      `Ngày ${reqDate} (${numericDuration} ${unit}) đã chuyển tới Quản lý trực tiếp để phê duyệt.`,
+      'Tạo thành công!',
+      `Đã gửi ${label} (${newReq.request_code}) tới Quản lý để phê duyệt.`,
       'success'
     );
     setReqReason('');

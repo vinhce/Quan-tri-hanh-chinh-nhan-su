@@ -169,7 +169,7 @@ export function AdminRolesView() {
       status: 'SUCCESS',
     });
     showToast(
-      'Đã lưu ma trận phân quyền RBAC',
+      'Cập nhật thành công!',
       `Cập nhật quyền truy cập cho vai trò ${selectedRole} thành công.`,
       'success'
     );
@@ -199,7 +199,7 @@ export function AdminRolesView() {
       status: nextStatus === 'LOCKED' ? 'WARNING' : 'SUCCESS',
     });
     showToast(
-      nextStatus === 'LOCKED' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản',
+      'Cập nhật thành công!',
       `${target.full_name} (${target.employee_code}) hiện ở trạng thái ${
         nextStatus === 'LOCKED' ? 'Tạm khóa' : 'Hoạt động'
       }.`,

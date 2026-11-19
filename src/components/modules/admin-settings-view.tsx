@@ -94,7 +94,7 @@ export function AdminSettingsView() {
       status: 'SUCCESS',
     });
     showToast(
-      'Đã lưu cấu hình hệ thống',
+      'Cập nhật thành công!',
       'Các tham số giờ làm việc, quy trình phê duyệt và tỷ lệ BHXH/Thuế TNCN đã được áp dụng.',
       'success'
     );
@@ -105,7 +105,7 @@ export function AdminSettingsView() {
     if (!config) return;
     const trimmedName = newHolidayName.trim();
     if (!trimmedName) {
-      showToast('Thiếu tên ngày lễ', 'Vui lòng nhập tên ngày nghỉ lễ trước khi thêm.', 'warning');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập tên ngày nghỉ lễ trước khi thêm.', 'warning');
       return;
     }
     const paidDays = Math.max(1, Number(newHolidayDays) || 1);
@@ -131,7 +131,7 @@ export function AdminSettingsView() {
 
     setNewHolidayName('');
     showToast(
-      'Đã thêm ngày lễ mới',
+      'Thêm mới thành công!',
       `${trimmedName} (${paidDays} ngày hưởng nguyên lương) đã được đưa vào lịch 2026.`,
       'success'
     );
@@ -148,7 +148,7 @@ export function AdminSettingsView() {
           }
         : prev
     );
-    showToast('Đã gỡ ngày lễ khỏi lịch', `Mã ngày lễ ${holidayCode} đã được xóa.`, 'default');
+    showToast('Xóa thành công!', `Ngày lễ mã ${holidayCode} đã được xóa khỏi hệ thống.`, 'success');
   };
 
   if (isLoading) {

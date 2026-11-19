@@ -21,6 +21,7 @@ import { useApp, type RoleCode } from "@/context/app-context";
 import type { Department } from "@/mock/types";
 import { fetchEmployeesMock } from "@/lib/mock-fetcher";
 import { formatVND } from "@/lib/utils";
+import { setFlashToast } from "@/lib/notify";
 
 interface DemoAccount {
   role: RoleCode;
@@ -229,9 +230,9 @@ export default function LoginPage() {
     e.preventDefault();
     if (!email.trim() || !password) {
       showToast(
-        "Thiếu thông tin đăng nhập",
-        "Vui lòng nhập đầy đủ email doanh nghiệp và mật khẩu",
-        "error"
+        "Vui lòng nhập đầy đủ thông tin!",
+        "Vui lòng nhập đầy đủ email doanh nghiệp và mật khẩu.",
+        "warning"
       );
       return;
     }
@@ -245,9 +246,14 @@ export default function LoginPage() {
       department: matchedDemo.department,
     });
     setActiveNav("dashboard");
+    setFlashToast(
+      "Đăng nhập thành công!",
+      `${matchedDemo.fullName} (${matchedDemo.empCode}) · ${matchedDemo.roleTitle}`,
+      "success"
+    );
     showToast(
-      `Đã đăng nhập với vai trò ${matchedDemo.roleTitle}`,
-      `${matchedDemo.fullName} (${matchedDemo.empCode}) · ${rememberMe ? "Ghi nhớ phiên" : "Phiên tạm thời"}`,
+      "Đăng nhập thành công!",
+      `${matchedDemo.fullName} (${matchedDemo.empCode}) · ${matchedDemo.roleTitle}`,
       "success"
     );
     router.push("/");
@@ -258,23 +264,23 @@ export default function LoginPage() {
     setRegError(null);
 
     if (!regName.trim() || !regEmail.trim() || !regDept || !regPassword || !regConfirmPassword) {
-      const msg = "Vui lòng điền đầy đủ thông tin bắt buộc trước khi tạo tài khoản";
+      const msg = "Vui lòng điền đầy đủ họ tên, email, phòng ban và mật khẩu.";
       setRegError(msg);
-      showToast("Thông tin chưa đầy đủ", msg, "error");
+      showToast("Vui lòng nhập đầy đủ thông tin!", msg, "warning");
       return;
     }
 
     if (regPassword.length < 6) {
-      const msg = "Mật khẩu phải có tối thiểu 6 ký tự";
+      const msg = "Mật khẩu phải có tối thiểu 6 ký tự.";
       setRegError(msg);
-      showToast("Mật khẩu không hợp lệ", msg, "error");
+      showToast("Đã xảy ra lỗi, vui lòng thử lại!", msg, "error");
       return;
     }
 
     if (regPassword !== regConfirmPassword) {
-      const msg = "Mật khẩu xác nhận không khớp với mật khẩu đã nhập";
+      const msg = "Mật khẩu xác nhận không khớp với mật khẩu đã nhập.";
       setRegError(msg);
-      showToast("Xác nhận mật khẩu chưa khớp", msg, "error");
+      showToast("Đã xảy ra lỗi, vui lòng thử lại!", msg, "error");
       return;
     }
 
@@ -287,9 +293,14 @@ export default function LoginPage() {
       department: regDept,
     });
     setActiveNav("dashboard");
+    setFlashToast(
+      "Tạo thành công!",
+      `Tài khoản ${regName.trim()} (${roleLabel}) đã sẵn sàng hoạt động.`,
+      "success"
+    );
     showToast(
-      "Tạo tài khoản thành công",
-      `${regName.trim()} · ${regDept} · ${roleLabel}`,
+      "Tạo thành công!",
+      `Tài khoản ${regName.trim()} (${roleLabel}) đã sẵn sàng hoạt động.`,
       "success"
     );
     router.push("/");

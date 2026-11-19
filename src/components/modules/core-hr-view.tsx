@@ -228,7 +228,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       })
       .catch(() => {
         if (!active) return;
-        showToast('Không thể tải dữ liệu Core HR', 'Vui lòng thử làm mới lại trang.', 'error');
+        showToast('Đã xảy ra lỗi, vui lòng thử lại!', 'Không thể tải dữ liệu Core HR. Vui lòng làm mới trang.', 'error');
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -324,7 +324,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   const handleAddEmployee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmpName.trim() || !newEmpEmail.trim()) {
-      showToast('Thiếu thông tin bắt buộc', 'Vui lòng nhập họ tên và email công ty.', 'warning');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập họ tên và email công ty.', 'warning');
       return;
     }
 
@@ -395,7 +395,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       status: 'SUCCESS',
     });
     showToast(
-      'Đã thêm hồ sơ nhân viên mới',
+      'Thêm mới thành công!',
       `${created.full_name} (${created.employee_code}) đã được thêm vào ${dept.department_name}.`,
       'success'
     );
@@ -414,7 +414,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   const handleSaveEditEmployee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmployee || !editEmpName.trim()) {
-      showToast('Thiếu họ và tên', 'Vui lòng nhập họ tên nhân viên.', 'warning');
+      showToast('Vui lòng nhập đầy đủ thông tin!', 'Vui lòng nhập họ tên nhân viên.', 'warning');
       return;
     }
     const dept = departments.find((d) => d.id === editEmpDeptId) ?? departments[0];
@@ -444,7 +444,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       status: 'SUCCESS',
     });
     showToast(
-      'Đã cập nhật hồ sơ nhân viên',
+      'Cập nhật thành công!',
       `${updated.full_name} (${updated.employee_code}) đã được lưu thay đổi.`,
       'success'
     );
@@ -474,7 +474,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       status: 'WARNING',
     });
     showToast(
-      'Đã xóa hồ sơ nhân viên',
+      'Xóa thành công!',
       `Hồ sơ ${emp.full_name} (${emp.employee_code}) đã được gỡ khỏi danh sách.`,
       'success'
     );
@@ -507,7 +507,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       status: 'SUCCESS',
     });
     showToast(
-      'Đã gia hạn hợp đồng thành công',
+      'Cập nhật thành công!',
       `Hợp đồng ${contract.contract_number} (${contract.full_name}) được gia hạn đến ${formatDateVN(nextEndDate)}.`,
       'success'
     );

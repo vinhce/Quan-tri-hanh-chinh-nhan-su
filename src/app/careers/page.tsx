@@ -120,9 +120,9 @@ export default function CareersPage() {
     });
   }, [jobs, selectedDept, selectedLevel, searchQuery]);
 
-  const handleOpenJob = (job: JobPosting, tab: 'jd' | 'apply' = 'jd') => {
+  const handleOpenJob = (job: JobPosting, _tab: 'jd' | 'apply' = 'jd') => {
     setActiveJob(job);
-    setModalTab(tab);
+    setModalTab('jd'); // Bắt buộc mở Mô tả công việc (JD) trước theo yêu cầu người dùng
     setFormErrors({});
   };
 
@@ -469,15 +469,17 @@ export default function CareersPage() {
                   className="flex-1 border-[#C6D9D3] bg-[#FCFEFD] text-xs font-semibold text-[#11221E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
                   onClick={() => handleOpenJob(job, 'jd')}
                 >
-                  Chi tiết JD
+                  <FileText className="mr-1.5 h-3.5 w-3.5 text-[#0F766E]" />
+                  Xem mô tả JD
                 </Button>
                 <Button
                   variant="primary"
                   size="sm"
                   className="flex-1 text-xs font-semibold shadow-sm"
-                  onClick={() => handleOpenJob(job, 'apply')}
+                  onClick={() => handleOpenJob(job, 'jd')}
                 >
                   Ứng tuyển ngay
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                 </Button>
               </div>
             </Card>
@@ -515,70 +517,60 @@ export default function CareersPage() {
 
       {/* Job Detail & Application Dialog matching Management Dialogs */}
       <Dialog open={Boolean(activeJob)} onOpenChange={(open) => !open && handleCloseJob()}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0 sm:max-w-3xl border border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-zinc-900 shadow-xl">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0 sm:max-w-3xl border border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-800 dark:bg-[#121214] dark:text-zinc-100 shadow-2xl">
           {activeJob && (
             <div>
               {/* Modal Header */}
-              <div className="border-b border-[#C6D9D3] bg-[#E4EEEB] p-5 dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-[#0F766E] dark:text-teal-400">
-                        {activeJob.job_code}
-                      </span>
-                      <span className="rounded-md border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 text-[11px] font-semibold text-[#0B4F4A] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-300">
-                        {activeJob.level}
-                      </span>
-                      {activeJob.status === 'URGENT' && (
-                        <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                          Tuyển gấp
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="mt-2 text-xl font-bold text-[#11221E] dark:text-zinc-100">
-                      {activeJob.title}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
-                      {activeJob.department_name} · Phụ trách tuyển dụng:{' '}
-                      <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
-                        {activeJob.hiring_manager_name}
-                      </strong>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCloseJob}
-                    aria-label="Đóng cửa sổ"
-                    className="rounded-lg p-1.5 text-[#415A54] hover:bg-[#D8E6E2] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+              <div className="border-b border-[#C6D9D3] bg-[#E4EEEB] p-5 pr-12 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#0F766E] dark:text-teal-400">
+                    {activeJob.job_code}
+                  </span>
+                  <span className="rounded-md border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 text-[11px] font-semibold text-[#0B4F4A] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-300">
+                    {activeJob.level}
+                  </span>
+                  {activeJob.status === 'URGENT' && (
+                    <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                      Tuyển gấp
+                    </span>
+                  )}
                 </div>
+                <h2 className="mt-2 text-xl font-bold text-[#11221E] dark:text-zinc-100">
+                  {activeJob.title}
+                </h2>
+                <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
+                  {activeJob.department_name} · Phụ trách tuyển dụng:{' '}
+                  <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
+                    {activeJob.hiring_manager_name}
+                  </strong>
+                </p>
 
                 {/* Segmented Switcher */}
-                <div className="mt-4 flex rounded-lg border border-[#C6D9D3] bg-[#EFF5F3] p-1 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="mt-4 flex rounded-xl border border-[#C6D9D3] bg-[#EFF5F3] p-1 dark:border-zinc-800 dark:bg-zinc-900">
                   <button
                     type="button"
                     onClick={() => setModalTab('jd')}
                     className={cn(
-                      'flex-1 rounded-md py-1.5 text-xs font-semibold transition-all',
+                      'flex items-center justify-center gap-2 flex-1 rounded-lg py-2 text-xs font-semibold transition-all',
                       modalTab === 'jd'
                         ? 'border border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100'
                         : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400'
                     )}
                   >
+                    <FileText className="h-3.5 w-3.5 text-[#0F766E]" />
                     Mô tả công việc (JD)
                   </button>
                   <button
                     type="button"
                     onClick={() => setModalTab('apply')}
                     className={cn(
-                      'flex-1 rounded-md py-1.5 text-xs font-semibold transition-all',
+                      'flex items-center justify-center gap-2 flex-1 rounded-lg py-2 text-xs font-semibold transition-all',
                       modalTab === 'apply'
-                        ? 'border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400'
+                        ? 'border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] shadow-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 font-bold'
                         : 'text-[#415A54] hover:text-[#11221E] dark:text-zinc-400'
                     )}
                   >
+                    <Send className="h-3.5 w-3.5" />
                     Nộp hồ sơ ứng tuyển
                   </button>
                 </div>
@@ -667,13 +659,16 @@ export default function CareersPage() {
                       </div>
                     )}
 
-                    <div className="flex justify-end pt-4 border-t border-[#D5E3DF] dark:border-zinc-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-5 border-t border-[#D5E3DF] dark:border-zinc-800">
+                      <p className="text-xs text-[#5C7871] dark:text-zinc-400">
+                        Đã nắm rõ yêu cầu? Tiếp tục sang bước nộp hồ sơ ứng tuyển.
+                      </p>
                       <Button
                         variant="primary"
                         onClick={() => setModalTab('apply')}
                         className="text-xs font-semibold shadow-sm"
                       >
-                        Tiến hành nộp hồ sơ ứng tuyển ngay
+                        Tiến hành nộp hồ sơ ứng tuyển
                         <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -682,14 +677,14 @@ export default function CareersPage() {
                   <form onSubmit={handleApplySubmit} className="space-y-4">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="text-xs font-semibold text-[#415A54] dark:text-zinc-300">
+                        <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                           Họ và tên *
                         </label>
                         <Input
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="Nguyễn Văn A"
-                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD]"
+                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                         {formErrors.fullName && (
                           <p className="mt-1 text-[11px] text-rose-600">{formErrors.fullName}</p>
@@ -697,7 +692,7 @@ export default function CareersPage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-[#415A54] dark:text-zinc-300">
+                        <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                           Địa chỉ Email *
                         </label>
                         <Input
@@ -705,7 +700,7 @@ export default function CareersPage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="email@example.com"
-                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD]"
+                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                         {formErrors.email && (
                           <p className="mt-1 text-[11px] text-rose-600">{formErrors.email}</p>
@@ -715,7 +710,7 @@ export default function CareersPage() {
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="text-xs font-semibold text-[#415A54] dark:text-zinc-300">
+                        <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                           Số điện thoại *
                         </label>
                         <Input
@@ -723,7 +718,7 @@ export default function CareersPage() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="0912 345 678"
-                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD]"
+                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                         {formErrors.phone && (
                           <p className="mt-1 text-[11px] text-rose-600">{formErrors.phone}</p>
@@ -731,7 +726,7 @@ export default function CareersPage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-[#415A54] dark:text-zinc-300">
+                        <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                           Mức lương kỳ vọng (VNĐ/tháng)
                         </label>
                         <Input
@@ -739,29 +734,29 @@ export default function CareersPage() {
                           value={expectedSalary}
                           onChange={(e) => setExpectedSalary(e.target.value)}
                           placeholder={String(activeJob.salary_range_min_vnd)}
-                          className="mt-1 text-xs font-mono tabular-nums border-[#C6D9D3] bg-[#FCFEFD]"
+                          className="mt-1 text-xs font-mono tabular-nums border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-[#415A54] dark:text-zinc-300">
+                      <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                         Đơn vị công tác hiện tại / Gần nhất
                       </label>
                       <Input
                         value={currentCompany}
                         onChange={(e) => setCurrentCompany(e.target.value)}
                         placeholder="Công ty Cổ phần Công nghệ..."
-                        className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD]"
+                        className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                       />
                     </div>
 
                     {/* File Upload Dropzone */}
                     <div>
-                      <label className="text-xs font-semibold text-[#415A54] dark:text-zinc-300">
+                      <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                         Đính kèm tệp CV (PDF, DOCX ≤ 5MB) *
                       </label>
-                      <div className="mt-1.5 rounded-xl border-2 border-dashed border-[#C6D9D3] bg-[#EFF5F3] p-5 text-center transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800 dark:bg-zinc-800/60">
+                      <div className="mt-1.5 rounded-xl border-2 border-dashed border-[#C6D9D3] bg-[#EFF5F3] p-5 text-center transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800/60">
                         <input
                           type="file"
                           id="cv-upload-modal"
@@ -808,7 +803,7 @@ export default function CareersPage() {
                         type="button"
                         variant="outline"
                         onClick={() => setModalTab('jd')}
-                        className="border-[#C6D9D3] text-xs"
+                        className="border-[#C6D9D3] bg-[#FCFEFD] text-xs font-semibold text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
                       >
                         Quay lại xem JD
                       </Button>

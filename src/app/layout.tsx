@@ -33,7 +33,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem('hrm_theme')!=='light'){document.documentElement.classList.add('dark');}}catch(e){}`,
+            __html: `try{if(localStorage.getItem('hrm_theme')==='dark'){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}`,
           }}
         />
       </head>

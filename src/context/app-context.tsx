@@ -129,7 +129,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<RoleCode>('HR_MANAGER');
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfileOverride | null>(null);
-  const [theme, setThemeState] = useState<'light' | 'dark'>('dark');
+  const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [activeNav, setActiveNavState] = useState<string>('dashboard');
   const [navIntent, setNavIntent] = useState<NavIntent | null>(null);
   const [uiState, setUiState] = useState<UiState>('ready');
@@ -156,7 +156,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentUserProfile(JSON.parse(savedProfile) as UserProfileOverride);
       }
       const rawTheme = window.localStorage.getItem(STORAGE_THEME_KEY);
-      const savedTheme: 'light' | 'dark' = rawTheme === 'light' ? 'light' : 'dark';
+      const savedTheme: 'light' | 'dark' = rawTheme === 'dark' ? 'dark' : 'light';
       setThemeState(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
       const savedNav = window.localStorage.getItem(STORAGE_NAV_KEY);

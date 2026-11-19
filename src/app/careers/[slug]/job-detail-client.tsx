@@ -90,29 +90,23 @@ export default function JobDetailClient({ slug }: { slug: string }) {
     e.preventDefault();
     if (!job) return;
 
-    const errors: Record<string, string> = {};
-    if (!fullName.trim()) errors.fullName = 'Vui lòng nhập họ và tên.';
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email.trim())) errors.email = 'Email không hợp lệ.';
-    if (!phone.trim()) errors.phone = 'Vui lòng nhập số điện thoại.';
-    if (!cvFile) errors.cv = 'Vui lòng đính kèm file CV (PDF/DOCX).';
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+    // Bỏ qua validate hoàn toàn theo yêu cầu người dùng
+    setFormErrors({});
     setIsSubmitting(true);
     const candidateSeq = Math.floor(100 + Math.random() * 900);
     const candidateCode = `UV-2026-${candidateSeq}`;
     const candidateId = `cand-slug-${Date.now()}`;
     const sal = Number(expectedSalary) || job.salary_range_min_vnd;
+    const finalFullName = fullName.trim() || 'Nguyễn Văn A';
+    const finalEmail = email.trim() || 'candidate.demo@lacviet.com.vn';
+    const finalPhone = phone.trim() || '0912345678';
 
     const newCand: Candidate = {
       id: candidateId,
       candidate_code: candidateCode,
-      full_name: fullName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
+      full_name: finalFullName,
+      email: finalEmail,
+      phone: finalPhone,
       job_id: job.id,
       job_code: job.job_code,
       job_title: job.title,

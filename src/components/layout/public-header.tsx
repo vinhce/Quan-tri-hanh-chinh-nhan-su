@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   ArrowRight,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '@/context/app-context';
 import { cn } from '@/lib/utils';
@@ -22,7 +23,7 @@ import { Button } from '@/components/ui/button';
 
 export function PublicHeader() {
   const pathname = usePathname();
-  const { role, isAuthenticated, currentUserProfile, theme, toggleTheme } = useApp();
+  const { role, isAuthenticated, currentUserProfile, logout, theme, toggleTheme } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -97,26 +98,37 @@ export function PublicHeader() {
 
           {/* Auth State Action */}
           {isAuthenticated ? (
-            role === 'CANDIDATE' ? (
-              <Link
-                href="/candidate"
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#0F766E] bg-[#CBE8E2] px-3 text-xs font-semibold text-[#0B4F4A] shadow-sm transition-colors hover:bg-[#b5e0d8] dark:border-teal-700 dark:bg-teal-950/60 dark:text-teal-300"
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {role === 'CANDIDATE' ? (
+                <Link
+                  href="/candidate"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#0F766E] bg-[#CBE8E2] px-3 text-xs font-semibold text-[#0B4F4A] shadow-sm transition-colors hover:bg-[#b5e0d8] dark:border-teal-700 dark:bg-teal-950/60 dark:text-teal-300"
+                >
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F766E] text-[10px] font-bold text-white">
+                    UV
+                  </div>
+                  <span className="hidden sm:inline">Cổng Ứng viên</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/app"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#0F766E] px-3.5 text-xs font-semibold text-[#FCFEFD] shadow-sm transition-all hover:bg-[#0D5F58]"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Vào Cổng Quản trị</span>
+                  <span className="font-mono text-[10px] opacity-90 sm:inline">({role})</span>
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={logout}
+                title="Đăng xuất khỏi hệ thống để xem trang dưới vai trò khách"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 text-xs font-medium text-[#5C7871] transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F766E] text-[10px] font-bold text-white">
-                  UV
-                </div>
-                <span className="hidden sm:inline">Cổng Ứng viên</span>
-              </Link>
-            ) : (
-              <Link
-                href="/app"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#0F766E] px-3.5 text-xs font-semibold text-[#FCFEFD] shadow-sm transition-all hover:bg-[#0D5F58]"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                <span className="hidden sm:inline">Vào Cổng Quản trị</span>
-                <span className="font-mono text-[10px] opacity-90 sm:inline">({role})</span>
-              </Link>
-            )
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Đăng xuất</span>
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-2">
               <Link href="/login?redirect=/app">
@@ -126,7 +138,7 @@ export function PublicHeader() {
                   className="h-9 px-3.5 text-xs font-semibold shadow-sm"
                 >
                   <User className="mr-1.5 h-3.5 w-3.5" />
-                  <span>Đăng nhập nội bộ</span>
+                  <span>Đăng nhập</span>
                 </Button>
               </Link>
             </div>

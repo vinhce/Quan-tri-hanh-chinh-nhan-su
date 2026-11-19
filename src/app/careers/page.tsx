@@ -151,32 +151,24 @@ export default function CareersPage() {
     e.preventDefault();
     if (!activeJob) return;
 
-    const errors: Record<string, string> = {};
-    if (!fullName.trim()) errors.fullName = 'Vui lòng nhập họ và tên của bạn.';
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email.trim())) {
-      errors.email = 'Vui lòng nhập địa chỉ email hợp lệ.';
-    }
-    if (!phone.trim()) errors.phone = 'Vui lòng nhập số điện thoại liên hệ.';
-    if (!cvFile) errors.cv = 'Vui lòng đính kèm file CV định dạng PDF hoặc DOCX.';
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+    // Bỏ qua validate hoàn toàn theo yêu cầu người dùng
+    setFormErrors({});
     setIsSubmitting(true);
 
     const candidateSeq = Math.floor(100 + Math.random() * 900);
     const candidateCode = `UV-2026-${candidateSeq}`;
     const candidateId = `cand-${Date.now()}`;
     const parsedSalary = Number(expectedSalary) || activeJob.salary_range_min_vnd;
+    const finalFullName = fullName.trim() || 'Nguyễn Văn A';
+    const finalEmail = email.trim() || 'candidate.demo@lacviet.com.vn';
+    const finalPhone = phone.trim() || '0912345678';
 
     const newCandidate: Candidate = {
       id: candidateId,
       candidate_code: candidateCode,
-      full_name: fullName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
+      full_name: finalFullName,
+      email: finalEmail,
+      phone: finalPhone,
       job_id: activeJob.id,
       job_code: activeJob.job_code,
       job_title: activeJob.title,
@@ -210,7 +202,7 @@ export default function CareersPage() {
 
     pushNotification({
       title: `Ứng viên mới nộp hồ sơ (${candidateCode})`,
-      message: `${fullName.trim()} vừa nộp hồ sơ ứng tuyển vị trí ${activeJob.title} qua Cổng việc làm.`,
+      message: `${finalFullName} vừa nộp hồ sơ ứng tuyển vị trí ${activeJob.title} qua Cổng việc làm.`,
       category: 'ONBOARDING',
       target_roles: ['HR_MANAGER', 'SUPER_ADMIN'],
       nav_id: 'recruitment',
@@ -220,9 +212,9 @@ export default function CareersPage() {
       setIsSubmitting(false);
       setSubmittedCandidate({
         code: candidateCode,
-        fullName: fullName.trim(),
+        fullName: finalFullName,
         jobTitle: activeJob.title,
-        email: email.trim(),
+        email: finalEmail,
       });
       setFullName('');
       setEmail('');
@@ -233,7 +225,7 @@ export default function CareersPage() {
       setCoverLetter('');
       setCvFile(null);
       setActiveJob(null);
-    }, 450);
+    }, 400);
   };
 
   return (
@@ -678,7 +670,7 @@ export default function CareersPage() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                          Họ và tên *
+                          Họ và tên
                         </label>
                         <Input
                           value={fullName}
@@ -686,14 +678,11 @@ export default function CareersPage() {
                           placeholder="Nguyễn Văn A"
                           className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
-                        {formErrors.fullName && (
-                          <p className="mt-1 text-[11px] text-rose-600">{formErrors.fullName}</p>
-                        )}
                       </div>
 
                       <div>
                         <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                          Địa chỉ Email *
+                          Địa chỉ Email
                         </label>
                         <Input
                           type="email"
@@ -702,16 +691,13 @@ export default function CareersPage() {
                           placeholder="email@example.com"
                           className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
-                        {formErrors.email && (
-                          <p className="mt-1 text-[11px] text-rose-600">{formErrors.email}</p>
-                        )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                          Số điện thoại *
+                          Số điện thoại
                         </label>
                         <Input
                           type="tel"
@@ -720,9 +706,6 @@ export default function CareersPage() {
                           placeholder="0912 345 678"
                           className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
-                        {formErrors.phone && (
-                          <p className="mt-1 text-[11px] text-rose-600">{formErrors.phone}</p>
-                        )}
                       </div>
 
                       <div>
@@ -754,7 +737,7 @@ export default function CareersPage() {
                     {/* File Upload Dropzone */}
                     <div>
                       <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                        Đính kèm tệp CV (PDF, DOCX ≤ 5MB) *
+                        Đính kèm tệp CV (Tùy chọn - có thể bỏ qua khi thử nghiệm)
                       </label>
                       <div className="mt-1.5 rounded-xl border-2 border-dashed border-[#C6D9D3] bg-[#EFF5F3] p-5 text-center transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800/60">
                         <input
@@ -788,14 +771,11 @@ export default function CareersPage() {
                               Kéo thả hoặc nhấp để tải file CV
                             </span>
                             <span className="mt-0.5 text-[11px] text-[#5C7871]">
-                              Hỗ trợ định dạng PDF, DOCX dung lượng tối đa 5MB
+                              Hỗ trợ định dạng PDF, DOCX dung lượng tối đa 5MB (tùy chọn)
                             </span>
                           </label>
                         )}
                       </div>
-                      {formErrors.cv && (
-                        <p className="mt-1 text-[11px] text-rose-600">{formErrors.cv}</p>
-                      )}
                     </div>
 
                     <DialogFooter className="mt-6 border-t border-[#D5E3DF] pt-4 dark:border-zinc-800">

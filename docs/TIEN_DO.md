@@ -58,6 +58,14 @@
   - Đồng bộ header Kanban: "Bảng Kanban quy trình ứng viên · 7 hồ sơ", phụ đề "Kéo thả hoặc dùng nút ‹ › để chuyển bước · Nhấn thẻ để xem hồ sơ", bộ lọc nguồn `[Mọi nguồn]`, nút `[Đặt lại dữ liệu]` và nút `[Export]`.
   - Thẻ ứng viên chuẩn mẫu: Mã UV + Badge nguồn (hàng 1), Tên ứng viên bold (hàng 2), Chức danh (hàng 3), Ngày nộp + nút điều hướng ‹ › (hàng 4).
   - Modal xem ứng viên gọn gàng 1:1 theo ảnh: Tên ứng viên, Chức danh, Mã · Nguồn · Bước · Ngày nộp, Danh sách "Câu hỏi phỏng vấn gợi ý" (3 gạch đầu dòng) và nút "Đóng" *(Hoàn thành - Commit `4c413f7`)*.
+- **B1.4 (Tái cấu trúc Kanban ATS thành đúng 3 bảng):**
+  - Thu gọn toàn bộ phễu tuyển dụng Kanban từ 5 cột về chính xác 3 cột (`grid-cols-1 md:grid-cols-3 xl:grid-cols-3`):
+    1. **Cột 1: `Hồ sơ đã nhận`** (gộp nộp hồ sơ mới và hồ sơ đã qua sơ loại ban đầu).
+    2. **Cột 2: `Phỏng vấn`** (vòng phỏng vấn chuyên môn).
+    3. **Cột 3: `Đề nghị & Đã nhận việc`** (chứa cả 2 phân nhóm rõ ràng: "Đề nghị nhận việc" cho UV-2026-103 Lâm Quốc Bảo và "Đã nhận việc" cho UV-2026-098 Trương Gia Huy).
+  - Thẻ ứng viên tại Cột 3 gắn badge chuyên biệt (`Đề nghị nhận việc` màu tím violet, `Đã nhận việc` màu xanh ngọc emerald) bên cạnh badge nguồn nộp.
+  - Hỗ trợ đầy đủ kéo thả (HTML5 Native Drag-and-Drop) và điều hướng phím mũi tên ‹ › tuần tự giữa 3 cột; tại cột 3 nút › sẽ mở trực tiếp modal tiếp nhận Onboarding nếu ở bước đề nghị nhận việc.
+  - Đồng bộ thông báo Real-time cho ứng viên và HR khi trạng thái được cập nhật qua 3 cột *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

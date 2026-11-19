@@ -7,6 +7,17 @@ export function middleware(request: NextRequest) {
   const hrmToken = request.cookies.get('hrm_token')?.value;
   const isAuthenticated = Boolean(hrmRole && hrmToken);
 
+  // Root route: start at Job Portal (/careers) for guests, or management/candidate for logged-in
+  if (pathname === '/') {
+    if (isAuthenticated && hrmRole !== 'CANDIDATE') {
+      return NextResponse.redirect(new URL('/app', request.url));
+    }
+    if (isAuthenticated && hrmRole === 'CANDIDATE') {
+      return NextResponse.redirect(new URL('/candidate', request.url));
+    }
+    return NextResponse.redirect(new URL('/careers', request.url));
+  }
+
   // Protected /app route (internal management portal)
   if (pathname.startsWith('/app')) {
     if (!isAuthenticated) {
@@ -65,5 +76,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*', '/candidate/:path*'],
+  matcher: ['/', '/app/:path*', '/candidate/:path*'],
 };

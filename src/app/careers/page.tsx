@@ -41,6 +41,7 @@ import { cn, formatVND } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useApp } from '@/context/app-context';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,7 @@ const DEPARTMENT_FILTERS = [
 const LEVEL_FILTERS = ['ALL', 'Senior', 'Mid - Senior', 'Mid', 'Lead'];
 
 export default function CareersPage() {
+  const { role, isAuthenticated, currentUserProfile } = useApp();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [jobs, setJobs] = useState<JobPosting[]>(MOCK_JOB_POSTINGS);
   const [searchQuery, setSearchQuery] = useState('');
@@ -307,13 +309,33 @@ export default function CareersPage() {
               {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </button>
 
-            <Link
-              href="/login"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs font-semibold text-[#415A54] shadow-sm transition-colors hover:bg-[#E8F3EF] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            >
-              <User className="h-3.5 w-3.5" />
-              <span>Đăng nhập nội bộ</span>
-            </Link>
+            {isAuthenticated ? (
+              role === 'CANDIDATE' ? (
+                <Link
+                  href="/candidate"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#EFF5F3] px-3 text-xs font-semibold text-[#0F766E] shadow-sm transition-colors hover:bg-[#E8F3EF] dark:border-teal-700 dark:bg-zinc-800 dark:text-teal-300"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  <span>Cổng Ứng viên ({currentUserProfile?.fullName || 'Hồ sơ'})</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/app"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#0F766E] px-3.5 text-xs font-semibold text-[#FCFEFD] shadow-sm transition-colors hover:bg-[#0D5F58]"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Vào Cổng Quản trị ({role})</span>
+                </Link>
+              )
+            ) : (
+              <Link
+                href="/login?redirect=/app"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs font-semibold text-[#415A54] shadow-sm transition-colors hover:bg-[#E8F3EF] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              >
+                <User className="h-3.5 w-3.5" />
+                <span>Đăng nhập nội bộ</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>

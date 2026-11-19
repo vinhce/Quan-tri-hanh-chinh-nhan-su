@@ -515,6 +515,48 @@
         "ai_recommendation": "STRONG_HIRE",
         "evaluated_by_model": "gemini-2.5-pro-hr-ats"
       }
+    },
+    {
+      "id": "cand-007",
+      "candidate_code": "UV-2026-449",
+      "full_name": "Nguyễn Văn Mẫu",
+      "email": "mau.nguyen@lacviethrm.vn",
+      "phone": "0912345678",
+      "job_id": "job-005",
+      "job_code": "JD-2026-FE03",
+      "job_title": "Senior Frontend Engineer (Next.js / React)",
+      "department_name": "Phòng Kỹ thuật Phần mềm",
+      "stage": "APPLIED",
+      "applied_date": "2026-11-19",
+      "source": "CareerSite",
+      "expected_salary_vnd": 38000000,
+      "current_company": "Công ty Cổ phần Công nghệ Lạc Việt",
+      "ai_evaluation": {
+        "match_score": 92,
+        "education_fit": "Kỹ sư CNTT - ĐH Bách Khoa Hà Nội",
+        "experience_years": 4.5,
+        "key_skills_matched": [
+          "Next.js",
+          "React",
+          "TypeScript",
+          "Tailwind CSS",
+          "Redux / Zustand"
+        ],
+        "strengths": [
+          "Thành thạo tối ưu hiệu năng Core Web Vitals và thiết kế UI/UX theo Design System",
+          "Kinh nghiệm thực chiến với Next.js App Router và server-side rendering"
+        ],
+        "gaps": [
+          "Cần làm quen với quy trình bảo mật nội bộ và nghiệp vụ hành chính nhân sự"
+        ],
+        "interview_questions": [
+          "Mô tả một dự án gần đây bạn tự hào nhất và vai trò của bạn.",
+          "Bạn xử lý bất đồng kỹ thuật trong nhóm như thế nào?",
+          "Bạn tối ưu hiệu năng một hệ thống đang chạy ra sao?"
+        ],
+        "ai_recommendation": "STRONG_HIRE",
+        "evaluated_by_model": "gemini-2.5-pro-hr-ats"
+      }
     }
   ],
   "atsKanbanStages": [
@@ -1029,6 +1071,48 @@
           "Quy trình kiểm tra chất lượng dữ liệu đầu vào trước khi đưa vào mô hình dự báo Burnout gồm những bước nào?",
           "Anh thiết kế pipeline Apache Airflow và mô hình biến đổi dữ liệu với dbt như thế nào để đảm bảo khả năng chạy lại (idempotency) và tránh trùng dữ liệu bảng công cuối tháng?",
           "Đối với dữ liệu nhạy cảm như bảng lương và thông tin định danh nhân viên trong Data Warehouse, anh áp dụng cơ chế phân quyền theo cột và mã hóa dữ liệu ra sao?"
+        ],
+        "ai_recommendation": "STRONG_HIRE",
+        "evaluated_by_model": "gemini-2.5-pro-hr-ats"
+      }
+    },
+    {
+      "id": "cand-007",
+      "candidate_code": "UV-2026-449",
+      "full_name": "Nguyễn Văn Mẫu",
+      "email": "mau.nguyen@lacviethrm.vn",
+      "phone": "0912345678",
+      "job_id": "job-005",
+      "job_code": "JD-2026-FE03",
+      "job_title": "Senior Frontend Engineer (Next.js / React)",
+      "department_name": "Phòng Kỹ thuật Phần mềm",
+      "stage": "APPLIED",
+      "applied_date": "2026-11-19",
+      "source": "CareerSite",
+      "expected_salary_vnd": 38000000,
+      "current_company": "Công ty Cổ phần Công nghệ Lạc Việt",
+      "ai_evaluation": {
+        "match_score": 92,
+        "education_fit": "Kỹ sư CNTT - ĐH Bách Khoa Hà Nội",
+        "experience_years": 4.5,
+        "key_skills_matched": [
+          "Next.js",
+          "React",
+          "TypeScript",
+          "Tailwind CSS",
+          "Redux / Zustand"
+        ],
+        "strengths": [
+          "Thành thạo tối ưu hiệu năng Core Web Vitals và thiết kế UI/UX theo Design System",
+          "Kinh nghiệm thực chiến với Next.js App Router và server-side rendering"
+        ],
+        "gaps": [
+          "Cần làm quen với quy trình bảo mật nội bộ và nghiệp vụ hành chính nhân sự"
+        ],
+        "interview_questions": [
+          "Mô tả một dự án gần đây bạn tự hào nhất và vai trò của bạn.",
+          "Bạn xử lý bất đồng kỹ thuật trong nhóm như thế nào?",
+          "Bạn tối ưu hiệu năng một hệ thống đang chạy ra sao?"
         ],
         "ai_recommendation": "STRONG_HIRE",
         "evaluated_by_model": "gemini-2.5-pro-hr-ats"

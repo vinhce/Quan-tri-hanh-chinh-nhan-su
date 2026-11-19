@@ -1582,20 +1582,6 @@ export function AtsView() {
                 </Button>
 
                 <div className="flex items-center gap-2">
-                  {selectedCandidate.stage !== 'APPLIED' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        handleStepStage(selectedCandidate, -1);
-                        setSelectedCandidate(null);
-                      }}
-                      className="text-xs"
-                    >
-                      ‹ Lùi bước trước
-                    </Button>
-                  )}
-
                   {selectedCandidate.stage !== 'ONBOARDED' ? (
                     <Button
                       variant="primary"

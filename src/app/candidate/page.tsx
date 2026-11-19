@@ -36,9 +36,11 @@ import {
   HRM_RUNTIME_EVENT,
   markAllNotificationsRead,
   markNotificationRead,
+  mergeWithRuntimeCandidates,
   readRuntimeCandidates,
   saveRuntimeCandidate,
 } from '@/lib/runtime-store';
+import { MOCK_CANDIDATES } from '@/mock/ats';
 import { cn, formatDateVN, formatVND } from '@/lib/utils';
 import type { AtsStage, Candidate, HrmNotification, JobPosting } from '@/mock/types';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
@@ -98,7 +100,7 @@ const STAGE_META: Record<
 export default function CandidatePortalPage() {
   const router = useRouter();
   const { role, theme, toggleTheme, currentUserEmail, currentUserProfile, showToast } = useApp();
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>(MOCK_CANDIDATES);
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
   const [actionModal, setActionModal] = useState<'interview' | 'offer' | 'withdraw' | null>(null);
   const [actionReason, setActionReason] = useState('');
@@ -109,15 +111,17 @@ export default function CandidatePortalPage() {
   // Demo profile candidate or matched candidate
   const currentCandidate = useMemo(() => {
     if (candidates.length === 0) return null;
-    if (currentUserEmail) {
+    if (currentUserEmail && currentUserEmail !== 'ungvien@gmail.com') {
       const match = candidates.find((c) => c.email.toLowerCase() === currentUserEmail.toLowerCase());
       if (match) return match;
     }
-    return candidates[0] ?? null;
+    // Default to active candidate UV-2026-104 (Đinh Tuấn Kiệt) or the first available
+    const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
+    return defaultCand ?? null;
   }, [candidates, currentUserEmail]);
 
   const syncCandidateData = useCallback(() => {
-    const list = readRuntimeCandidates();
+    const list = mergeWithRuntimeCandidates(MOCK_CANDIDATES);
     setCandidates(list);
     if (activeCandidate) {
       const updated = list.find((c) => c.id === activeCandidate.id);

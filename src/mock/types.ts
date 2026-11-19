@@ -318,6 +318,27 @@ export interface JobPosting {
   benefits?: string[];
 }
 
+export interface DepartmentRecruitmentRequest {
+  id: string;
+  request_code: string;
+  department_id: string;
+  department_name: string;
+  position_title: string;
+  level: string;
+  quantity: number;
+  urgency: 'NORMAL' | 'URGENT';
+  reason: string;
+  expected_salary_range: string;
+  deadline_date: string;
+  requested_by_name: string;
+  requested_date: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approved_by_name?: string;
+  approved_date?: string;
+  job_code_created?: string;
+  rejection_reason?: string;
+}
+
 export interface CandidateAiEvaluation {
   match_score: number;
   education_fit: string;

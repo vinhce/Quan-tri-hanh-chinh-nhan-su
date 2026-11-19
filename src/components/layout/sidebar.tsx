@@ -84,13 +84,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "ats",
-    label: "Tuyển dụng & AI CV",
+    label: "Tuyển dụng & ATS",
     section: "Quản trị cốt lõi",
     icon: UserCheck,
     roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER"],
     badgeCount: 6,
     deliverableStep: "Bước 2",
-    summary: "Kanban 5 bước tuyển dụng và chấm điểm hồ sơ ứng viên tự động",
+    summary: "Đề xuất tuyển dụng từ phòng ban, tin tuyển dụng và Kanban ứng viên",
   },
   {
     id: "onboarding",

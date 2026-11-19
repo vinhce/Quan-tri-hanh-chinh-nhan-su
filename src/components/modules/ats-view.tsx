@@ -5,31 +5,46 @@ import {
   AlertCircle,
   ArrowRight,
   Briefcase,
+  Building,
   Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Clock,
   Cpu,
+  FileSpreadsheet,
+  Filter,
   Laptop,
+  Layers,
   MessageSquareText,
   Plus,
   RefreshCw,
+  Send,
+  Sparkles,
   Users,
+  X,
+  XCircle,
 } from 'lucide-react';
 import { ROLE_DEFAULT_PROFILES, useApp } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { AtsKanbanStageItem, fetchAtsMock, fetchEmployeesMock } from '@/lib/mock-fetcher';
 import {
+  approveDepartmentRecruitmentRequest,
+  createDepartmentRecruitmentRequest,
   generateNextEmployeeCode,
   getCompanyAssets,
+  getDepartmentRecruitmentRequests,
   getOnboardingRecords,
   HRM_RUNTIME_EVENT,
   initiateCandidateOnboarding,
   mergeWithRuntimeCandidates,
   mergeWithRuntimeEmployees,
   mergeWithRuntimeJobs,
+  notifyCandidateStageChange,
   pushNotification,
+  rejectDepartmentRecruitmentRequest,
+  saveDepartmentRecruitmentRequest,
   saveRuntimeCandidate,
   saveRuntimeJob,
 } from '@/lib/runtime-store';
@@ -41,6 +56,7 @@ import type {
   CandidateAiEvaluation,
   CompanyAsset,
   Department,
+  DepartmentRecruitmentRequest,
   Employee,
   JobPosting,
 } from '@/mock/types';
@@ -163,6 +179,18 @@ export function AtsView() {
   const [newJobLocation, setNewJobLocation] = useState('Hà Nội / Hybrid');
   const [newJobOverview, setNewJobOverview] = useState('');
 
+  // Department Recruitment Requests state
+  const [deptRequests, setDeptRequests] = useState<DepartmentRecruitmentRequest[]>([]);
+  const [isAddDeptReqOpen, setIsAddDeptReqOpen] = useState(false);
+  const [reqDeptId, setReqDeptId] = useState('dept-tech-swe');
+  const [reqPositionTitle, setReqPositionTitle] = useState('');
+  const [reqLevel, setReqLevel] = useState('Senior');
+  const [reqQuantity, setReqQuantity] = useState('1');
+  const [reqUrgency, setReqUrgency] = useState<'NORMAL' | 'URGENT'>('URGENT');
+  const [reqReason, setReqReason] = useState('');
+  const [reqSalaryRange, setReqSalaryRange] = useState('25.000.000 - 40.000.000 đ');
+  const [reqDeadline, setReqDeadline] = useState('2026-12-25');
+
   const syncRuntimeData = useCallback(() => {
     if (baseJobsRef.current.length > 0) {
       setJobs(mergeWithRuntimeJobs(baseJobsRef.current));
@@ -173,6 +201,7 @@ export function AtsView() {
     if (baseEmployeesRef.current.length > 0) {
       setEmployees(mergeWithRuntimeEmployees(baseEmployeesRef.current));
     }
+    setDeptRequests(getDepartmentRecruitmentRequests());
   }, []);
 
   useEffect(() => {
@@ -188,6 +217,7 @@ export function AtsView() {
         setCandidates(mergeWithRuntimeCandidates(atsData.MOCK_CANDIDATES));
         setEmployees(mergeWithRuntimeEmployees(empData.MOCK_EMPLOYEES));
         setDepartments(empData.MOCK_DEPARTMENTS);
+        setDeptRequests(getDepartmentRecruitmentRequests());
         if (empData.MOCK_DEPARTMENTS[2]?.id) {
           setNewJobDeptId(empData.MOCK_DEPARTMENTS[2].id);
         }
@@ -348,6 +378,11 @@ export function AtsView() {
     saveRuntimeCandidate(updatedCandidate);
 
     const stageMeta = kanbanStages.find((s) => s.stage === targetStage);
+    const stageLabel = stageMeta?.label ?? targetStage;
+
+    // Real-time notification to Candidate & HR
+    notifyCandidateStageChange(candidate, targetStage, stageLabel, actorName);
+
     setCandidates((prev) =>
       prev.map((c) => (c.id === candidate.id ? updatedCandidate : c))
     );
@@ -356,7 +391,7 @@ export function AtsView() {
     );
     showToast(
       'Đã cập nhật trạng thái ứng viên',
-      `${candidate.full_name} (${candidate.candidate_code}) -> ${stageMeta?.label ?? targetStage}.`,
+      `${candidate.full_name} (${candidate.candidate_code}) -> ${stageLabel}. Đã đồng bộ thông báo Real-time cho ứng viên.`,
       'success'
     );
   };
@@ -368,33 +403,62 @@ export function AtsView() {
     handleMoveStage(candidate, stageOrder[nextIdx]);
   };
 
-  const handleReRunAiScore = (candidate: Candidate) => {
-    const currentScore = candidate.ai_evaluation.match_score;
-    const bumpedScore = Math.min(99, currentScore >= 95 ? currentScore : currentScore + 2);
-    const updatedEval: CandidateAiEvaluation = {
-      ...candidate.ai_evaluation,
-      match_score: bumpedScore,
-      ai_recommendation:
-        bumpedScore >= 85
-          ? 'STRONG_HIRE'
-          : bumpedScore >= 72
-          ? 'PROCEED_INTERVIEW'
-          : candidate.ai_evaluation.ai_recommendation,
-    };
+  const handleCreateDeptRequestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reqPositionTitle.trim()) {
+      showToast('Thiếu tiêu đề vị trí', 'Vui lòng nhập tên vị trí cần tuyển dụng.', 'warning');
+      return;
+    }
+    const dept = departments.find((d) => d.id === reqDeptId) ?? departments[0];
+    const createdReq = createDepartmentRecruitmentRequest({
+      department_id: dept?.id ?? 'dept-tech-swe',
+      department_name: dept?.department_name ?? 'Phòng Kỹ thuật Phần mềm',
+      position_title: reqPositionTitle.trim(),
+      level: reqLevel,
+      quantity: Math.max(1, Number(reqQuantity) || 1),
+      urgency: reqUrgency,
+      reason: reqReason.trim() || 'Mở rộng quy mô đội ngũ theo kế hoạch sản xuất kinh doanh.',
+      expected_salary_range: reqSalaryRange.trim() || '25.000.000 - 45.000.000 đ',
+      deadline_date: reqDeadline || '2026-12-25',
+      requested_by_name: `${actorName} (${role === 'DEPT_MANAGER' ? 'Trưởng phòng' : 'Quản lý'})`,
+    });
 
-    const updatedCandidate: Candidate = { ...candidate, ai_evaluation: updatedEval };
-    saveRuntimeCandidate(updatedCandidate);
-
-    setCandidates((prev) =>
-      prev.map((c) => (c.id === candidate.id ? updatedCandidate : c))
-    );
-    setSelectedCandidate((prev) =>
-      prev && prev.id === candidate.id ? updatedCandidate : prev
-    );
+    setIsAddDeptReqOpen(false);
+    setReqPositionTitle('');
+    setReqReason('');
+    setDeptRequests(getDepartmentRecruitmentRequests());
     showToast(
-      'Đã chạy lại AI chấm điểm CV',
-      `${candidate.full_name} đạt điểm khớp JD mới: ${bumpedScore}/100.`,
+      'Đã gửi đề xuất tuyển dụng',
+      `Mã ${createdReq.request_code} đã gửi tới HR Manager và Giám đốc với thông báo Real-time.`,
       'success'
+    );
+  };
+
+  const handleApproveDeptRequest = (req: DepartmentRecruitmentRequest) => {
+    const result = approveDepartmentRecruitmentRequest(req.id, actorName);
+    if (!result) return;
+    setDeptRequests(getDepartmentRecruitmentRequests());
+    setJobs(mergeWithRuntimeJobs(baseJobsRef.current));
+    showToast(
+      'Đã duyệt đề xuất & Mở tin tuyển dụng',
+      `Đã khởi tạo tin ${result.job.job_code} (${result.job.title}) và đồng bộ sang Cổng việc làm.`,
+      'success'
+    );
+  };
+
+  const handleRejectDeptRequest = (req: DepartmentRecruitmentRequest) => {
+    const reason = window.prompt(
+      'Nhập lý do từ chối đề xuất tuyển dụng:',
+      'Chưa phù hợp với định biên ngân sách Quý 4/2026'
+    );
+    if (reason === null) return;
+    const result = rejectDepartmentRecruitmentRequest(req.id, reason, actorName);
+    if (!result) return;
+    setDeptRequests(getDepartmentRecruitmentRequests());
+    showToast(
+      'Đã từ chối đề xuất tuyển dụng',
+      `Đã cập nhật trạng thái đề xuất ${req.request_code} và thông báo tới Trưởng phòng.`,
+      'default'
     );
   };
 
@@ -508,16 +572,27 @@ export function AtsView() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
-            Tuyển dụng & AI Sàng lọc CV (ATS)
+            Tuyển dụng & Quản trị Ứng viên (ATS)
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            Quản lý tin tuyển dụng, theo dõi quy trình ứng viên theo Kanban và đánh giá CV bằng AI
+            Quản lý đề xuất tuyển dụng phòng ban, tin tuyển dụng và theo dõi quy trình ứng viên theo Kanban
           </p>
         </div>
-        <Button variant="primary" size="sm" onClick={() => setIsAddJobOpen(true)}>
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Tạo tin tuyển dụng
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAddDeptReqOpen(true)}
+            className="border-[#0F766E]/40 text-[#0F766E] hover:bg-[#E8F3EF] dark:border-teal-500/40 dark:text-teal-300 dark:hover:bg-zinc-800"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Đề xuất tuyển dụng
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setIsAddJobOpen(true)}>
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Tạo tin tuyển dụng
+          </Button>
+        </div>
       </div>
 
       {lastCreatedOnboarding && (
@@ -547,6 +622,123 @@ export function AtsView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Department Recruitment Requests Section */}
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+              <Building className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+              Đề xuất Tuyển dụng từ các Phòng ban ({deptRequests.length})
+            </h2>
+            <Badge
+              variant={deptRequests.some((r) => r.status === 'PENDING') ? 'warning' : 'outline'}
+              className="font-mono text-[11px] tabular-nums"
+            >
+              {deptRequests.filter((r) => r.status === 'PENDING').length} Chờ duyệt
+            </Badge>
+          </div>
+          <span className="text-xs text-[#5C7871] dark:text-zinc-400">
+            Tự động đồng bộ Real-time tới HR & Trưởng phòng
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {deptRequests.map((req) => {
+            const isPending = req.status === 'PENDING';
+            const isApproved = req.status === 'APPROVED';
+            const isRejected = req.status === 'REJECTED';
+
+            return (
+              <Card
+                key={req.id}
+                className={cn(
+                  'border-l-4 transition-colors',
+                  req.urgency === 'URGENT'
+                    ? 'border-l-rose-500 dark:border-l-rose-400'
+                    : 'border-l-amber-500 dark:border-l-amber-400',
+                  isApproved && 'border-l-[#0F766E] dark:border-l-teal-400 opacity-90'
+                )}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="whitespace-nowrap font-mono text-[11px] font-medium text-[#415A54] dark:text-zinc-400">
+                      {req.request_code}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {req.urgency === 'URGENT' && (
+                        <Badge variant="danger" className="text-[10px]">Gấp</Badge>
+                      )}
+                      <Badge
+                        variant={isApproved ? 'teal' : isRejected ? 'muted' : 'warning'}
+                        className="text-[11px]"
+                      >
+                        {isApproved ? 'Đã duyệt & Lập tin' : isRejected ? 'Từ chối' : 'Chờ HR duyệt'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <h3 className="mt-2 text-sm font-semibold leading-5 text-[#11221E] dark:text-zinc-100">
+                    {req.position_title}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
+                    {req.department_name} · Cấp bậc:{' '}
+                    <span className="font-medium text-[#11221E] dark:text-zinc-200">{req.level}</span> (SL: {req.quantity})
+                  </p>
+
+                  <div className="mt-2 rounded-md bg-[#F2F7F5] p-2 text-xs text-[#415A54] dark:bg-zinc-800/60 dark:text-zinc-300">
+                    <div className="line-clamp-2">
+                      <span className="font-medium text-[#11221E] dark:text-zinc-200">Lý do: </span>
+                      {req.reason}
+                    </div>
+                    <div className="mt-1 flex items-center justify-between font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
+                      <span>Lương: {req.expected_salary_range}</span>
+                      <span>Hạn: {formatDateVN(req.deadline_date)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-[#D5E3DF] pt-3 text-xs dark:border-zinc-800/80">
+                    <span className="truncate text-[11px] text-[#5C7871] dark:text-zinc-400" title={req.requested_by_name}>
+                      Đề xuất: {req.requested_by_name.split(' (')[0]}
+                    </span>
+
+                    {isPending && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleRejectDeptRequest(req)}
+                          className="rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400"
+                        >
+                          Từ chối
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveDeptRequest(req)}
+                          className="rounded bg-[#0F766E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#0B5C56] dark:bg-teal-600 dark:hover:bg-teal-500"
+                        >
+                          Duyệt & Tạo tin
+                        </button>
+                      </div>
+                    )}
+
+                    {isApproved && req.job_code_created && (
+                      <span className="font-mono text-[11px] font-semibold text-[#0F766E] dark:text-teal-400">
+                        ✓ {req.job_code_created}
+                      </span>
+                    )}
+
+                    {isRejected && (
+                      <span className="text-[11px] italic text-rose-600 dark:text-rose-400 truncate max-w-[140px]" title={req.rejection_reason}>
+                        {req.rejection_reason}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Job Postings Section */}
       <div className="space-y-3">
@@ -624,7 +816,7 @@ export function AtsView() {
             Bảng Kanban quy trình ứng viên
           </h2>
           <span className="text-xs text-[#5C7871] dark:text-zinc-400">
-            Nhấn vào thẻ ứng viên để xem chi tiết AI chấm điểm CV & 3 câu hỏi phỏng vấn
+            Nhấn vào thẻ ứng viên để xem chi tiết hồ sơ & câu hỏi phỏng vấn chuyên môn gợi ý
           </span>
         </div>
 
@@ -635,7 +827,7 @@ export function AtsView() {
             );
             const stageTopBorder: Record<AtsStage, string> = {
               APPLIED: 'border-t-4 border-t-blue-500 dark:border-t-blue-400',
-              AI_SCREENED: 'border-t-4 border-t-violet-500 dark:border-t-violet-400',
+              AI_SCREENED: 'border-t-4 border-t-teal-500 dark:border-t-teal-400',
               INTERVIEW: 'border-t-4 border-t-amber-500 dark:border-t-amber-400',
               OFFER: 'border-t-4 border-t-[#0F766E] dark:border-t-teal-400',
               ONBOARDED: 'border-t-4 border-t-emerald-500 dark:border-t-emerald-400',
@@ -669,7 +861,6 @@ export function AtsView() {
                     </div>
                   ) : (
                     stageCandidates.map((cand) => {
-                      const score = cand.ai_evaluation.match_score;
                       return (
                         <div
                           key={cand.id}
@@ -681,10 +872,10 @@ export function AtsView() {
                               {cand.candidate_code}
                             </span>
                             <Badge
-                              variant={score >= 85 ? 'teal' : score >= 70 ? 'info' : 'warning'}
-                              className="font-mono text-[11px] tabular-nums"
+                              variant="outline"
+                              className="border-[#C6D9D3] bg-[#F2F7F5] font-mono text-[10px] text-[#415A54] dark:border-zinc-800 dark:bg-transparent dark:text-zinc-400"
                             >
-                              AI {score}%
+                              {cand.source}
                             </Badge>
                           </div>
 
@@ -697,7 +888,7 @@ export function AtsView() {
 
                           <div className="mt-2.5 flex items-center justify-between border-t border-[#D5E3DF] pt-2 dark:border-zinc-800/80">
                             <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                              Nguồn: {cand.source}
+                              Nộp: {formatDateVN(cand.applied_date)}
                             </span>
                             <div
                               className="inline-flex items-center gap-1"
@@ -758,16 +949,16 @@ export function AtsView() {
               </DialogHeader>
 
               <div className="mt-4 space-y-4">
-                {/* Score & Metadata */}
+                {/* Candidate Professional Assessment */}
                 <div className="flex flex-col gap-4 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2] font-mono text-xl font-semibold tabular-nums text-[#0B4F4A] dark:border-teal-400/20 dark:bg-teal-950/50 dark:text-teal-300">
-                      {selectedCandidate.ai_evaluation.match_score}%
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2] text-[#0B4F4A] dark:border-teal-400/20 dark:bg-teal-950/50 dark:text-teal-300">
+                      <Briefcase className="h-6 w-6" strokeWidth={1.5} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                          AI Match Score
+                          Đánh giá năng lực chuyên môn
                         </span>
                         <Badge
                           variant={
@@ -778,8 +969,7 @@ export function AtsView() {
                         </Badge>
                       </div>
                       <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                        Kinh nghiệm: {selectedCandidate.ai_evaluation.experience_years} năm ·{' '}
-                        {selectedCandidate.ai_evaluation.education_fit}
+                        Kinh nghiệm: <span className="font-semibold text-[#11221E] dark:text-zinc-200">{selectedCandidate.ai_evaluation.experience_years} năm</span> · Trình độ: <span className="font-semibold text-[#11221E] dark:text-zinc-200">{selectedCandidate.ai_evaluation.education_fit}</span>
                       </p>
                     </div>
                   </div>
@@ -788,7 +978,7 @@ export function AtsView() {
                       <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
                         Mức lương kỳ vọng
                       </div>
-                      <div className="font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
+                      <div className="font-mono text-sm font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                         {formatVND(selectedCandidate.expected_salary_vnd)}
                       </div>
                     </div>
@@ -798,7 +988,7 @@ export function AtsView() {
                 {/* Matched Skills */}
                 <div>
                   <div className="text-xs font-semibold text-[#415A54] dark:text-zinc-400">
-                    Kỹ năng khớp JD
+                    Kỹ năng chuyên môn nổi bật
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {selectedCandidate.ai_evaluation.key_skills_matched.map((skill) => (
@@ -829,7 +1019,7 @@ export function AtsView() {
                   <div className="rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/60 p-3.5 dark:border-zinc-800/80 dark:bg-transparent">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
                       <AlertCircle className="h-4 w-4" strokeWidth={1.5} />
-                      Điểm còn thiếu (Gaps)
+                      Điểm cần lưu ý khi phỏng vấn
                     </div>
                     <ul className="mt-2 space-y-1.5 text-xs leading-5 text-[#11221E] dark:text-zinc-300">
                       {selectedCandidate.ai_evaluation.gaps.map((item, idx) => (
@@ -842,17 +1032,13 @@ export function AtsView() {
                   </div>
                 </div>
 
-                {/* AI Interview Questions */}
+                {/* Interview Questions */}
                 <div className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                       <MessageSquareText className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                      {selectedCandidate.ai_evaluation.interview_questions.length} câu hỏi phỏng vấn gợi ý bởi AI
+                      {selectedCandidate.ai_evaluation.interview_questions.length} câu hỏi phỏng vấn chuyên môn gợi ý
                     </div>
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      <Cpu className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      {selectedCandidate.ai_evaluation.evaluated_by_model}
-                    </span>
                   </div>
                   <ol className="mt-3 space-y-2 text-xs leading-5 text-[#11221E] dark:text-zinc-300">
                     {selectedCandidate.ai_evaluation.interview_questions.map((q, idx) => (
@@ -868,13 +1054,6 @@ export function AtsView() {
               </div>
 
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => handleReRunAiScore(selectedCandidate)}
-                >
-                  <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
-                  Chạy lại AI chấm điểm
-                </Button>
                 {(selectedCandidate.stage === 'APPLIED' ||
                   selectedCandidate.stage === 'AI_SCREENED') && (
                   <Button
@@ -1332,6 +1511,145 @@ export function AtsView() {
               <Button type="submit" variant="primary">
                 <Plus className="h-4 w-4" strokeWidth={1.5} />
                 Đăng tin & Đồng bộ Cổng việc làm
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Department Recruitment Request Dialog */}
+      <Dialog open={isAddDeptReqOpen} onOpenChange={setIsAddDeptReqOpen}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tạo Đề xuất Tuyển dụng từ Phòng ban</DialogTitle>
+            <DialogDescription>
+              Đề xuất bổ sung nhân sự từ Trưởng bộ phận. Sau khi gửi, thông báo Real-time sẽ gửi tới HR Manager và Giám đốc để phê duyệt và mở tin tuyển dụng.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateDeptRequestSubmit} className="mt-4 space-y-3.5">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Phòng ban đề xuất *
+              </label>
+              <Select
+                value={reqDeptId}
+                onValueChange={setReqDeptId}
+                options={departments.map((d) => ({
+                  label: `${d.department_name} (${d.manager_name})`,
+                  value: d.id,
+                }))}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Chức danh / Vị trí tuyển dụng *
+              </label>
+              <Input
+                value={reqPositionTitle}
+                onChange={(e) => setReqPositionTitle(e.target.value)}
+                placeholder="Ví dụ: Kỹ sư Hạ tầng Cloud & DevOps"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Cấp bậc chuyên môn
+                </label>
+                <Select
+                  value={reqLevel}
+                  onValueChange={setReqLevel}
+                  options={[
+                    { label: 'Intern / Thực tập sinh', value: 'Intern' },
+                    { label: 'Junior (1-2 năm)', value: 'Junior' },
+                    { label: 'Mid-level (2-4 năm)', value: 'Mid' },
+                    { label: 'Senior (4+ năm)', value: 'Senior' },
+                    { label: 'Lead / Principal', value: 'Lead' },
+                    { label: 'Manager / Trưởng phòng', value: 'Manager' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Số lượng cần tuyển
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={reqQuantity}
+                  onChange={(e) => setReqQuantity(e.target.value)}
+                  className="font-mono tabular-nums"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Mức độ ưu tiên
+                </label>
+                <Select
+                  value={reqUrgency}
+                  onValueChange={(v) => setReqUrgency(v as 'NORMAL' | 'URGENT')}
+                  options={[
+                    { label: 'Tiêu chuẩn', value: 'NORMAL' },
+                    { label: 'Tuyển gấp', value: 'URGENT' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Hạn chót cần nhân sự
+                </label>
+                <Input
+                  type="date"
+                  value={reqDeadline}
+                  onChange={(e) => setReqDeadline(e.target.value)}
+                  className="font-mono tabular-nums"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Khung lương dự kiến (VNĐ/tháng)
+              </label>
+              <Input
+                value={reqSalaryRange}
+                onChange={(e) => setReqSalaryRange(e.target.value)}
+                placeholder="25.000.000 - 45.000.000 đ"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Lý do & Mục tiêu tuyển dụng *
+              </label>
+              <textarea
+                rows={3}
+                value={reqReason}
+                onChange={(e) => setReqReason(e.target.value)}
+                placeholder="Mô tả lý do cần tuyển bổ sung, khối lượng công việc phát sinh hoặc dự án mới..."
+                className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2 text-xs text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                required
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddDeptReqOpen(false)}>
+                Hủy bỏ
+              </Button>
+              <Button type="submit" variant="primary">
+                <Send className="h-4 w-4" strokeWidth={1.5} />
+                Gửi đề xuất tới HR
               </Button>
             </DialogFooter>
           </form>

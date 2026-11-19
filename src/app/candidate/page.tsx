@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   ArrowRight,
+  Bell,
   Briefcase,
   Building2,
   Calendar,
@@ -30,12 +31,15 @@ import {
 import { useApp } from '@/context/app-context';
 import {
   getJobPostings,
+  getNotificationsForActor,
   HRM_RUNTIME_EVENT,
+  markAllNotificationsRead,
+  markNotificationRead,
   readRuntimeCandidates,
   saveRuntimeCandidate,
 } from '@/lib/runtime-store';
 import { cn, formatDateVN, formatVND } from '@/lib/utils';
-import type { AtsStage, Candidate, JobPosting } from '@/mock/types';
+import type { AtsStage, Candidate, HrmNotification, JobPosting } from '@/mock/types';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -91,36 +95,73 @@ export default function CandidatePortalPage() {
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
   const [actionModal, setActionModal] = useState<'interview' | 'offer' | 'withdraw' | null>(null);
   const [actionReason, setActionReason] = useState('');
-
-  const syncCandidates = useCallback(() => {
-    const list = readRuntimeCandidates();
-    setCandidates(list);
-    if (activeCandidate) {
-      const updated = list.find((c) => c.id === activeCandidate.id);
-      if (updated) setActiveCandidate(updated);
-    }
-  }, [activeCandidate]);
-
-  useEffect(() => {
-    syncCandidates();
-    window.addEventListener(HRM_RUNTIME_EVENT, syncCandidates);
-    window.addEventListener('storage', syncCandidates);
-    return () => {
-      window.removeEventListener(HRM_RUNTIME_EVENT, syncCandidates);
-      window.removeEventListener('storage', syncCandidates);
-    };
-  }, [syncCandidates]);
+  const [notifications, setNotifications] = useState<(HrmNotification & { isRead: boolean })[]>([]);
+  const [isNotiOpen, setIsNotiOpen] = useState(false);
+  const notiRef = useRef<HTMLDivElement>(null);
 
   // Demo profile candidate or matched candidate
   const currentCandidate = useMemo(() => {
     if (candidates.length === 0) return null;
-    // Match by email if logged in as candidate or return first
     if (currentUserEmail) {
       const match = candidates.find((c) => c.email.toLowerCase() === currentUserEmail.toLowerCase());
       if (match) return match;
     }
     return candidates[0] ?? null;
   }, [candidates, currentUserEmail]);
+
+  const syncCandidateData = useCallback(() => {
+    const list = readRuntimeCandidates();
+    setCandidates(list);
+    if (activeCandidate) {
+      const updated = list.find((c) => c.id === activeCandidate.id);
+      if (updated) setActiveCandidate(updated);
+    }
+    const candCode = currentCandidate?.candidate_code || '';
+    const notifs = getNotificationsForActor('CANDIDATE', candCode, undefined);
+    setNotifications(notifs);
+  }, [activeCandidate, currentCandidate?.candidate_code]);
+
+  useEffect(() => {
+    syncCandidateData();
+    window.addEventListener(HRM_RUNTIME_EVENT, syncCandidateData);
+    window.addEventListener('storage', syncCandidateData);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncCandidateData);
+      window.removeEventListener('storage', syncCandidateData);
+    };
+  }, [syncCandidateData]);
+
+  // Close notification popover on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notiRef.current && !notiRef.current.contains(event.target as Node)) {
+        setIsNotiOpen(false);
+      }
+    };
+    if (isNotiOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotiOpen]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications]
+  );
+
+  const handleMarkAllRead = () => {
+    markAllNotificationsRead('CANDIDATE', currentCandidate?.candidate_code || '');
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const handleMarkSingleRead = (notifId: string) => {
+    markNotificationRead(notifId, 'CANDIDATE', currentCandidate?.candidate_code || '');
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, isRead: true } : n))
+    );
+  };
 
   const handleConfirmInterview = (accept: boolean) => {
     if (!currentCandidate) return;
@@ -203,6 +244,74 @@ export default function CandidatePortalPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Real-Time Notification Bell */}
+            <div className="relative" ref={notiRef}>
+              <button
+                type="button"
+                onClick={() => setIsNotiOpen(!isNotiOpen)}
+                aria-label="Thông báo tuyển dụng"
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] text-[#415A54] transition-colors hover:bg-[#EFF5F3] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 font-mono text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-zinc-900 animate-pulse">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotiOpen && (
+                <div className="absolute right-0 top-11 z-50 w-80 sm:w-96 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="mb-2 flex items-center justify-between border-b border-[#D5E3DF] pb-2 dark:border-zinc-800">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-[#11221E] dark:text-zinc-100">
+                      <Bell className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                      Thông báo tiến độ hồ sơ ({unreadCount} mới)
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleMarkAllRead}
+                        className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400"
+                      >
+                        Đánh dấu đã đọc
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-[#5C7871] dark:text-zinc-500">
+                        Chưa có thông báo nào
+                      </div>
+                    ) : (
+                      notifications.slice(0, 15).map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleMarkSingleRead(n.id)}
+                          className={cn(
+                            'cursor-pointer rounded-lg p-2.5 text-xs transition-colors',
+                            !n.isRead
+                              ? 'border-l-2 border-l-[#0F766E] bg-[#E8F3EF]/70 font-medium text-[#11221E] dark:border-l-teal-400 dark:bg-teal-950/40 dark:text-zinc-100'
+                              : 'text-[#415A54] hover:bg-[#F2F7F5] dark:text-zinc-400 dark:hover:bg-zinc-800/50'
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-[#11221E] dark:text-zinc-100">{n.title}</span>
+                            <span className="shrink-0 font-mono text-[10px] text-[#5C7871] dark:text-zinc-500">
+                              {new Date(n.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[11px] leading-relaxed text-[#415A54] dark:text-zinc-300">
+                            {n.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={toggleTheme}

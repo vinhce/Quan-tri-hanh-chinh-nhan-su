@@ -49,6 +49,11 @@
 - **B0:** Lập tài liệu phân tích hiện trạng `docs/TIEN_DO.md` *(Hoàn thành)*.
 - **B1:** Tái cấu trúc Route group (`/`, `/app`, `/candidate`, `/careers/[slug]`), bổ sung Role `CANDIDATE` và `middleware.ts` *(Hoàn thành - Commit `7ca374c`)*.
 - **B1.1 (Cải tiến UI/UX & Đồng bộ Giao diện):** Đặt cổng việc làm làm mặc định, đồng bộ bảng màu Soft Sage light mode (`#EFF5F3`, `#FCFEFD`, `#C6D9D3`, `#11221E`), sửa modal mở bắt buộc hiển thị tab Mô tả công việc (JD) trước, xử lý nút đóng trùng lặp, bỏ qua validate form để thử nghiệm mượt mà, phân luồng Header chuẩn, xóa `target="_blank"` để chuyển trang nội bộ mượt mà trên cùng một tab *(Hoàn thành - Commit `6a0185a`)*.
+- **B1.2 (Đề xuất Tuyển dụng Phòng ban, Xóa AI Chấm điểm & Chuông Thông báo Real-time Ứng viên):** 
+  - Thêm phân hệ "Đề xuất Tuyển dụng từ các Phòng ban" ngay phía trên tin tuyển dụng đang mở trong ATS, hỗ trợ tạo đề xuất, duyệt tự động sinh tin tuyển dụng và từ chối có lý do.
+  - Kết nối Real-time Notification đa chiều (Trưởng phòng <-> HR Manager <-> Giám đốc <-> Ứng viên).
+  - Loại bỏ hoàn toàn điểm số AI (AI Match Score, badge `AI {score}%`) trên thẻ Kanban và chi tiết ứng viên; đổi cột 2 thành "Sàng lọc hồ sơ" và thay thế bằng đánh giá chuyên môn chuẩn mực.
+  - Bổ sung chuông thông báo Real-time có badge đếm số lượng chưa đọc và popover xem chi tiết trên Cổng ứng viên (`/candidate`), tự động cập nhật khi HR chuyển bước hồ sơ *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

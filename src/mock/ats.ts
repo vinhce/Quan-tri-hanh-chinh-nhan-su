@@ -12,8 +12,8 @@ export const ATS_KANBAN_STAGES: Array<{
   },
   {
     stage: 'AI_SCREENED',
-    label: 'AI đã chấm điểm',
-    description: 'Đã phân tích mức độ khớp JD, điểm mạnh, điểm thiếu và gợi ý câu hỏi',
+    label: 'Sàng lọc hồ sơ',
+    description: 'Đã sàng lọc hồ sơ, đối chiếu kinh nghiệm và các tiêu chí chuyên môn',
   },
   {
     stage: 'INTERVIEW',

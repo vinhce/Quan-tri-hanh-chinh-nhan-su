@@ -100,15 +100,23 @@ export function PublicHeader() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
-                {role === 'CANDIDATE' && (
+                {role === 'CANDIDATE' ? (
                   <Link
                     href="/candidate"
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#CBE8E2] px-3 text-xs font-semibold text-[#0B4F4A] hover:bg-[#b5e0d8] dark:border-teal-700 dark:bg-teal-950/60 dark:text-teal-300"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#CBE8E2] px-3 text-xs font-semibold text-[#0B4F4A] shadow-sm transition-colors hover:bg-[#b5e0d8] dark:border-teal-700 dark:bg-teal-950/60 dark:text-teal-300"
                   >
                     <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F766E] text-[10px] font-bold text-white">
                       UV
                     </div>
-                    <span className="hidden sm:inline">Hồ sơ của tôi</span>
+                    <span className="hidden sm:inline">Cổng Ứng viên</span>
+                  </Link>
+                ) : (
+                  <Link
+                    href="/app"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#0F766E] px-3 text-xs font-semibold text-[#FCFEFD] shadow-sm transition-all hover:bg-[#0D5F58]"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Về Cổng Quản trị</span>
                   </Link>
                 )}
                 <button
@@ -122,7 +130,7 @@ export function PublicHeader() {
                 </button>
               </div>
             ) : (
-              <Link href="/login">
+              <Link href="/login?redirect=/app">
                 <Button
                   variant="primary"
                   size="sm"
@@ -172,14 +180,35 @@ export function PublicHeader() {
               );
             })}
             <div className="pt-2 border-t border-[#C6D9D3] dark:border-zinc-800">
-              <Link
-                href="/login?redirect=/app"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-1.5 rounded-lg bg-[#0F766E] px-3 py-2 text-xs font-semibold text-white"
-              >
-                <User className="h-3.5 w-3.5" />
-                <span>Đăng nhập</span>
-              </Link>
+              {isAuthenticated ? (
+                role === 'CANDIDATE' ? (
+                  <Link
+                    href="/candidate"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-[#0F766E] px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    <span>Cổng Ứng viên</span>
+                  </Link>
+                ) : (
+                  <Link
+                    href="/app"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-[#0F766E] px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Về Cổng Quản trị</span>
+                  </Link>
+                )
+              ) : (
+                <Link
+                  href="/login?redirect=/app"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-[#0F766E] px-3 py-2 text-xs font-semibold text-white"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  <span>Đăng nhập</span>
+                </Link>
+              )}
             </div>
           </nav>
         </div>

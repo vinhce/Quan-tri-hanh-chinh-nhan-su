@@ -51,6 +51,7 @@ const ROLE_BADGE_MAP: Record<RoleCode, { label: string; variant: 'teal' | 'defau
   HR_MANAGER: { label: 'HR_MANAGER', variant: 'default' },
   DEPT_MANAGER: { label: 'DEPT_MANAGER', variant: 'secondary' },
   EMPLOYEE: { label: 'EMPLOYEE', variant: 'outline' },
+  CANDIDATE: { label: 'CANDIDATE', variant: 'secondary' },
 };
 
 function formatTimestamp(iso: string): string {
@@ -93,6 +94,7 @@ export function AdminRolesView() {
             HR_MANAGER: { ...row.permissions.HR_MANAGER },
             DEPT_MANAGER: { ...row.permissions.DEPT_MANAGER },
             EMPLOYEE: { ...row.permissions.EMPLOYEE },
+            CANDIDATE: { ...(row.permissions.CANDIDATE ?? { view: false, create: false, edit: false, approve: false, delete: false, export: false }) },
           },
         }))
       );

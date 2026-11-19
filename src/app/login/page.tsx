@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
   Lock,
@@ -84,9 +85,20 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     department: "Khối Công nghệ",
     shiftCode: "HC-08:30",
   },
+  {
+    role: "CANDIDATE",
+    shortLabel: "Ứng viên",
+    roleTitle: "Ứng viên tìm việc",
+    empCode: "UV-2026-001",
+    fullName: "Hoàng Vũ Minh",
+    email: "minh.hoang@gmail.com",
+    department: "Cổng Ứng viên Tuyển dụng",
+    shiftCode: "N/A",
+  },
 ];
 
 const REGISTER_ROLE_OPTIONS: Array<{ value: RoleCode; label: string }> = [
+  { value: "CANDIDATE", label: "Ứng viên tìm việc (CANDIDATE)" },
   { value: "EMPLOYEE", label: "Nhân viên chính thức (EMPLOYEE)" },
   { value: "DEPT_MANAGER", label: "Trưởng bộ phận (DEPT_MANAGER)" },
   { value: "HR_MANAGER", label: "Trưởng phòng Nhân sự (HR_MANAGER)" },
@@ -151,6 +163,7 @@ function resolveRoleFromEmail(email: string, fallbackRole: RoleCode): RoleCode {
   const normalized = email.trim().toLowerCase();
   const matchedDemo = DEMO_ACCOUNTS.find((a) => a.email.toLowerCase() === normalized);
   if (matchedDemo) return matchedDemo.role;
+  if (normalized.includes("candidate") || normalized.includes("ungvien") || normalized.includes("minh.hoang")) return "CANDIDATE";
   if (normalized.includes("admin")) return "SUPER_ADMIN";
   if (
     normalized.includes("viet.tran") ||
@@ -164,8 +177,9 @@ function resolveRoleFromEmail(email: string, fallbackRole: RoleCode): RoleCode {
   return fallbackRole;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { role, setAuthenticatedUser, setActiveNav, theme, toggleTheme, showToast } = useApp();
 
   const initialDemo = DEMO_ACCOUNTS.find((a) => a.role === role) ?? DEMO_ACCOUNTS[1];
@@ -250,7 +264,14 @@ export default function LoginPage() {
       `${matchedDemo.fullName} (${matchedDemo.empCode}) · ${rememberMe ? "Ghi nhớ phiên" : "Phiên tạm thời"}`,
       "success"
     );
-    router.push("/");
+    const redirectParam = searchParams.get("redirect");
+    const targetUrl =
+      resolvedRole === "CANDIDATE"
+        ? "/candidate"
+        : redirectParam && redirectParam.startsWith("/app")
+        ? redirectParam
+        : "/app";
+    router.push(targetUrl);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -292,7 +313,14 @@ export default function LoginPage() {
       `${regName.trim()} · ${regDept} · ${roleLabel}`,
       "success"
     );
-    router.push("/");
+    const redirectParam = searchParams.get("redirect");
+    const targetUrl =
+      regRole === "CANDIDATE"
+        ? "/candidate"
+        : redirectParam && redirectParam.startsWith("/app")
+        ? redirectParam
+        : "/app";
+    router.push(targetUrl);
   };
 
   return (
@@ -312,6 +340,13 @@ export default function LoginPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/careers"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-[#0F766E] bg-[#EFF5F3] px-3 text-xs font-semibold text-[#0F766E] shadow-sm transition-colors hover:bg-[#E8F3EF] dark:border-teal-700 dark:bg-zinc-800 dark:text-teal-300"
+          >
+            <Briefcase className="h-3.5 w-3.5" />
+            <span>Cổng việc làm & Tuyển dụng</span>
+          </Link>
           <span className="hidden font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400 md:inline">
             Kỳ hạch toán: Tháng 11/2026
           </span>
@@ -740,6 +775,21 @@ export default function LoginPage() {
                 })}
               </div>
             </div>
+
+            {/* Link to Career Portal for Job Seekers */}
+            <div className="mt-6 rounded-xl border border-[#C6D9D3] bg-[#EFF5F3] p-3.5 text-center dark:border-zinc-800 dark:bg-zinc-950/80">
+              <p className="text-xs text-[#415A54] dark:text-zinc-400">
+                Bạn là ứng viên đang tìm kiếm cơ hội việc làm?
+              </p>
+              <Link
+                href="/careers"
+                className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F766E] hover:underline dark:text-teal-400"
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+                <span>Xem 10+ vị trí tuyển dụng & Nộp CV tại Cổng Lạc Việt Careers</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -935,5 +985,21 @@ export default function LoginPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#EFF5F3] dark:bg-zinc-950">
+          <div className="text-sm font-medium text-[#415A54] dark:text-zinc-400">
+            Đang tải trang đăng nhập...
+          </div>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

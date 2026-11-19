@@ -43,12 +43,22 @@
     {
       "role_code": "EMPLOYEE",
       "role_name": "Nhân viên (Employee Self-Service)",
-      "description": "Tra cứu hồ sơ cá nhân, bảng công, phiếu lương chi tiết, tạo đơn xin nghỉ phép/OT và hỏi đáp chế độ qua AI HR Copilot.",
+      "description": "Tra cứu hồ sơ cá nhân, bảng công, phiếu lương chi tiết và tạo đơn xin nghỉ phép/OT.",
       "users_count": 90,
       "default_employee_code": "NV-2024-004",
       "default_user_name": "Phạm Minh Tuấn",
       "default_user_title": "Kỹ sư Phần mềm Cao cấp (Senior Fullstack)",
       "default_department": "Phòng Kỹ thuật Phần mềm"
+    },
+    {
+      "role_code": "CANDIDATE",
+      "role_name": "Ứng viên (Candidate Portal)",
+      "description": "Theo dõi tiến độ hồ sơ ứng tuyển, xác nhận lịch phỏng vấn và phản hồi thư mời nhận việc.",
+      "users_count": 42,
+      "default_employee_code": "UV-DEMO-001",
+      "default_user_name": "Hoàng Vũ Minh",
+      "default_user_title": "Ứng viên tìm việc",
+      "default_department": "Cổng Ứng viên Tuyển dụng"
     }
   ],
   "MOCK_SYSTEM_USERS": [
@@ -196,6 +206,14 @@
           "approve": false,
           "delete": false,
           "export": false
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -243,6 +261,14 @@
           "approve": false,
           "delete": false,
           "export": false
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -284,6 +310,14 @@
           "export": false
         },
         "EMPLOYEE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
+        },
+        "CANDIDATE": {
           "view": false,
           "create": false,
           "edit": false,
@@ -337,6 +371,14 @@
           "approve": false,
           "delete": false,
           "export": false
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -384,6 +426,14 @@
           "approve": false,
           "delete": false,
           "export": true
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -425,6 +475,14 @@
           "export": false
         },
         "EMPLOYEE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
+        },
+        "CANDIDATE": {
           "view": false,
           "create": false,
           "edit": false,
@@ -515,7 +573,7 @@
       "module": "TIME_ATTENDANCE",
       "target_entity": "REQ-202611-084",
       "status": "SUCCESS",
-      "detail": "Khởi tạo đơn xin nghỉ phép năm 2 ngày (23/11/2026 - 24/11/2026) qua trợ lý AI HR Copilot."
+      "detail": "Khởi tạo đơn xin nghỉ phép năm 2 ngày (23/11/2026 - 24/11/2026) qua cổng tự phục vụ nhân viên (ESS)."
     },
     {
       "id": "log-002",
@@ -618,12 +676,22 @@
     {
       "role_code": "EMPLOYEE",
       "role_name": "Nhân viên (Employee Self-Service)",
-      "description": "Tra cứu hồ sơ cá nhân, bảng công, phiếu lương chi tiết, tạo đơn xin nghỉ phép/OT và hỏi đáp chế độ qua AI HR Copilot.",
+      "description": "Tra cứu hồ sơ cá nhân, bảng công, phiếu lương chi tiết và tạo đơn xin nghỉ phép/OT.",
       "users_count": 90,
       "default_employee_code": "NV-2024-004",
       "default_user_name": "Phạm Minh Tuấn",
       "default_user_title": "Kỹ sư Phần mềm Cao cấp (Senior Fullstack)",
       "default_department": "Phòng Kỹ thuật Phần mềm"
+    },
+    {
+      "role_code": "CANDIDATE",
+      "role_name": "Ứng viên (Candidate Portal)",
+      "description": "Theo dõi tiến độ hồ sơ ứng tuyển, xác nhận lịch phỏng vấn và phản hồi thư mời nhận việc.",
+      "users_count": 42,
+      "default_employee_code": "UV-DEMO-001",
+      "default_user_name": "Hoàng Vũ Minh",
+      "default_user_title": "Ứng viên tìm việc",
+      "default_department": "Cổng Ứng viên Tuyển dụng"
     }
   ],
   "mockSystemUsers": [
@@ -771,6 +839,14 @@
           "approve": false,
           "delete": false,
           "export": false
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -818,6 +894,14 @@
           "approve": false,
           "delete": false,
           "export": false
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -859,6 +943,14 @@
           "export": false
         },
         "EMPLOYEE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
+        },
+        "CANDIDATE": {
           "view": false,
           "create": false,
           "edit": false,
@@ -912,6 +1004,14 @@
           "approve": false,
           "delete": false,
           "export": false
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -959,6 +1059,14 @@
           "approve": false,
           "delete": false,
           "export": true
+        },
+        "CANDIDATE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
         }
       }
     },
@@ -1000,6 +1108,14 @@
           "export": false
         },
         "EMPLOYEE": {
+          "view": false,
+          "create": false,
+          "edit": false,
+          "approve": false,
+          "delete": false,
+          "export": false
+        },
+        "CANDIDATE": {
           "view": false,
           "create": false,
           "edit": false,
@@ -1090,7 +1206,7 @@
       "module": "TIME_ATTENDANCE",
       "target_entity": "REQ-202611-084",
       "status": "SUCCESS",
-      "detail": "Khởi tạo đơn xin nghỉ phép năm 2 ngày (23/11/2026 - 24/11/2026) qua trợ lý AI HR Copilot."
+      "detail": "Khởi tạo đơn xin nghỉ phép năm 2 ngày (23/11/2026 - 24/11/2026) qua cổng tự phục vụ nhân viên (ESS)."
     },
     {
       "id": "log-002",

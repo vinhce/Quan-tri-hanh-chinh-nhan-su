@@ -28,7 +28,10 @@ import {
   initiateCandidateOnboarding,
   mergeWithRuntimeCandidates,
   mergeWithRuntimeEmployees,
+  mergeWithRuntimeJobs,
+  pushNotification,
   saveRuntimeCandidate,
+  saveRuntimeJob,
 } from '@/lib/runtime-store';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import type {
@@ -118,6 +121,7 @@ export function AtsView() {
 
   const baseCandidatesRef = useRef<Candidate[]>([]);
   const baseEmployeesRef = useRef<Employee[]>([]);
+  const baseJobsRef = useRef<JobPosting[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [kanbanStages, setKanbanStages] = useState<AtsKanbanStageItem[]>([]);
@@ -153,8 +157,16 @@ export function AtsView() {
   const [newJobTarget, setNewJobTarget] = useState('1');
   const [newJobClosingDate, setNewJobClosingDate] = useState('2026-12-30');
   const [newJobUrgent, setNewJobUrgent] = useState<'OPEN' | 'URGENT'>('OPEN');
+  const [newJobMinSalary, setNewJobMinSalary] = useState('25000000');
+  const [newJobMaxSalary, setNewJobMaxSalary] = useState('40000000');
+  const [newJobWorkMode, setNewJobWorkMode] = useState<'Hybrid' | 'Onsite' | 'Remote'>('Hybrid');
+  const [newJobLocation, setNewJobLocation] = useState('Hà Nội / Hybrid');
+  const [newJobOverview, setNewJobOverview] = useState('');
 
   const syncRuntimeData = useCallback(() => {
+    if (baseJobsRef.current.length > 0) {
+      setJobs(mergeWithRuntimeJobs(baseJobsRef.current));
+    }
     if (baseCandidatesRef.current.length > 0) {
       setCandidates(mergeWithRuntimeCandidates(baseCandidatesRef.current));
     }
@@ -168,10 +180,11 @@ export function AtsView() {
     Promise.all([fetchAtsMock(), fetchEmployeesMock()])
       .then(([atsData, empData]) => {
         if (!active) return;
+        baseJobsRef.current = atsData.MOCK_JOB_POSTINGS;
         baseCandidatesRef.current = atsData.MOCK_CANDIDATES;
         baseEmployeesRef.current = empData.MOCK_EMPLOYEES;
         setKanbanStages(atsData.ATS_KANBAN_STAGES);
-        setJobs(atsData.MOCK_JOB_POSTINGS);
+        setJobs(mergeWithRuntimeJobs(atsData.MOCK_JOB_POSTINGS));
         setCandidates(mergeWithRuntimeCandidates(atsData.MOCK_CANDIDATES));
         setEmployees(mergeWithRuntimeEmployees(empData.MOCK_EMPLOYEES));
         setDepartments(empData.MOCK_DEPARTMENTS);
@@ -395,6 +408,9 @@ export function AtsView() {
     const dept = departments.find((d) => d.id === newJobDeptId) ?? departments[0];
     if (!dept) return;
     const nextNum = jobs.length + 1;
+    const minSal = Number(newJobMinSalary) || 25000000;
+    const maxSal = Number(newJobMaxSalary) || 40000000;
+
     const created: JobPosting = {
       id: `job-${Date.now()}`,
       job_code: `JD-2026-NEW0${nextNum}`,
@@ -405,20 +421,63 @@ export function AtsView() {
       headcount_target: Math.max(1, Number(newJobTarget) || 1),
       hired_count: 0,
       applicants_count: 0,
-      salary_range_min_vnd: 25000000,
-      salary_range_max_vnd: 40000000,
+      salary_range_min_vnd: minSal,
+      salary_range_max_vnd: maxSal,
       status: newJobUrgent,
       hiring_manager_name: dept.manager_name,
-      published_date: '2026-11-18',
+      published_date: new Date().toISOString().slice(0, 10),
       closing_date: newJobClosingDate || '2026-12-30',
+      location: newJobLocation || 'Hà Nội / Hybrid',
+      work_mode: newJobWorkMode,
+      employment_type: 'Toàn thời gian',
+      overview:
+        newJobOverview.trim() ||
+        `Tuyển dụng ${newJobTitle.trim()} gia nhập ${dept.department_name} tại Tổng Công ty Lạc Việt.`,
+      responsibilities: [
+        `Phối hợp cùng đội ngũ ${dept.department_name} triển khai các dự án trọng điểm.`,
+        'Đảm bảo chất lượng công việc, tiến độ giao hàng và tuân thủ quy chuẩn của tổ chức.',
+        'Tham gia cải tiến quy trình nghiệp vụ và báo cáo tiến độ trực tiếp cho Quản lý.',
+      ],
+      requirements: [
+        `Có kinh nghiệm thực tế ở cấp bậc ${newJobLevel.trim() || 'Mid'} trong lĩnh vực liên quan.`,
+        'Tư duy giải quyết vấn đề tốt, trách nhiệm cao và kỹ năng làm việc nhóm hiệu quả.',
+        'Khả năng thích ứng nhanh với môi trường công nghệ số năng động.',
+      ],
+      benefits: [
+        `Mức thu nhập ${formatVND(minSal)} - ${formatVND(maxSal)} / tháng + Thưởng KPI theo hiệu suất.`,
+        'Cấp laptop làm việc, bảo hiểm sức khỏe VIP toàn diện.',
+        'Môi trường làm việc văn minh, minh bạch và lộ trình phát triển nghề nghiệp rộng mở.',
+      ],
     };
 
-    setJobs((prev) => [created, ...prev]);
+    saveRuntimeJob(created);
+    setJobs((prev) => [created, ...prev.filter((j) => j.id !== created.id)]);
+
+    recordAuditLog({
+      actor_name: actorName,
+      actor_code: actorCode,
+      actor_role: role,
+      action: 'CREATE_RECORD',
+      module: 'Tuyển dụng ATS',
+      target: `${created.job_code} — ${created.title}`,
+      detail: `Đăng tin tuyển dụng mới cho ${created.department_name}, dải lương ${formatVND(minSal)} - ${formatVND(maxSal)}. Đã đồng bộ trực tiếp lên Cổng việc làm Lạc Việt Careers.`,
+      status: 'SUCCESS',
+    });
+
+    pushNotification({
+      title: `Tin tuyển dụng mới: ${created.title}`,
+      message: `${created.job_code} đã được đăng tải và tự động đồng bộ sang Cổng việc làm cho ứng viên.`,
+      category: 'ONBOARDING',
+      target_roles: ['HR_MANAGER', 'SUPER_ADMIN', 'DEPT_MANAGER'],
+      nav_id: 'recruitment',
+    });
+
     setIsAddJobOpen(false);
     setNewJobTitle('');
+    setNewJobOverview('');
     showToast(
-      'Đã đăng tin tuyển dụng mới',
-      `${created.job_code} — ${created.title} đã được mở nhận hồ sơ.`,
+      'Đã đăng tin & tự động đồng bộ sang Cổng việc làm',
+      `${created.job_code} — ${created.title} đã xuất hiện trên Cổng Lạc Việt Careers và bảng ATS.`,
       'success'
     );
   };
@@ -1113,11 +1172,11 @@ export function AtsView() {
 
       {/* Add Job Posting Dialog */}
       <Dialog open={isAddJobOpen} onOpenChange={setIsAddJobOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Tạo tin tuyển dụng mới</DialogTitle>
             <DialogDescription>
-              Tin tuyển dụng mới sẽ hiển thị ngay trên bảng Kanban ATS.
+              Tin tuyển dụng mới sẽ hiển thị ngay trên bảng Kanban ATS và tự động đồng bộ trực tiếp sang Cổng việc làm Lạc Việt Careers.
             </DialogDescription>
           </DialogHeader>
 
@@ -1156,6 +1215,60 @@ export function AtsView() {
                   value={newJobLevel}
                   onChange={(e) => setNewJobLevel(e.target.value)}
                   placeholder="Senior / Mid"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Lương tối thiểu (VNĐ/tháng)
+                </label>
+                <Input
+                  type="number"
+                  value={newJobMinSalary}
+                  onChange={(e) => setNewJobMinSalary(e.target.value)}
+                  placeholder="25000000"
+                  className="font-mono tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Lương tối đa (VNĐ/tháng)
+                </label>
+                <Input
+                  type="number"
+                  value={newJobMaxSalary}
+                  onChange={(e) => setNewJobMaxSalary(e.target.value)}
+                  placeholder="40000000"
+                  className="font-mono tabular-nums"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Hình thức làm việc
+                </label>
+                <Select
+                  value={newJobWorkMode}
+                  onValueChange={(v) => setNewJobWorkMode(v as 'Hybrid' | 'Onsite' | 'Remote')}
+                  options={[
+                    { label: 'Linh hoạt (Hybrid)', value: 'Hybrid' },
+                    { label: 'Tại văn phòng (Onsite)', value: 'Onsite' },
+                    { label: 'Làm việc từ xa (Remote)', value: 'Remote' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                  Địa điểm làm việc
+                </label>
+                <Input
+                  value={newJobLocation}
+                  onChange={(e) => setNewJobLocation(e.target.value)}
+                  placeholder="Hà Nội / TP.HCM / Toàn quốc"
                 />
               </div>
             </div>
@@ -1199,13 +1312,26 @@ export function AtsView() {
               </div>
             </div>
 
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Tóm tắt trách nhiệm & Yêu cầu vị trí
+              </label>
+              <textarea
+                rows={2}
+                value={newJobOverview}
+                onChange={(e) => setNewJobOverview(e.target.value)}
+                placeholder="Mô tả ngắn gọn về vai trò và định hướng công việc cho ứng viên..."
+                className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2 text-xs text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+              />
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddJobOpen(false)}>
                 Hủy
               </Button>
               <Button type="submit" variant="primary">
                 <Plus className="h-4 w-4" strokeWidth={1.5} />
-                Đăng tin tuyển dụng
+                Đăng tin & Đồng bộ Cổng việc làm
               </Button>
             </DialogFooter>
           </form>

@@ -98,6 +98,12 @@ const ROLE_ACTOR_DEFAULT: Record<RoleCode, { code: string; name: string; dept: s
     dept: 'Phòng Kỹ thuật Phần mềm',
     pos: 'Kỹ sư Phần mềm Cao cấp (Senior Fullstack)',
   },
+  CANDIDATE: {
+    code: 'UV-DEMO-001',
+    name: 'Hoàng Vũ Minh',
+    dept: 'Cổng Ứng viên Tuyển dụng',
+    pos: 'Ứng viên tìm việc',
+  },
 };
 
 function getEffectiveStatus(req: LeaveOvertimeRequest): MultiStepRequestStatus {

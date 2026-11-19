@@ -74,6 +74,7 @@ const ROLE_DEFAULT_EMPLOYEE_CODE: Record<RoleCode, string> = {
   HR_MANAGER: 'NV-2024-002',
   DEPT_MANAGER: 'NV-2024-003',
   EMPLOYEE: 'NV-2024-004',
+  CANDIDATE: 'UV-DEMO-001',
 };
 
 export function PayslipSelfView() {

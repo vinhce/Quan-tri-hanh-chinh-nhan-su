@@ -47,7 +47,7 @@
 ## 3. Kế hoạch Thực hiện Tuần tự
 
 - **B0:** Lập tài liệu phân tích hiện trạng `docs/TIEN_DO.md` *(Hoàn thành)*.
-- **B1:** Tái cấu trúc Route group (`/`, `/app`, `/candidate`, `/careers/[slug]`), bổ sung Role `CANDIDATE` và `middleware.ts`.
+- **B1:** Tái cấu trúc Route group (`/`, `/app`, `/candidate`, `/careers/[slug]`), bổ sung Role `CANDIDATE` và `middleware.ts` *(Hoàn thành - Commit B1)*.
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.
 - **B3:** Xây dựng Service tuyển dụng Luồng 1 (HR đăng tin, quy trình phê duyệt, transaction, định biên, tự đóng tin).
 - **B4:** Xây dựng Luồng nộp hồ sơ `/careers/[slug]`, kiểm soát an toàn, rate-limit và token hash SHA-256.

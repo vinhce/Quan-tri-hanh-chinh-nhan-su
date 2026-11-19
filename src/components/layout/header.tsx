@@ -7,13 +7,16 @@ import React, {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import {
   Menu,
   Sun,
   Moon,
   Bell,
   BellOff,
+  Briefcase,
   CheckCheck,
+  ExternalLink,
   RotateCcw,
   CalendarCheck,
   Wallet,
@@ -245,8 +248,21 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
           </div>
         </div>
 
-        {/* Right: Controls (Notifications, Theme) */}
+        {/* Right: Controls (Careers Portal, Notifications, Theme) */}
         <div className="flex shrink-0 items-center gap-2">
+          {/* External Careers Portal Link */}
+          <Link
+            href="/careers"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Mở Cổng Tuyển dụng & Tìm việc Lạc Việt (Careers Portal)"
+            className="hidden sm:inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 text-xs font-semibold text-[#415A54] shadow-sm transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] hover:text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-teal-400"
+          >
+            <Briefcase className="h-4 w-4 text-[#0F766E] dark:text-teal-400" />
+            <span className="hidden md:inline">Cổng việc làm</span>
+            <ExternalLink className="h-3 w-3 opacity-60" />
+          </Link>
+
           {/* Notification Bell & Popover */}
           <div ref={bellContainerRef} className="relative">
             <button

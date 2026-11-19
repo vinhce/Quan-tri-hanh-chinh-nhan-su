@@ -240,6 +240,16 @@ export const ROLE_META: Record<
     shiftCode: "HC-08:30",
     scopeNote: "Tự phục vụ: chấm công, tạo đơn nghỉ phép & tra cứu phiếu lương",
   },
+  CANDIDATE: {
+    label: "Ứng viên tìm việc",
+    shortLabel: "Candidate",
+    empCode: "UV-DEMO-001",
+    empName: "Hoàng Vũ Minh",
+    position: "Ứng viên",
+    department: "Cổng Ứng viên Tuyển dụng",
+    shiftCode: "FLEX-09:00",
+    scopeNote: "Theo dõi trạng thái hồ sơ ứng tuyển, phỏng vấn & thư mời nhận việc",
+  },
 };
 
 const SECTIONS: Array<"Quản trị cốt lõi" | "Vận hành" | "Hệ thống"> = [

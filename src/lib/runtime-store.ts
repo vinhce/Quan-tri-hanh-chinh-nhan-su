@@ -1,3 +1,4 @@
+import { MOCK_JOB_POSTINGS } from '@/mock/ats';
 import { MOCK_DEPARTMENTS, MOCK_EMPLOYEES } from '@/mock/employees';
 import {
   MOCK_COMPANY_ASSETS,
@@ -9,9 +10,11 @@ import type {
   CompanyAsset,
   Employee,
   HrmNotification,
+  JobPosting,
   LeaveOvertimeRequest,
   OnboardingChecklistItem,
   OnboardingRecord,
+  OnboardingTaskGroup,
   RoleCode,
 } from '@/mock/types';
 
@@ -21,6 +24,7 @@ const STORAGE_NOTIFICATIONS_KEY = 'hrm_runtime_notifications_v1';
 const STORAGE_REQUESTS_KEY = 'hrm_runtime_requests_v1';
 const STORAGE_EMPLOYEES_KEY = 'hrm_runtime_employees_v1';
 const STORAGE_CANDIDATES_KEY = 'hrm_runtime_candidates_v1';
+const STORAGE_JOBS_KEY = 'hrm_runtime_jobs_v1';
 const STORAGE_ONBOARDING_KEY = 'hrm_runtime_onboarding_v1';
 const STORAGE_ASSETS_KEY = 'hrm_runtime_assets_v1';
 
@@ -332,7 +336,7 @@ export function generateNextEmployeeCode(existingEmployees: Employee[]): string 
 // Runtime Candidates
 // ---------------------------------------------------------------------------
 
-function readRuntimeCandidates(): Candidate[] {
+export function readRuntimeCandidates(): Candidate[] {
   return readStorageArray<Candidate>(STORAGE_CANDIDATES_KEY) ?? [];
 }
 
@@ -367,6 +371,52 @@ export function saveRuntimeCandidate(cand: Candidate): void {
       ? current.map((item, i) => (i === idx ? cand : item))
       : [cand, ...current];
   writeStorageArray(STORAGE_CANDIDATES_KEY, updated);
+}
+
+// ---------------------------------------------------------------------------
+// Job Postings (ATS & Careers Portal Synchronized Storage)
+// ---------------------------------------------------------------------------
+
+export function readRuntimeJobs(): JobPosting[] {
+  return readStorageArray<JobPosting>(STORAGE_JOBS_KEY) ?? [];
+}
+
+export function mergeWithRuntimeJobs(baseJobs: JobPosting[]): JobPosting[] {
+  const runtimeList = readRuntimeJobs();
+  if (runtimeList.length === 0) return baseJobs;
+
+  const baseIds = new Set(baseJobs.map((j) => j.id));
+  const baseCodes = new Set(baseJobs.map((j) => j.job_code));
+
+  const replacedBase = baseJobs.map((baseItem) => {
+    const override = runtimeList.find(
+      (rt) => rt.id === baseItem.id || rt.job_code === baseItem.job_code
+    );
+    return override ?? baseItem;
+  });
+
+  const brandNew = runtimeList.filter(
+    (rt) => !baseIds.has(rt.id) && !baseCodes.has(rt.job_code)
+  );
+
+  return [...brandNew, ...replacedBase];
+}
+
+export function saveRuntimeJob(job: JobPosting): void {
+  const current = readRuntimeJobs();
+  const idx = current.findIndex(
+    (item) => item.id === job.id || item.job_code === job.job_code
+  );
+  const updated =
+    idx >= 0
+      ? current.map((item, i) => (i === idx ? job : item))
+      : [job, ...current];
+  writeStorageArray(STORAGE_JOBS_KEY, updated);
+}
+
+export function getJobPostings(fallbackBase?: JobPosting[]): JobPosting[] {
+  const base = fallbackBase ?? MOCK_JOB_POSTINGS;
+  return mergeWithRuntimeJobs(base);
 }
 
 // ---------------------------------------------------------------------------
@@ -416,8 +466,96 @@ export function toggleOnboardingChecklistItem(
 
   if (!itemFound) return null;
 
+  const isAnyUncompleted = updatedChecklist.some((item) => !item.completed);
+  const nextStatus =
+    isAnyUncompleted && target.status === 'COMPLETED'
+      ? 'IN_PROGRESS'
+      : target.status;
+
   const updatedRecord: OnboardingRecord = {
     ...target,
+    status: nextStatus,
+    checklist: updatedChecklist,
+  };
+
+  const nextRecords = current.map((item, idx) =>
+    idx === recordIdx ? updatedRecord : item
+  );
+  writeStorageArray(STORAGE_ONBOARDING_KEY, nextRecords);
+  return updatedRecord;
+}
+
+export function toggleOnboardingChecklistGroup(
+  onboardingId: string,
+  group: OnboardingTaskGroup,
+  targetCompleted: boolean,
+  actorName: string
+): OnboardingRecord | null {
+  const current = getOnboardingRecords();
+  const recordIdx = current.findIndex((item) => item.id === onboardingId);
+  if (recordIdx < 0) return null;
+
+  const target = current[recordIdx];
+  const nowIso = new Date().toISOString();
+
+  const updatedChecklist = target.checklist.map((chk) => {
+    if (chk.group !== group) return chk;
+    return {
+      ...chk,
+      completed: targetCompleted,
+      completed_at: targetCompleted ? nowIso : undefined,
+      completed_by: targetCompleted ? actorName : undefined,
+    };
+  });
+
+  const isAnyUncompleted = updatedChecklist.some((item) => !item.completed);
+  const nextStatus =
+    isAnyUncompleted && target.status === 'COMPLETED'
+      ? 'IN_PROGRESS'
+      : target.status;
+
+  const updatedRecord: OnboardingRecord = {
+    ...target,
+    status: nextStatus,
+    checklist: updatedChecklist,
+  };
+
+  const nextRecords = current.map((item, idx) =>
+    idx === recordIdx ? updatedRecord : item
+  );
+  writeStorageArray(STORAGE_ONBOARDING_KEY, nextRecords);
+  return updatedRecord;
+}
+
+export function toggleAllOnboardingChecklist(
+  onboardingId: string,
+  targetCompleted: boolean,
+  actorName: string
+): OnboardingRecord | null {
+  const current = getOnboardingRecords();
+  const recordIdx = current.findIndex((item) => item.id === onboardingId);
+  if (recordIdx < 0) return null;
+
+  const target = current[recordIdx];
+  const nowIso = new Date().toISOString();
+
+  const updatedChecklist = target.checklist.map((chk) => ({
+    ...chk,
+    completed: targetCompleted,
+    completed_at: targetCompleted ? nowIso : undefined,
+    completed_by: targetCompleted ? actorName : undefined,
+  }));
+
+  const nextStatus =
+    !targetCompleted && target.status === 'COMPLETED'
+      ? 'IN_PROGRESS'
+      : targetCompleted
+      ? 'COMPLETED'
+      : target.status;
+
+  const updatedRecord: OnboardingRecord = {
+    ...target,
+    status: nextStatus,
     checklist: updatedChecklist,
   };
 
@@ -892,6 +1030,7 @@ export function resetAllDemoRuntimeData(): void {
       STORAGE_REQUESTS_KEY,
       STORAGE_EMPLOYEES_KEY,
       STORAGE_CANDIDATES_KEY,
+      STORAGE_JOBS_KEY,
       STORAGE_ONBOARDING_KEY,
       STORAGE_ASSETS_KEY,
       'hrm_audit_logs_v1',

@@ -57,6 +57,16 @@ export const MOCK_ROLES: RoleDefinition[] = [
     default_user_title: 'Kỹ sư Phần mềm Cao cấp (Senior Fullstack)',
     default_department: 'Phòng Kỹ thuật Phần mềm',
   },
+  {
+    role_code: 'CANDIDATE',
+    role_name: 'Ứng viên (Candidate Portal)',
+    description: 'Theo dõi tiến độ hồ sơ ứng tuyển, xác nhận lịch phỏng vấn và phản hồi thư mời nhận việc.',
+    users_count: 42,
+    default_employee_code: 'UV-DEMO-001',
+    default_user_name: 'Hoàng Vũ Minh',
+    default_user_title: 'Ứng viên tìm việc',
+    default_department: 'Cổng Ứng viên Tuyển dụng',
+  },
 ];
 
 export const MOCK_SYSTEM_USERS: SystemUserAccount[] = [
@@ -171,6 +181,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: false, edit: false, approve: false, delete: false, export: true },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
+      CANDIDATE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
     },
   },
   {
@@ -183,6 +194,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: true, create: false, edit: false, approve: false, delete: false, export: false },
+      CANDIDATE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
     },
   },
   {
@@ -195,6 +207,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: true, export: true },
       DEPT_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: false },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
+      CANDIDATE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
     },
   },
   {
@@ -207,6 +220,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: true, create: true, edit: false, approve: true, delete: false, export: true },
       EMPLOYEE: { view: true, create: true, edit: true, approve: false, delete: false, export: false },
+      CANDIDATE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
     },
   },
   {
@@ -219,6 +233,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
       HR_MANAGER: { view: true, create: true, edit: true, approve: true, delete: false, export: true },
       DEPT_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: true, create: false, edit: false, approve: false, delete: false, export: true },
+      CANDIDATE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
     },
   },
   {
@@ -231,6 +246,7 @@ export const MOCK_PERMISSION_MATRIX: PermissionMatrixRow[] = [
       HR_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       DEPT_MANAGER: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
       EMPLOYEE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
+      CANDIDATE: { view: false, create: false, edit: false, approve: false, delete: false, export: false },
     },
   },
 ];

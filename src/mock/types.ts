@@ -1,4 +1,10 @@
-export type RoleCode = 'SUPER_ADMIN' | 'DIRECTOR' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
+export type RoleCode =
+  | 'SUPER_ADMIN'
+  | 'DIRECTOR'
+  | 'HR_MANAGER'
+  | 'DEPT_MANAGER'
+  | 'EMPLOYEE'
+  | 'CANDIDATE';
 
 export type EmploymentStatus = 'ACTIVE' | 'PROBATION' | 'ON_LEAVE' | 'RESIGNED';
 
@@ -303,6 +309,13 @@ export interface JobPosting {
   hiring_manager_name: string;
   published_date: string;
   closing_date: string;
+  location?: string;
+  work_mode?: 'Onsite' | 'Hybrid' | 'Remote';
+  employment_type?: 'Toàn thời gian' | 'Bán thời gian' | 'Thực tập';
+  overview?: string;
+  responsibilities?: string[];
+  requirements?: string[];
+  benefits?: string[];
 }
 
 export interface CandidateAiEvaluation {

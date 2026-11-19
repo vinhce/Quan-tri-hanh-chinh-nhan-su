@@ -2,7 +2,13 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
-export type RoleCode = 'SUPER_ADMIN' | 'DIRECTOR' | 'HR_MANAGER' | 'DEPT_MANAGER' | 'EMPLOYEE';
+export type RoleCode =
+  | 'SUPER_ADMIN'
+  | 'DIRECTOR'
+  | 'HR_MANAGER'
+  | 'DEPT_MANAGER'
+  | 'EMPLOYEE'
+  | 'CANDIDATE';
 
 export const ROLE_DEFAULT_PROFILES: Record<
   RoleCode,
@@ -49,6 +55,13 @@ export const ROLE_DEFAULT_PROFILES: Record<
     department: 'Khối Công nghệ',
     email: 'tuan.pham@lacviethrm.vn',
   },
+  CANDIDATE: {
+    fullName: 'Hoàng Vũ Minh',
+    employee_code: 'UV-DEMO-001',
+    title: 'Ứng viên tìm việc',
+    department: 'Cổng Ứng viên Tuyển dụng',
+    email: 'minh.hoang.candidate@gmail.com',
+  },
 };
 
 export type UiState = 'ready' | 'loading' | 'empty' | 'error';
@@ -58,6 +71,8 @@ export interface UserProfileOverride {
   department?: string;
   department_id?: string;
   employee_code?: string;
+  title?: string;
+  email?: string;
 }
 
 export interface NavIntent {
@@ -79,6 +94,7 @@ export interface AppContextValue {
   setRole: (r: RoleCode) => void;
   currentUserEmail: string | null;
   currentUserProfile: UserProfileOverride | null;
+  isAuthenticated: boolean;
   setAuthenticatedUser: (
     r: RoleCode,
     email?: string | null,
@@ -105,7 +121,7 @@ const STORAGE_EMAIL_KEY = 'lacviet_hrm_email';
 const STORAGE_PROFILE_KEY = 'lacviet_hrm_profile';
 const STORAGE_THEME_KEY = 'hrm_theme';
 const STORAGE_NAV_KEY = 'hrm_active_nav';
-const VALID_ROLES: RoleCode[] = ['SUPER_ADMIN', 'DIRECTOR', 'HR_MANAGER', 'DEPT_MANAGER', 'EMPLOYEE'];
+const VALID_ROLES: RoleCode[] = ['SUPER_ADMIN', 'DIRECTOR', 'HR_MANAGER', 'DEPT_MANAGER', 'EMPLOYEE', 'CANDIDATE'];
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
@@ -121,13 +137,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const savedRole = window.localStorage.getItem(STORAGE_ROLE_KEY) as RoleCode | null;
-      if (savedRole && VALID_ROLES.includes(savedRole)) {
-        setRoleState(savedRole);
-      }
       const savedEmail = window.localStorage.getItem(STORAGE_EMAIL_KEY);
       if (savedEmail) {
         setCurrentUserEmail(savedEmail);
+      }
+      const savedRole = window.localStorage.getItem(STORAGE_ROLE_KEY) as RoleCode | null;
+      if (savedRole && VALID_ROLES.includes(savedRole)) {
+        setRoleState(savedRole);
+        if (typeof document !== 'undefined') {
+          document.cookie = `hrm_role=${savedRole}; path=/; max-age=86400; SameSite=Lax`;
+          if (savedEmail) {
+            document.cookie = `hrm_token=demo-token-${savedRole}; path=/; max-age=86400; SameSite=Lax`;
+          }
+        }
       }
       const savedProfile = window.localStorage.getItem(STORAGE_PROFILE_KEY);
       if (savedProfile) {
@@ -195,6 +217,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setNavIntent(null);
 
       try {
+        if (typeof document !== 'undefined') {
+          document.cookie = `hrm_role=${nextRole}; path=/; max-age=86400; SameSite=Lax`;
+          document.cookie = `hrm_token=demo-token-${nextRole}; path=/; max-age=86400; SameSite=Lax`;
+        }
         window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
         window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
         if (normalizedEmail) {
@@ -220,6 +246,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNavIntent(null);
     setActiveNav('dashboard');
     try {
+      if (typeof document !== 'undefined') {
+        document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'hrm_token=; path=/; max-age=0; SameSite=Lax';
+      }
       window.localStorage.removeItem(STORAGE_EMAIL_KEY);
       window.localStorage.removeItem(STORAGE_PROFILE_KEY);
       window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
@@ -272,6 +302,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setRole,
         currentUserEmail,
         currentUserProfile,
+        isAuthenticated: Boolean(currentUserEmail),
         setAuthenticatedUser,
         logout,
         theme,

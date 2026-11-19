@@ -54,6 +54,10 @@
   - Kết nối Real-time Notification đa chiều (Trưởng phòng <-> HR Manager <-> Giám đốc <-> Ứng viên).
   - Loại bỏ hoàn toàn điểm số AI (AI Match Score, badge `AI {score}%`) trên thẻ Kanban và chi tiết ứng viên; đổi cột 2 thành "Sàng lọc hồ sơ" và thay thế bằng đánh giá chuyên môn chuẩn mực.
   - Bổ sung chuông thông báo Real-time có badge đếm số lượng chưa đọc và popover xem chi tiết trên Cổng ứng viên (`/candidate`), tự động cập nhật khi HR chuyển bước hồ sơ *(Hoàn thành)*.
+- **B1.3 (Đồng bộ giao diện Kanban ATS & Modal chi tiết ứng viên chuẩn mẫu):**
+  - Đồng bộ header Kanban: "Bảng Kanban quy trình ứng viên · 7 hồ sơ", phụ đề "Kéo thả hoặc dùng nút ‹ › để chuyển bước · Nhấn thẻ để xem hồ sơ", bộ lọc nguồn `[Mọi nguồn]`, nút `[Đặt lại dữ liệu]` và nút `[Export]`.
+  - Thẻ ứng viên chuẩn mẫu: Mã UV + Badge nguồn (hàng 1), Tên ứng viên bold (hàng 2), Chức danh (hàng 3), Ngày nộp + nút điều hướng ‹ › (hàng 4).
+  - Modal xem ứng viên gọn gàng 1:1 theo ảnh: Tên ứng viên, Chức danh, Mã · Nguồn · Bước · Ngày nộp, Danh sách "Câu hỏi phỏng vấn gợi ý" (3 gạch đầu dòng) và nút "Đóng" *(Hoàn thành - Commit `4c413f7`)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

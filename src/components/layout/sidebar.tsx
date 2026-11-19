@@ -22,8 +22,11 @@ import {
   User,
   ChevronDown,
   Check,
+  PanelLeftClose,
+  PanelLeftOpen,
   type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   useApp,
   ROLE_DEFAULT_PROFILES,
@@ -335,6 +338,24 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [onboardingRecords, setOnboardingRecords] = useState<OnboardingRecord[]>([]);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("lacviet_sidebar_collapsed");
+      if (saved === "true") setIsCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("lacviet_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const syncOnboardingRecords = useCallback(() => {
     setOnboardingRecords(getOnboardingRecords());
@@ -461,34 +482,144 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     router.push("/login");
   };
 
-  const renderSidebarContent = () => (
-    <div className="flex h-full min-h-0 w-64 flex-col border-r border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-950 select-none">
-      {/* Brand header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#C6D9D3] px-4 dark:border-zinc-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
-            <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+  const renderSidebarContent = (isMobile = false) => {
+    const collapsed = !isMobile && isCollapsed;
+
+    if (collapsed) {
+      return (
+        <div className="flex h-full min-h-0 w-[68px] flex-col border-r border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-950 select-none transition-all duration-200">
+          {/* Collapsed Brand Header */}
+          <div className="flex h-16 shrink-0 flex-col items-center justify-center border-b border-[#C6D9D3] px-2 dark:border-zinc-800/80">
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              title="Mở rộng thanh bên"
+              aria-label="Mở rộng thanh bên"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] shadow-sm transition-all hover:bg-[#D8E6E2] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400"
+            >
+              <PanelLeftOpen className="h-4 w-4" strokeWidth={1.5} />
+            </button>
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100 leading-none">
-              Lạc Việt HRM
-            </span>
-            <span className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400 leading-none">
-              v2.4 · Kỳ 11/2026
-            </span>
+
+          {/* Collapsed Nav */}
+          <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 space-y-3" aria-label="Điều hướng phân hệ">
+            {SECTIONS.map((sectionName) => {
+              const sectionItems = visibleItems.filter((item) => item.section === sectionName);
+              if (sectionItems.length === 0) return null;
+
+              return (
+                <div key={sectionName} className="space-y-1">
+                  <div className="h-px bg-[#C6D9D3]/70 dark:bg-zinc-800/80 my-1 mx-1" />
+                  {sectionItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeNav === item.id;
+                    let resolvedBadge: number | null = null;
+                    if (item.id === "onboarding") {
+                      resolvedBadge = onboardingInProgressCount > 0 ? onboardingInProgressCount : null;
+                    } else if (item.id === "leaves" && role === "EMPLOYEE") {
+                      resolvedBadge = null;
+                    } else if (item.id === "core-hr") {
+                      resolvedBadge = role === "DEPT_MANAGER" ? 6 : 28;
+                    } else if (typeof item.badgeCount === "number" && item.badgeCount > 0) {
+                      resolvedBadge = item.badgeCount;
+                    }
+
+                    return (
+                      <div key={item.id} className="relative flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectNav(item)}
+                          title={`${item.label} (${item.section})`}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "relative flex h-10 w-10 items-center justify-center rounded-xl transition-all",
+                            isActive
+                              ? "bg-[#0F766E] text-white shadow-sm dark:bg-teal-600"
+                              : "text-[#415A54] hover:bg-[#D8E6E2] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+                          )}
+                        >
+                          <Icon className="h-4 w-4" strokeWidth={1.5} />
+                          {resolvedBadge !== null && (
+                            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                              {resolvedBadge > 99 ? "99+" : resolvedBadge}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </nav>
+
+          {/* Collapsed Account Footer */}
+          <div className="relative shrink-0 border-t border-[#C6D9D3] p-2 dark:border-zinc-800/80 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRoleMenuOpen((prev) => !prev)}
+              title={`Tài khoản: ${displayName} (${displayEmpCode}) - Nhấn để đổi vai trò`}
+              aria-label="Menu tài khoản"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C6D9D3] bg-[#FCFEFD] font-mono text-xs font-bold text-[#0B4F4A] transition-colors hover:bg-[#D8E6E2] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400"
+            >
+              {initials}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenLogoutDialog}
+              title="Đăng xuất"
+              aria-label="Đăng xuất"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+            >
+              <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
-        {onMobileClose && (
-          <button
-            type="button"
-            onClick={onMobileClose}
-            aria-label="Đóng thanh điều hướng"
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#415A54] transition-colors hover:bg-[#D8E6E2] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30 lg:hidden"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-        )}
-      </div>
+      );
+    }
+
+    return (
+      <div className="flex h-full min-h-0 w-64 flex-col border-r border-[#C6D9D3] bg-[#E4EEEB] dark:border-zinc-800/80 dark:bg-zinc-950 select-none">
+        {/* Brand header */}
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#C6D9D3] px-4 dark:border-zinc-800/80">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#C6D9D3] bg-[#FCFEFD] text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+              <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100 leading-none">
+                Lạc Việt HRM
+              </span>
+              <span className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400 leading-none">
+                v2.4 · Kỳ 11/2026
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                title="Thu gọn thanh bên"
+                aria-label="Thu gọn thanh bên"
+                className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-[#415A54] transition-colors hover:bg-[#D8E6E2] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+              >
+                <PanelLeftClose className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            )}
+            {onMobileClose && (
+              <button
+                type="button"
+                onClick={onMobileClose}
+                aria-label="Đóng thanh điều hướng"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-[#415A54] transition-colors hover:bg-[#D8E6E2] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30 lg:hidden"
+              >
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            )}
+          </div>
+        </div>
 
       {/* Navigation sections */}
       <nav
@@ -683,12 +814,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       </div>
     </div>
   );
+};
 
   return (
     <>
       {/* Desktop fixed sidebar */}
-      <aside className="hidden lg:block lg:h-full lg:w-64 lg:shrink-0">
-        {renderSidebarContent()}
+      <aside
+        className={cn(
+          "hidden lg:block lg:h-full lg:shrink-0 transition-all duration-200",
+          isCollapsed ? "lg:w-[68px]" : "lg:w-64"
+        )}
+      >
+        {renderSidebarContent(false)}
       </aside>
 
       {/* Mobile slide-over sidebar */}
@@ -704,7 +841,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             onClick={onMobileClose}
           />
           <div className="relative z-10 flex h-full w-64 flex-col">
-            {renderSidebarContent()}
+            {renderSidebarContent(true)}
           </div>
         </div>
       )}

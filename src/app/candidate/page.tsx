@@ -10,6 +10,7 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
   Eye,
@@ -373,153 +374,210 @@ export default function CandidatePortalPage() {
           <div className="mt-6 space-y-6">
             <Card className="border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-zinc-900/80">
               <CardContent className="p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D5E3DF] pb-4 dark:border-zinc-800">
-                  <div>
-                    <span className="font-mono text-xs font-semibold text-[#0F766E] dark:text-teal-400">
-                      Mã hồ sơ: {currentCandidate.candidate_code}
-                    </span>
-                    <h2 className="mt-1 text-lg font-bold text-[#11221E] dark:text-zinc-100">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#D5E3DF] pb-4 dark:border-zinc-800">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-semibold text-[#0F766E] dark:text-teal-400">
+                        Mã hồ sơ: {currentCandidate.candidate_code}
+                      </span>
+                      <span className="text-xs text-[#C6D9D3] dark:text-zinc-700">·</span>
+                      <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                        Nộp ngày: {currentCandidate.applied_date}
+                      </span>
+                    </div>
+
+                    <h2 className="text-lg font-bold text-[#11221E] dark:text-zinc-100">
                       {currentCandidate.job_title}
                     </h2>
                     <p className="text-xs text-[#415A54] dark:text-zinc-400">
                       {currentCandidate.department_name} · Mã vị trí: {currentCandidate.job_code}
                     </p>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-3 pt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                      <span className="inline-flex items-center gap-1">
+                        <span>Lương kỳ vọng:</span>
+                        <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
+                          {formatVND(currentCandidate.expected_salary_vnd)}
+                        </strong>
+                      </span>
+                      <span className="text-[#C6D9D3] dark:text-zinc-700">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span>Nguồn nộp:</span>
+                        <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
+                          {currentCandidate.source}
+                        </strong>
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-2">
                     <Badge variant={STAGE_META[currentCandidate.stage]?.variant ?? 'teal'}>
                       {STAGE_META[currentCandidate.stage]?.label ?? currentCandidate.stage}
                     </Badge>
-                    <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      Nộp ngày: {currentCandidate.applied_date}
-                    </span>
+
+                    {currentCandidate.stage !== 'ONBOARDED' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 border-rose-200 px-3 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                        onClick={() => setActionModal('withdraw')}
+                      >
+                        Rút hồ sơ
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                {/* 5-Step Progress Timeline */}
+                {/* Linear Stepper with Horizontal Track */}
                 <div className="mt-6">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#11221E] dark:text-zinc-300">
-                    Tiến trình xét duyệt hồ sơ
-                  </h3>
-                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-5">
-                    {(['APPLIED', 'AI_SCREENED', 'INTERVIEW', 'OFFER', 'ONBOARDED'] as AtsStage[]).map(
-                      (stg, idx) => {
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[#11221E] dark:text-zinc-300">
+                      Tiến trình xét duyệt hồ sơ
+                    </h3>
+                    <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                      Bước {STAGE_META[currentCandidate.stage]?.stepNum ?? 1} / 5
+                    </span>
+                  </div>
+
+                  {/* Horizontal Linear Stepper */}
+                  <div className="relative mt-5 px-3">
+                    {/* Connecting Bar */}
+                    <div className="absolute left-6 right-6 top-4 h-0.5 -translate-y-1/2 bg-[#D5E3DF] dark:bg-zinc-800" />
+                    <div
+                      className="absolute left-6 top-4 h-0.5 -translate-y-1/2 bg-[#0F766E] transition-all duration-300 dark:bg-teal-400"
+                      style={{
+                        width: `calc(${
+                          (((STAGE_META[currentCandidate.stage]?.stepNum ?? 1) - 1) / 4) * 100
+                        }% - 12px)`,
+                      }}
+                    />
+
+                    {/* 5 Milestone Nodes */}
+                    <div className="relative flex justify-between">
+                      {(
+                        ['APPLIED', 'AI_SCREENED', 'INTERVIEW', 'OFFER', 'ONBOARDED'] as AtsStage[]
+                      ).map((stg) => {
                         const meta = STAGE_META[stg];
                         const currentStepNum = STAGE_META[currentCandidate.stage]?.stepNum ?? 1;
-                        const isDone = currentStepNum >= meta.stepNum;
+                        const isDone = currentStepNum > meta.stepNum;
                         const isCurrent = currentCandidate.stage === stg;
 
                         return (
                           <div
                             key={stg}
-                            className={cn(
-                              'relative rounded-xl border p-3 transition-colors',
-                              isCurrent
-                                ? 'border-[#0F766E] bg-[#EFF5F3] dark:border-teal-400 dark:bg-zinc-800'
-                                : isDone
-                                ? 'border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-zinc-900/60'
-                                : 'border-dashed border-[#D5E3DF] bg-transparent opacity-60 dark:border-zinc-800'
-                            )}
+                            className="flex flex-col items-center group relative cursor-default"
+                            title={`${meta.label}: ${meta.desc}`}
                           >
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={cn(
-                                  'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
-                                  isDone
-                                    ? 'bg-[#0F766E] text-white'
-                                    : 'bg-[#D5E3DF] text-[#415A54]'
-                                )}
-                              >
-                                {meta.stepNum}
-                              </span>
-                              <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                                {meta.label}
-                              </span>
+                            <div
+                              className={cn(
+                                'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-200',
+                                isDone
+                                  ? 'bg-[#0F766E] text-white shadow-sm dark:bg-teal-500'
+                                  : isCurrent
+                                  ? 'border-2 border-[#0F766E] bg-[#FCFEFD] text-[#0F766E] ring-4 ring-[#0F766E]/20 dark:border-teal-400 dark:bg-zinc-900 dark:text-teal-400 dark:ring-teal-400/20'
+                                  : 'border-2 border-[#D5E3DF] bg-[#F2F7F5] text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-500'
+                              )}
+                            >
+                              {isDone ? (
+                                <Check className="h-4 w-4" strokeWidth={2.5} />
+                              ) : (
+                                meta.stepNum
+                              )}
                             </div>
-                            <p className="mt-2 text-[11px] leading-relaxed text-[#5C7871] dark:text-zinc-400">
-                              {meta.desc}
-                            </p>
+
+                            <span
+                              className={cn(
+                                'mt-2 text-center text-[11px] max-w-[90px] leading-tight transition-colors',
+                                isCurrent
+                                  ? 'font-bold text-[#0F766E] dark:text-teal-400'
+                                  : isDone
+                                  ? 'font-medium text-[#11221E] dark:text-zinc-200'
+                                  : 'text-[#5C7871] dark:text-zinc-500'
+                              )}
+                            >
+                              {meta.label}
+                            </span>
                           </div>
                         );
-                      }
-                    )}
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                {/* Specific Action Box depending on Stage */}
-                <div className="mt-6 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800 dark:bg-zinc-800/60">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h4 className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
-                        {currentCandidate.stage === 'INTERVIEW'
-                          ? 'Bạn có lời mời tham gia Phỏng vấn chuyên môn'
-                          : currentCandidate.stage === 'OFFER'
-                          ? 'Thư mời nhận việc đang chờ bạn phản hồi'
-                          : currentCandidate.stage === 'ONBOARDED'
-                          ? 'Chúc mừng! Hồ sơ đã hoàn tất tiếp nhận nhân viên'
-                          : 'Hồ sơ đang trong quá trình đánh giá'}
-                      </h4>
-                      <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
-                        Lương kỳ vọng: {formatVND(currentCandidate.expected_salary_vnd)} · Nguồn nộp: {currentCandidate.source}
-                      </p>
+                  {/* Active Step Detailed Callout Banner */}
+                  <div className="mt-6 flex flex-col gap-3 rounded-xl border border-[#C6D9D3] bg-[#E8F3EF]/70 p-4 dark:border-zinc-800 dark:bg-zinc-800/60 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0F766E]/10 text-[#0F766E] dark:bg-teal-400/10 dark:text-teal-400">
+                        {currentCandidate.stage === 'ONBOARDED' ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : currentCandidate.stage === 'INTERVIEW' || currentCandidate.stage === 'OFFER' ? (
+                          <Sparkles className="h-4 w-4" />
+                        ) : (
+                          <Clock className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[#11221E] dark:text-zinc-100">
+                            {STAGE_META[currentCandidate.stage]?.label}
+                          </span>
+                          <span className="rounded bg-[#0F766E]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#0F766E] dark:bg-teal-400/20 dark:text-teal-300">
+                            Đang xử lý
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-300 leading-relaxed">
+                          {STAGE_META[currentCandidate.stage]?.desc}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      {currentCandidate.stage === 'INTERVIEW' && (
-                        <>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="text-xs font-semibold"
-                            onClick={() => handleConfirmInterview(true)}
-                          >
-                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                            Xác nhận tham gia
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-[#C6D9D3] text-xs"
-                            onClick={() => setActionModal('interview')}
-                          >
-                            Đề xuất dời lịch
-                          </Button>
-                        </>
-                      )}
+                    {/* Interactive Actions when in Interview or Offer */}
+                    {(currentCandidate.stage === 'INTERVIEW' || currentCandidate.stage === 'OFFER') && (
+                      <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 shrink-0">
+                        {currentCandidate.stage === 'INTERVIEW' && (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="text-xs font-semibold"
+                              onClick={() => handleConfirmInterview(true)}
+                            >
+                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                              Xác nhận tham gia
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-[#C6D9D3] text-xs"
+                              onClick={() => setActionModal('interview')}
+                            >
+                              Đề xuất dời lịch
+                            </Button>
+                          </>
+                        )}
 
-                      {currentCandidate.stage === 'OFFER' && (
-                        <>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="text-xs font-semibold"
-                            onClick={() => handleOfferDecision('ACCEPT')}
-                          >
-                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                            Đồng ý nhận việc
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-rose-300 text-xs text-rose-600 hover:bg-rose-50"
-                            onClick={() => setActionModal('offer')}
-                          >
-                            Từ chối Offer
-                          </Button>
-                        </>
-                      )}
-
-                      {currentCandidate.stage !== 'ONBOARDED' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-[#5C7871] hover:text-rose-600"
-                          onClick={() => setActionModal('withdraw')}
-                        >
-                          Rút hồ sơ
-                        </Button>
-                      )}
-                    </div>
+                        {currentCandidate.stage === 'OFFER' && (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="text-xs font-semibold"
+                              onClick={() => handleOfferDecision('ACCEPT')}
+                            >
+                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                              Đồng ý nhận việc
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-rose-300 text-xs text-rose-600 hover:bg-rose-50"
+                              onClick={() => setActionModal('offer')}
+                            >
+                              Từ chối Offer
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

@@ -6,10 +6,13 @@ import {
   ArrowRight,
   Briefcase,
   Building,
+  Calendar,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ClipboardCheck,
   Clock,
   Cpu,
@@ -19,6 +22,8 @@ import {
   Laptop,
   Layers,
   MessageSquareText,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -198,6 +203,12 @@ export function AtsView() {
   const [selectedJobId, setSelectedJobId] = useState<string>('ALL');
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
+  const [showJobCards, setShowJobCards] = useState(false);
+  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
+
+  const toggleColCollapse = (colId: string) => {
+    setCollapsedCols((prev) => ({ ...prev, [colId]: !prev[colId] }));
+  };
 
   // Onboarding initiation dialog state
   const [onboardingCandidate, setOnboardingCandidate] = useState<Candidate | null>(null);
@@ -736,130 +747,164 @@ export function AtsView() {
         </Card>
       )}
 
-      {/* Department Recruitment Requests Section */}
-      <div className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-              <Building className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-              Đề xuất Tuyển dụng từ các Phòng ban ({deptRequests.length})
-            </h2>
-            <Badge
-              variant={deptRequests.some((r) => r.status === 'PENDING') ? 'warning' : 'outline'}
-              className="font-mono text-[11px] tabular-nums"
-            >
-              {deptRequests.filter((r) => r.status === 'PENDING').length} Chờ duyệt
-            </Badge>
-          </div>
-          <span className="text-xs text-[#5C7871] dark:text-zinc-400">
-            Tự động đồng bộ Real-time tới HR & Trưởng phòng
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {deptRequests.map((req) => {
-            const isPending = req.status === 'PENDING';
-            const isApproved = req.status === 'APPROVED';
-            const isRejected = req.status === 'REJECTED';
-
-            return (
-              <Card
-                key={req.id}
-                className={cn(
-                  'border-l-4 transition-colors',
-                  req.urgency === 'URGENT'
-                    ? 'border-l-rose-500 dark:border-l-rose-400'
-                    : 'border-l-amber-500 dark:border-l-amber-400',
-                  isApproved && 'border-l-[#0F766E] dark:border-l-teal-400 opacity-90'
-                )}
+      {/* Department Recruitment Requests Section - Modern Data Table */}
+      <Card className="border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-zinc-900/60">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                <Building className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                Đề xuất Tuyển dụng từ các Phòng ban ({deptRequests.length})
+              </h2>
+              <Badge
+                variant={deptRequests.some((r) => r.status === 'PENDING') ? 'warning' : 'outline'}
+                className="font-mono text-[11px] tabular-nums"
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="whitespace-nowrap font-mono text-[11px] font-medium text-[#415A54] dark:text-zinc-400">
-                      {req.request_code}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {req.urgency === 'URGENT' && (
-                        <Badge variant="danger" className="text-[10px]">Gấp</Badge>
-                      )}
-                      <Badge
-                        variant={isApproved ? 'teal' : isRejected ? 'muted' : 'warning'}
-                        className="text-[11px]"
-                      >
-                        {isApproved ? 'Đã duyệt & Lập tin' : isRejected ? 'Từ chối' : 'Chờ HR duyệt'}
-                      </Badge>
-                    </div>
-                  </div>
+                {deptRequests.filter((r) => r.status === 'PENDING').length} Chờ duyệt
+              </Badge>
+            </div>
+            <span className="text-xs text-[#5C7871] dark:text-zinc-400">
+              Tự động đồng bộ Real-time tới HR & Trưởng phòng
+            </span>
+          </div>
 
-                  <h3 className="mt-2 text-sm font-semibold leading-5 text-[#11221E] dark:text-zinc-100">
-                    {req.position_title}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
-                    {req.department_name} · Cấp bậc:{' '}
-                    <span className="font-medium text-[#11221E] dark:text-zinc-200">{req.level}</span> (SL: {req.quantity})
-                  </p>
+          <div className="overflow-x-auto rounded-lg border border-[#D5E3DF] dark:border-zinc-800">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F2F7F5] text-[#415A54] dark:bg-zinc-800/80 dark:text-zinc-300">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Mã ĐX</th>
+                  <th className="px-3 py-2 font-semibold">Vị trí & Cấp bậc</th>
+                  <th className="px-3 py-2 font-semibold">Phòng ban</th>
+                  <th className="px-3 py-2 font-semibold">Lý do tuyển dụng</th>
+                  <th className="px-3 py-2 font-semibold">Mức lương & Hạn</th>
+                  <th className="px-3 py-2 font-semibold">Người đề xuất</th>
+                  <th className="px-3 py-2 font-semibold text-center">Trạng thái</th>
+                  <th className="px-3 py-2 font-semibold text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800">
+                {deptRequests.map((req) => {
+                  const isPending = req.status === 'PENDING';
+                  const isApproved = req.status === 'APPROVED';
+                  const isRejected = req.status === 'REJECTED';
 
-                  <div className="mt-2 rounded-md bg-[#F2F7F5] p-2 text-xs text-[#415A54] dark:bg-zinc-800/60 dark:text-zinc-300">
-                    <div className="line-clamp-2">
-                      <span className="font-medium text-[#11221E] dark:text-zinc-200">Lý do: </span>
-                      {req.reason}
-                    </div>
-                    <div className="mt-1 flex items-center justify-between font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      <span>Lương: {req.expected_salary_range}</span>
-                      <span>Hạn: {formatDateVN(req.deadline_date)}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-[#D5E3DF] pt-3 text-xs dark:border-zinc-800/80">
-                    <span className="truncate text-[11px] text-[#5C7871] dark:text-zinc-400" title={req.requested_by_name}>
-                      Đề xuất: {req.requested_by_name.split(' (')[0]}
-                    </span>
-
-                    {isPending && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleRejectDeptRequest(req)}
-                          className="rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400"
+                  return (
+                    <tr
+                      key={req.id}
+                      className="hover:bg-[#F8FAF9] transition-colors dark:hover:bg-zinc-800/40"
+                    >
+                      <td className="px-3 py-2.5 font-mono text-[11px] font-medium text-[#415A54] dark:text-zinc-400 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          {req.urgency === 'URGENT' && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" title="Gấp" />
+                          )}
+                          {req.request_code}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="font-semibold text-[#11221E] dark:text-zinc-100">
+                          {req.position_title}
+                        </div>
+                        <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                          Cấp bậc: {req.level} · SL: <span className="font-semibold text-[#11221E] dark:text-zinc-200">{req.quantity}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-[#415A54] dark:text-zinc-300 whitespace-nowrap">
+                        {req.department_name}
+                      </td>
+                      <td className="px-3 py-2.5 max-w-[240px]">
+                        <p
+                          className="line-clamp-1 text-[#415A54] dark:text-zinc-300"
+                          title={req.reason}
                         >
-                          Từ chối
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleApproveDeptRequest(req)}
-                          className="rounded bg-[#0F766E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#0B5C56] dark:bg-teal-600 dark:hover:bg-teal-500"
+                          {req.reason}
+                        </p>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <div className="font-mono text-[11px] text-[#11221E] dark:text-zinc-200">
+                          {req.expected_salary_range}
+                        </div>
+                        <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                          Hạn: {formatDateVN(req.deadline_date)}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-[11px] text-[#5C7871] dark:text-zinc-400 whitespace-nowrap" title={req.requested_by_name}>
+                        {req.requested_by_name.split(' (')[0]}
+                      </td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                        <Badge
+                          variant={isApproved ? 'teal' : isRejected ? 'muted' : 'warning'}
+                          className="text-[10px]"
                         >
-                          Duyệt & Tạo tin
-                        </button>
-                      </div>
-                    )}
+                          {isApproved ? 'Đã lập tin' : isRejected ? 'Từ chối' : 'Chờ duyệt'}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        {isPending && (
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRejectDeptRequest(req)}
+                              className="rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400"
+                            >
+                              Từ chối
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveDeptRequest(req)}
+                              className="rounded bg-[#0F766E] px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-[#0B5C56] dark:bg-teal-600 dark:hover:bg-teal-500"
+                            >
+                              Duyệt & Tạo tin
+                            </button>
+                          </div>
+                        )}
+                        {isApproved && req.job_code_created && (
+                          <span className="font-mono text-[11px] font-semibold text-[#0F766E] dark:text-teal-400">
+                            ✓ {req.job_code_created}
+                          </span>
+                        )}
+                        {isRejected && (
+                          <span className="text-[11px] italic text-rose-600 dark:text-rose-400" title={req.rejection_reason}>
+                            Đã từ chối
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
-                    {isApproved && req.job_code_created && (
-                      <span className="font-mono text-[11px] font-semibold text-[#0F766E] dark:text-teal-400">
-                        ✓ {req.job_code_created}
-                      </span>
-                    )}
-
-                    {isRejected && (
-                      <span className="text-[11px] italic text-rose-600 dark:text-rose-400 truncate max-w-[140px]" title={req.rejection_reason}>
-                        {req.rejection_reason}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Job Postings Section */}
+      {/* Job Postings Section - Collapsible to Maximize Kanban Height */}
       <div className="space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-            <Briefcase className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-            Tin tuyển dụng đang mở ({jobs.length})
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+              <Briefcase className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+              Tin tuyển dụng đang mở ({jobs.length})
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowJobCards((prev) => !prev)}
+              className="h-7 text-xs text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              {showJobCards ? (
+                <>
+                  <ChevronUp className="h-3.5 w-3.5 mr-1" />
+                  Thu gọn thẻ tin
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                  Xem {jobs.length} thẻ tin chi tiết
+                </>
+              )}
+            </Button>
+          </div>
           <div className="w-full sm:w-64">
             <Select
               value={selectedJobId}
@@ -875,51 +920,53 @@ export function AtsView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {jobs.map((job) => {
-            const statusMeta = JOB_STATUS_BADGE[job.status];
-            const isSelected = selectedJobId === job.id;
-            return (
-              <Card
-                key={job.id}
-                onClick={() => setSelectedJobId(isSelected ? 'ALL' : job.id)}
-                className={cn(
-                  'cursor-pointer border-l-4 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF]/70 dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50',
-                  job.status === 'URGENT'
-                    ? 'border-l-rose-500 dark:border-l-rose-400'
-                    : job.status === 'OPEN'
-                    ? 'border-l-[#0F766E] dark:border-l-teal-400'
-                    : 'border-l-[#5C7871] dark:border-l-zinc-500',
-                  isSelected && 'border-[#0F766E] bg-[#E8F3EF]/80 ring-1 ring-[#0F766E]/25 dark:border-teal-400 dark:bg-zinc-900 dark:ring-teal-400/20'
-                )}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="whitespace-nowrap font-mono text-[11px] font-medium text-[#415A54] dark:text-zinc-400">
-                      {job.job_code}
-                    </span>
-                    <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
-                  </div>
-                  <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#11221E] dark:text-zinc-100">
-                    {job.title}
-                  </h3>
-                  <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                    {job.department_name} · {job.level}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between border-t border-[#D5E3DF] pt-3 text-xs dark:border-zinc-800/80">
-                    <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
-                      <Users className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
-                      {job.applicants_count} hồ sơ
-                    </span>
-                    <span className="font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
-                      Hạn: {formatDateVN(job.closing_date)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        {showJobCards && (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {jobs.map((job) => {
+              const statusMeta = JOB_STATUS_BADGE[job.status];
+              const isSelected = selectedJobId === job.id;
+              return (
+                <Card
+                  key={job.id}
+                  onClick={() => setSelectedJobId(isSelected ? 'ALL' : job.id)}
+                  className={cn(
+                    'cursor-pointer border-l-4 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF]/70 dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50',
+                    job.status === 'URGENT'
+                      ? 'border-l-rose-500 dark:border-l-rose-400'
+                      : job.status === 'OPEN'
+                      ? 'border-l-[#0F766E] dark:border-l-teal-400'
+                      : 'border-l-[#5C7871] dark:border-l-zinc-500',
+                    isSelected && 'border-[#0F766E] bg-[#E8F3EF]/80 ring-1 ring-[#0F766E]/25 dark:border-teal-400 dark:bg-zinc-900 dark:ring-teal-400/20'
+                  )}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="whitespace-nowrap font-mono text-[11px] font-medium text-[#415A54] dark:text-zinc-400">
+                        {job.job_code}
+                      </span>
+                      <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                    </div>
+                    <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-5 text-[#11221E] dark:text-zinc-100">
+                      {job.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                      {job.department_name} · {job.level}
+                    </p>
+                    <div className="mt-3 flex items-center justify-between border-t border-[#D5E3DF] pt-3 text-xs dark:border-zinc-800/80">
+                      <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
+                        <Users className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
+                        {job.applicants_count} hồ sơ
+                      </span>
+                      <span className="font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
+                        Hạn: {formatDateVN(job.closing_date)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 5-Column Kanban Board */}
@@ -933,11 +980,25 @@ export function AtsView() {
               </span>
             </h2>
             <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
-              Kéo thả hoặc dùng nút ‹ › để chuyển bước · Nhấn thẻ để xem hồ sơ
+              Kéo thả thẻ để chuyển bước · Nhấn thẻ để xem chi tiết và điều chuyển
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <div className="w-52">
+              <Select
+                value={selectedJobId}
+                onValueChange={setSelectedJobId}
+                options={[
+                  { label: `Tất cả vị trí (${candidates.length})`, value: 'ALL' },
+                  ...jobs.map((j) => ({
+                    label: `${j.job_code} — ${j.title}`,
+                    value: j.id,
+                  })),
+                ]}
+              />
+            </div>
+
             <div className="w-36">
               <Select
                 value={selectedSource}
@@ -960,7 +1021,7 @@ export function AtsView() {
               className="text-xs text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Đặt lại dữ liệu
+              Đặt lại
             </Button>
 
             <Button
@@ -975,18 +1036,16 @@ export function AtsView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-3">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch min-h-[480px]">
           {KANBAN_THREE_COLUMNS.map((col, colIdx) => {
             const colCandidates = filteredCandidates.filter((c) =>
               col.stages.includes(c.stage)
             );
             const offerCandidates = colCandidates.filter((c) => c.stage === 'OFFER');
             const onboardedCandidates = colCandidates.filter((c) => c.stage === 'ONBOARDED');
+            const isColCollapsed = Boolean(collapsedCols[col.id]);
 
             const renderCandidateCard = (cand: Candidate) => {
-              const isPrevDisabled = colIdx === 0;
-              const isNextDisabled = colIdx === 2 && cand.stage === 'ONBOARDED';
-
               return (
                 <div
                   key={cand.id}
@@ -995,7 +1054,7 @@ export function AtsView() {
                     e.dataTransfer.setData('text/plain', cand.id);
                   }}
                   onClick={() => setSelectedCandidate(cand)}
-                  className="cursor-pointer rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3.5 shadow-sm transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
+                  className="cursor-pointer rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3 shadow-sm transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-[#5C7871] dark:text-zinc-400">
@@ -1021,45 +1080,57 @@ export function AtsView() {
                   <div className="mt-2 text-sm font-bold text-[#11221E] dark:text-zinc-100">
                     {cand.full_name}
                   </div>
-                  <div className="mt-0.5 line-clamp-1 text-xs text-[#415A54] dark:text-zinc-400">
-                    {cand.job_title}
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-[#D5E3DF] pt-2 text-xs dark:border-zinc-800/80">
-                    <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      Nộp: {formatDateVN(cand.applied_date)}
-                    </span>
-                    <div
-                      className="inline-flex items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        disabled={isPrevDisabled}
-                        onClick={() => handleStepStage(cand, -1)}
-                        aria-label="Lùi bước trước"
-                        className="inline-flex h-6 w-6 items-center justify-center rounded border border-[#C6D9D3] bg-[#F2F7F5] text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#11221E] disabled:opacity-30 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isNextDisabled}
-                        onClick={() => handleStepStage(cand, 1)}
-                        aria-label={
-                          cand.stage === 'OFFER'
-                            ? 'Khai báo Onboarding & Tiếp nhận'
-                            : 'Chuyển bước tiếp theo'
-                        }
-                        className="inline-flex h-6 w-6 items-center justify-center rounded border border-[#C6D9D3] bg-[#F2F7F5] text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#11221E] disabled:opacity-30 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      </button>
+                  {selectedJobId === 'ALL' && (
+                    <div className="mt-0.5 line-clamp-1 text-xs text-[#415A54] dark:text-zinc-400">
+                      {cand.job_title}
                     </div>
+                  )}
+
+                  <div className="mt-2.5 flex items-center justify-between border-t border-[#D5E3DF] pt-2 text-xs dark:border-zinc-800/80">
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
+                      <Calendar className="h-3 w-3" strokeWidth={1.5} />
+                      {formatDateVN(cand.applied_date)}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400">
+                      Chi tiết ›
+                    </span>
                   </div>
                 </div>
               );
             };
+
+            if (isColCollapsed) {
+              return (
+                <div
+                  key={col.id}
+                  onClick={() => toggleColCollapse(col.id)}
+                  className={cn(
+                    'flex w-12 cursor-pointer flex-col items-center justify-between rounded-xl border border-[#C6D9D3] bg-[#E8F1EE]/80 py-4 hover:border-[#0F766E] dark:border-zinc-800/80 dark:bg-[#121214] transition-all shrink-0',
+                    col.topBorder
+                  )}
+                  title={`Mở rộng cột: ${col.label} (${colCandidates.length} hồ sơ)`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <span className={cn('h-2.5 w-2.5 rounded-full', col.dotColor)} />
+                    <span className="rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
+                      {colCandidates.length}
+                    </span>
+                  </div>
+                  <div
+                    className="py-6 text-xs font-semibold tracking-wider text-[#415A54] dark:text-zinc-400 select-none whitespace-nowrap"
+                    style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                  >
+                    {col.label}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400"
+                  >
+                    <PanelLeftOpen className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -1090,7 +1161,7 @@ export function AtsView() {
                   }
                 }}
                 className={cn(
-                  'flex flex-col rounded-xl border border-[#C6D9D3] bg-[#E8F1EE]/80 p-3 dark:border-zinc-800/80 dark:bg-[#121214]',
+                  'flex flex-1 flex-col rounded-xl border border-[#C6D9D3] bg-[#E8F1EE]/80 p-3 dark:border-zinc-800/80 dark:bg-[#121214] transition-all',
                   col.topBorder
                 )}
               >
@@ -1101,9 +1172,20 @@ export function AtsView() {
                       {col.label}
                     </h3>
                   </div>
-                  <span className="shrink-0 rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] font-medium text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-300">
-                    {colCandidates.length}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] font-medium text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-300">
+                      {colCandidates.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleColCollapse(col.id)}
+                      title={colCandidates.length === 0 ? "Thu gọn cột trống" : "Thu gọn cột"}
+                      aria-label="Thu gọn cột"
+                      className="rounded p-1 text-[#5C7871] hover:bg-[#D5E3DF] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    >
+                      <PanelLeftClose className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {col.id === 'col-offer-onboarded' ? (
@@ -1216,6 +1298,20 @@ export function AtsView() {
                 </Button>
 
                 <div className="flex items-center gap-2">
+                  {selectedCandidate.stage !== 'APPLIED' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        handleStepStage(selectedCandidate, -1);
+                        setSelectedCandidate(null);
+                      }}
+                      className="text-xs"
+                    >
+                      ‹ Lùi bước trước
+                    </Button>
+                  )}
+
                   {selectedCandidate.stage !== 'ONBOARDED' ? (
                     <Button
                       variant="primary"
@@ -1224,7 +1320,7 @@ export function AtsView() {
                         handleStepStage(selectedCandidate, 1);
                         setSelectedCandidate(null);
                       }}
-                      className="text-xs"
+                      className="text-xs font-semibold"
                     >
                       Chuyển bước tiếp theo →
                     </Button>
@@ -1244,7 +1340,7 @@ export function AtsView() {
                           entityId: matchedOnb?.id ?? selectedCandidate.candidate_code,
                         });
                       }}
-                      className="text-xs"
+                      className="text-xs font-semibold"
                     >
                       Xem Onboarding
                     </Button>

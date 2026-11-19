@@ -66,6 +66,24 @@
   - Thẻ ứng viên tại Cột 3 gắn badge chuyên biệt (`Đề nghị nhận việc` màu tím violet, `Đã nhận việc` màu xanh ngọc emerald) bên cạnh badge nguồn nộp.
   - Hỗ trợ đầy đủ kéo thả (HTML5 Native Drag-and-Drop) và điều hướng phím mũi tên ‹ › tuần tự giữa 3 cột; tại cột 3 nút › sẽ mở trực tiếp modal tiếp nhận Onboarding nếu ở bước đề nghị nhận việc.
   - Đồng bộ thông báo Real-time cho ứng viên và HR khi trạng thái được cập nhật qua 3 cột *(Hoàn thành)*.
+- **B1.5 (Tối ưu hóa UI/UX 4 Phương diện theo phản hồi người dùng):**
+  - **1. Tiến trình Xét duyệt Ứng viên (`/candidate`):**
+    - Chuyển 5 khối block cồng kềnh sang dạng **Linear Stepper** (đường kẻ ngang với các điểm mốc tròn kết nối, đánh dấu Check khi hoàn thành, vòng tròn highlight cho bước hiện tại).
+    - Hiển thị đoạn text mô tả chi tiết và các nút tương tác (Xác nhận/Dời lịch phỏng vấn, Nhận/Từ chối Offer) trong Active Callout Banner riêng biệt dưới thanh tiến trình.
+    - Đưa thông tin "Lương kỳ vọng" và "Nguồn nộp" lên phần Header ngay dưới tên vị trí ứng tuyển.
+    - Đưa nút "Rút hồ sơ" lên góc trên cùng bên phải ngang hàng với badge trạng thái để loại bỏ hoàn toàn block đáy dư thừa.
+  - **2. Bảng Đề xuất Tuyển dụng từ Phòng ban (`ats-view.tsx`):**
+    - Chuyển đổi toàn bộ cụm Card sang dạng **Data Table** chuyên nghiệp, quét thông tin nhanh, có badge gấp màu đỏ, trạng thái và cấp bậc rõ ràng.
+    - Dùng `line-clamp-1` kèm tooltip `title` cho lý do tuyển dụng, loại bỏ tình trạng tràn chữ.
+    - Nút thao tác "Từ chối" và "Duyệt & Tạo tin" thiết kế gọn gàng, giảm nhiễu thị giác.
+  - **3. Bảng Kanban ATS (`ats-view.tsx`):**
+    - Lược bỏ hoàn toàn các nút mũi tên ‹ và › trên mặt thẻ; chuyển thao tác điều chuyển bước vào bên trong Modal xem chi tiết (`‹ Lùi bước trước` và `Chuyển bước tiếp theo →`) hoặc kéo thả Drag-and-Drop.
+    - Bổ sung bộ lọc Vị trí tuyển dụng (Job Filter) lên toolbar trên cùng; khi chọn 1 vị trí cụ thể, tự động ẩn dòng tên vị trí trên mọi thẻ ứng viên để card ngắn lại.
+    - Tối giản Typography: thay chuỗi "Nộp: 16/11/2026" bằng icon lịch `<Calendar />` kèm ngày tháng.
+    - Hỗ trợ **Collapsible Columns**: cho phép thu gọn cột (đặc biệt cột 0 ứng viên) thành thanh dọc hẹp `w-12`, tự động mở rộng không gian hiển thị cho các cột còn lại.
+  - **4. Layout Tổng thể & Header:**
+    - Sidebar hỗ trợ thu gọn (Collapse mode `w-[68px]`, lưu trạng thái vào `localStorage`), mở rộng tối đa chiều ngang làm việc cho Kanban.
+    - Khối thẻ tin tuyển dụng phía trên Kanban được trang bị nút Thu gọn / Mở rộng (`showJobCards`), thu gọn vào Dropdown Selector gọn nhẹ, tiết kiệm 15-20% chiều cao màn hình *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

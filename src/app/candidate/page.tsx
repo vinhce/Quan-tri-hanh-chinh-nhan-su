@@ -286,27 +286,40 @@ export default function CandidatePortalPage() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Demo profile candidate or matched candidate
-  const currentCandidate = useMemo(() => {
-    if (candidates.length === 0) return null;
-    if (activeCandidate) {
-      const match = candidates.find((c) => c.id === activeCandidate.id);
-      if (match) return match;
-    }
+  // Current candidate email (from career application or login)
+  const candidateEmail = useMemo(() => {
     if (typeof window !== 'undefined') {
       const lastEmail = window.localStorage.getItem('lacviet_applied_candidate_email');
-      if (lastEmail) {
-        const match = candidates.find((c) => c.email.toLowerCase() === lastEmail.toLowerCase());
-        if (match) return match;
-      }
+      if (lastEmail) return lastEmail.toLowerCase().trim();
     }
     if (currentUserEmail && currentUserEmail !== 'ungvien@gmail.com') {
-      const match = candidates.find((c) => c.email.toLowerCase() === currentUserEmail.toLowerCase());
+      return currentUserEmail.toLowerCase().trim();
+    }
+    return null;
+  }, [currentUserEmail]);
+
+  // Only applications that belong to THIS candidate (isolated by email)
+  const myApplications = useMemo(() => {
+    if (candidates.length === 0) return [];
+    if (!candidateEmail) {
+      // Default demo profile for direct visit
+      const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
+      return defaultCand ? [defaultCand] : [];
+    }
+    const matched = candidates.filter((c) => c.email.toLowerCase().trim() === candidateEmail);
+    if (matched.length > 0) return matched;
+    const fallback = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
+    return fallback ? [fallback] : [];
+  }, [candidates, candidateEmail]);
+
+  const currentCandidate = useMemo(() => {
+    if (myApplications.length === 0) return null;
+    if (activeCandidate) {
+      const match = myApplications.find((c) => c.id === activeCandidate.id);
       if (match) return match;
     }
-    const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
-    return defaultCand ?? null;
-  }, [candidates, activeCandidate, currentUserEmail]);
+    return myApplications[0];
+  }, [myApplications, activeCandidate]);
 
   const syncCandidateData = useCallback(() => {
     const list = mergeWithRuntimeCandidates(MOCK_CANDIDATES);
@@ -815,31 +828,30 @@ export default function CandidatePortalPage() {
               </p>
             </div>
 
-            {/* Quick Demo Switcher */}
-            <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
-              <label className="text-[11px] font-semibold text-[#5C7871] dark:text-zinc-400">
-                Đang xem hồ sơ ứng viên:
-              </label>
-              <select
-                value={currentCandidate?.id || ''}
-                onChange={(e) => {
-                  const targetCand = candidates.find((c) => c.id === e.target.value);
-                  if (targetCand) {
-                    setActiveCandidate(targetCand);
-                    if (typeof window !== 'undefined') {
-                      window.localStorage.setItem('lacviet_applied_candidate_email', targetCand.email);
+            {/* Switcher ONLY if candidate applied for multiple positions under their own email */}
+            {myApplications.length > 1 && (
+              <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+                <label className="text-[11px] font-semibold text-[#5C7871] dark:text-zinc-400">
+                  Vị trí ứng tuyển của bạn ({myApplications.length}):
+                </label>
+                <select
+                  value={currentCandidate?.id || ''}
+                  onChange={(e) => {
+                    const targetCand = myApplications.find((c) => c.id === e.target.value);
+                    if (targetCand) {
+                      setActiveCandidate(targetCand);
                     }
-                  }
-                }}
-                className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-1.5 text-xs font-semibold text-[#11221E] shadow-2xs focus:border-[#0F766E] focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 cursor-pointer"
-              >
-                {candidates.map((cand) => (
-                  <option key={cand.id} value={cand.id}>
-                    {cand.candidate_code} - {cand.full_name} ({STAGE_META[cand.stage]?.label ?? cand.stage})
-                  </option>
-                ))}
-              </select>
-            </div>
+                  }}
+                  className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-1.5 text-xs font-semibold text-[#11221E] shadow-2xs focus:border-[#0F766E] focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 cursor-pointer"
+                >
+                  {myApplications.map((cand) => (
+                    <option key={cand.id} value={cand.id}>
+                      {cand.candidate_code} - {cand.job_title} ({STAGE_META[cand.stage]?.label ?? cand.stage})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 

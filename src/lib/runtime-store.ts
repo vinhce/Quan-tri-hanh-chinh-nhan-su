@@ -77,6 +77,13 @@ function writeStorageArray<T>(key: string, items: T[]): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(items));
     emitRuntimeUpdated();
+    if (typeof fetch === 'function') {
+      fetch('/api/hrm/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, items }),
+      }).catch(() => {});
+    }
   } catch {
     // Ignore storage quota or restricted mode errors
   }
@@ -1337,4 +1344,93 @@ export function resetAllDemoRuntimeData(): void {
   } catch {
     // Ignore storage errors
   }
+}
+
+// ---------------------------------------------------------------------------
+// Multi-Device Cross-Device Realtime Sync (PC <-> DevTunnels Mobile)
+// ---------------------------------------------------------------------------
+
+export function initRuntimeSync(): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const ALL_SYNC_KEYS = [
+    STORAGE_NOTIFICATIONS_KEY,
+    STORAGE_REQUESTS_KEY,
+    STORAGE_EMPLOYEES_KEY,
+    STORAGE_CANDIDATES_KEY,
+    STORAGE_JOBS_KEY,
+    STORAGE_ONBOARDING_KEY,
+    STORAGE_ASSETS_KEY,
+    STORAGE_DEPT_REQUESTS_KEY,
+  ];
+
+  const doSync = async () => {
+    try {
+      const res = await fetch('/api/hrm/sync');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.stores && typeof data.stores === 'object') {
+        let changed = false;
+        for (const [key, items] of Object.entries(data.stores)) {
+          if (items && Array.isArray(items)) {
+            const currentStr = window.localStorage.getItem(key);
+            const newStr = JSON.stringify(items);
+            if (currentStr !== newStr) {
+              window.localStorage.setItem(key, newStr);
+              changed = true;
+            }
+          }
+        }
+        if (changed) {
+          emitRuntimeUpdated();
+        }
+      }
+    } catch {
+      // Ignore network errors
+    }
+  };
+
+  // 1. Initial pull
+  doSync();
+
+  // 2. Initial push if server has empty store
+  const pushIfServerEmpty = async () => {
+    try {
+      const res = await fetch('/api/hrm/sync');
+      if (!res.ok) return;
+      const data = await res.json();
+      const serverStores = data?.stores || {};
+      const pushPayload: Record<string, unknown> = {};
+      for (const k of ALL_SYNC_KEYS) {
+        if (!serverStores[k] || (Array.isArray(serverStores[k]) && serverStores[k].length === 0)) {
+          const localVal = readStorageArray(k);
+          if (localVal && localVal.length > 0) {
+            pushPayload[k] = localVal;
+          }
+        }
+      }
+      if (Object.keys(pushPayload).length > 0) {
+        fetch('/api/hrm/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullSync: pushPayload }),
+        }).catch(() => {});
+      }
+    } catch {
+      // Ignore errors
+    }
+  };
+  pushIfServerEmpty();
+
+  // 3. Periodic polling every 3s + sync on focus/visibilitychange
+  const timer = setInterval(doSync, 3000);
+  const handleFocus = () => doSync();
+  window.addEventListener('focus', handleFocus);
+  document.addEventListener('visibilitychange', handleFocus);
+
+  return () => {
+    clearInterval(timer);
+    window.removeEventListener('focus', handleFocus);
+    document.removeEventListener('visibilitychange', handleFocus);
+  };
 }

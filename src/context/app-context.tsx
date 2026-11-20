@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { initRuntimeSync } from '@/lib/runtime-store';
 
 export type RoleCode =
   | 'SUPER_ADMIN'
@@ -166,6 +167,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore storage access errors in restricted environments
     }
+
+    // Initialize cross-device realtime sync (PC <-> Phone DevTunnel)
+    const cleanupSync = initRuntimeSync();
+    return () => {
+      cleanupSync();
+    };
   }, []);
 
   const setActiveNav = useCallback((id: string) => {

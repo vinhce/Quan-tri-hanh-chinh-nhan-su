@@ -359,6 +359,16 @@ export interface CandidateInterviewNote {
   rating?: number;
 }
 
+export interface CandidateInterviewSchedule {
+  date: string;
+  time: string;
+  format: 'Online' | 'Offline';
+  interviewer: string;
+  send_notification: boolean;
+  location_or_link: string;
+  scheduled_at?: string;
+}
+
 export interface Candidate {
   id: string;
   candidate_code: string;
@@ -377,6 +387,7 @@ export interface Candidate {
   ai_evaluation: CandidateAiEvaluation;
   notes?: CandidateInterviewNote[];
   cv_url?: string;
+  interview_schedule?: CandidateInterviewSchedule;
 }
 
 export interface RoleDefinition {

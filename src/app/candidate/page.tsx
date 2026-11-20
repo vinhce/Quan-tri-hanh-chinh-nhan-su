@@ -97,6 +97,177 @@ const STAGE_META: Record<
   },
 };
 
+type TimeGroupKey = 'Hôm nay' | 'Hôm qua' | 'Tuần trước' | 'Cũ hơn';
+const TIME_GROUP_ORDER: TimeGroupKey[] = ['Hôm nay', 'Hôm qua', 'Tuần trước', 'Cũ hơn'];
+
+function getTimeGroupKey(isoInput: string): TimeGroupKey {
+  const d = new Date(isoInput);
+  if (Number.isNaN(d.getTime())) return 'Cũ hơn';
+
+  const now = new Date();
+  const dateMid = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diffDays = Math.round((nowMid - dateMid) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) return 'Hôm nay';
+  if (diffDays === 1) return 'Hôm qua';
+  if (diffDays <= 7) return 'Tuần trước';
+  return 'Cũ hơn';
+}
+
+interface NotificationVisualMeta {
+  borderColor: string;
+  badgeLabel: string;
+  badgeClass: string;
+}
+
+function getNotificationVisualMeta(item: {
+  title: string;
+  message: string;
+  category?: string;
+}): NotificationVisualMeta {
+  const text = `${item.title} ${item.message}`.toLowerCase();
+
+  // 1. Phỏng vấn (Sky / Blue)
+  if (
+    text.includes('phỏng vấn') ||
+    text.includes('interview') ||
+    text.includes('lịch hẹn')
+  ) {
+    return {
+      borderColor: 'border-l-sky-500',
+      badgeLabel: 'Phỏng vấn',
+      badgeClass:
+        'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800/70 dark:bg-sky-950/50 dark:text-sky-300',
+    };
+  }
+
+  // 2. Sàng lọc (Amber)
+  if (
+    text.includes('sàng lọc') ||
+    text.includes('sơ loại') ||
+    text.includes('screened') ||
+    text.includes('ai_screened') ||
+    text.includes('hồ sơ mới')
+  ) {
+    return {
+      borderColor: 'border-l-amber-500',
+      badgeLabel: 'Sàng lọc',
+      badgeClass:
+        'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/50 dark:text-amber-300',
+    };
+  }
+
+  // 3. Đề nghị nhận việc (Violet)
+  if (
+    text.includes('đề nghị nhận việc') ||
+    text.includes('đề nghị việc') ||
+    text.includes('thư mời nhận việc') ||
+    text.includes('offer')
+  ) {
+    return {
+      borderColor: 'border-l-violet-500',
+      badgeLabel: 'Đề nghị việc',
+      badgeClass:
+        'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800/70 dark:bg-violet-950/50 dark:text-violet-300',
+    };
+  }
+
+  // 4. Từ chối / Thu hồi (Rose)
+  if (
+    text.includes('từ chối') ||
+    text.includes('thu hồi') ||
+    text.includes('rút hồ sơ') ||
+    text.includes('đã loại') ||
+    text.includes('bác bỏ') ||
+    text.includes('rejected') ||
+    text.includes('hủy')
+  ) {
+    return {
+      borderColor: 'border-l-rose-500',
+      badgeLabel:
+        text.includes('thu hồi') || text.includes('rút hồ sơ')
+          ? 'Thu hồi'
+          : 'Từ chối',
+      badgeClass:
+        'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800/70 dark:bg-rose-950/50 dark:text-rose-300',
+    };
+  }
+
+  // 5. Đã nhận việc / Duyệt (Emerald)
+  if (
+    text.includes('đã nhận việc') ||
+    text.includes('onboarded') ||
+    text.includes('tiếp nhận') ||
+    text.includes('hội nhập') ||
+    text.includes('tuyển dụng') ||
+    text.includes('phê duyệt') ||
+    text.includes('đã duyệt') ||
+    text.includes('hoàn tất')
+  ) {
+    const isApproval = text.includes('phê duyệt') || text.includes('đã duyệt');
+    return {
+      borderColor: 'border-l-emerald-500',
+      badgeLabel: isApproval ? 'Đã duyệt' : 'Đã nhận việc',
+      badgeClass:
+        'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/50 dark:text-emerald-300',
+    };
+  }
+
+  return {
+    borderColor: 'border-l-teal-500',
+    badgeLabel: 'Thông báo',
+    badgeClass:
+      'border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-800/70 dark:bg-teal-950/50 dark:text-teal-300',
+  };
+}
+
+function renderNotificationMessage(rawMessage: string) {
+  // 1. Xóa bỏ triệt để các câu chào lặp lại vô nghĩa như 'Chào Đinh Tuấn Kiệt...', 'Chào dasdasdasdasd...'
+  let message = rawMessage
+    .replace(/^(?:Xin\s+chào|Chào)\s+[^,!.:\n]+[,!.:]\s*/i, '')
+    .trim();
+
+  if (message.length > 0) {
+    message = message.charAt(0).toUpperCase() + message.slice(1);
+  }
+
+  // 2. Làm nổi bật tên vị trí công việc: In đậm chữ trắng sáng cho tên vị trí
+  if (!message.includes('**')) {
+    if (/(?:vị trí|chức danh)\s+/i.test(message)) {
+      message = message.replace(
+        /((?:vị trí|chức danh)\s+)([^,.\n]+?)(?=\s+(?:của bạn|đã|đang|vừa|\.|$))/i,
+        '$1**$2**'
+      );
+    } else if (/^Hồ sơ\s+(?!của\s+)/i.test(message)) {
+      message = message.replace(
+        /^(Hồ sơ\s+)([^,.\n]+?)(?=\s+(?:đã|đang|vừa|của bạn|\.|$))/i,
+        '$1**$2**'
+      );
+    }
+  }
+
+  // 3. Phân tách và render Typography
+  const parts = message.split(/\*\*(.*?)\*\*/g);
+  if (parts.length === 1) {
+    return message;
+  }
+
+  return parts.map((part, index) => {
+    if (index % 2 === 1) {
+      return (
+        <strong
+          key={index}
+          className="font-semibold text-[#11221E] dark:text-white"
+        >
+          {part}
+        </strong>
+      );
+    }
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
 export default function CandidatePortalPage() {
   const router = useRouter();
   const { role, theme, toggleTheme, currentUserEmail, currentUserProfile, showToast } = useApp();
@@ -161,6 +332,20 @@ export default function CandidatePortalPage() {
     () => notifications.filter((n) => !n.isRead).length,
     [notifications]
   );
+
+  const groupedNotifications = useMemo(() => {
+    const map: Record<TimeGroupKey, (HrmNotification & { isRead: boolean })[]> = {
+      'Hôm nay': [],
+      'Hôm qua': [],
+      'Tuần trước': [],
+      'Cũ hơn': [],
+    };
+    notifications.forEach((item) => {
+      const key = getTimeGroupKey(item.created_at);
+      map[key].push(item);
+    });
+    return map;
+  }, [notifications]);
 
   const handleMarkAllRead = () => {
     markAllNotificationsRead('CANDIDATE', currentCandidate?.candidate_code || '');
@@ -272,8 +457,8 @@ export default function CandidatePortalPage() {
               </button>
 
               {isNotiOpen && (
-                <div className="absolute right-0 top-11 z-50 w-80 sm:w-96 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="mb-2 flex items-center justify-between border-b border-[#D5E3DF] pb-2 dark:border-zinc-800">
+                <div className="absolute right-0 top-11 z-50 w-80 sm:w-96 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-0 shadow-xl overflow-hidden dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="flex items-center justify-between border-b border-[#D5E3DF] px-3.5 py-2.5 bg-[#F2F7F5] dark:border-zinc-800 dark:bg-zinc-950/50">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-[#11221E] dark:text-zinc-100">
                       <Bell className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
                       Thông báo tiến độ hồ sơ ({unreadCount} mới)
@@ -289,34 +474,96 @@ export default function CandidatePortalPage() {
                     )}
                   </div>
 
-                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  <div className="max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-[#5C7871] dark:text-zinc-500">
+                      <div className="p-6 text-center text-xs text-[#5C7871] dark:text-zinc-500">
                         Chưa có thông báo nào
                       </div>
                     ) : (
-                      notifications.slice(0, 15).map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => handleMarkSingleRead(n.id)}
-                          className={cn(
-                            'cursor-pointer rounded-lg p-2.5 text-xs transition-colors',
-                            !n.isRead
-                              ? 'border-l-2 border-l-[#0F766E] bg-[#E8F3EF]/70 font-medium text-[#11221E] dark:border-l-teal-400 dark:bg-teal-950/40 dark:text-zinc-100'
-                              : 'text-[#415A54] hover:bg-[#F2F7F5] dark:text-zinc-400 dark:hover:bg-zinc-800/50'
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold text-[#11221E] dark:text-zinc-100">{n.title}</span>
-                            <span className="shrink-0 font-mono text-[10px] text-[#5C7871] dark:text-zinc-500">
-                              {new Date(n.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[11px] leading-relaxed text-[#415A54] dark:text-zinc-300">
-                            {n.message}
-                          </p>
-                        </div>
-                      ))
+                      <div>
+                        {TIME_GROUP_ORDER.map((groupKey) => {
+                          const items = groupedNotifications[groupKey];
+                          if (items.length === 0) return null;
+
+                          return (
+                            <div key={groupKey}>
+                              {/* Vạch ngăn cách text nhỏ theo thời gian */}
+                              <div className="sticky top-0 z-10 flex items-center gap-2 border-y border-[#D5E3DF]/80 bg-[#F2F7F5]/95 px-3.5 py-1 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#5C7871] dark:text-zinc-400">
+                                  {groupKey}
+                                </span>
+                                <span className="h-px flex-1 bg-[#D5E3DF] dark:bg-zinc-800" />
+                                <span className="font-mono text-[10px] text-[#5C7871] dark:text-zinc-500">
+                                  {items.length}
+                                </span>
+                              </div>
+
+                              <div className="divide-y divide-[#E4EEEB] dark:divide-zinc-800/60">
+                                {items.map((n) => {
+                                  const visual = getNotificationVisualMeta(n);
+
+                                  return (
+                                    <div
+                                      key={n.id}
+                                      onClick={() => handleMarkSingleRead(n.id)}
+                                      className={cn(
+                                        'group relative flex cursor-pointer flex-col items-start border-l-4 px-3.5 py-2.5 text-xs transition-colors',
+                                        visual.borderColor,
+                                        !n.isRead
+                                          ? 'bg-[#E8F3EF]/60 hover:bg-[#E8F3EF] dark:bg-white/5 dark:hover:bg-slate-800/50'
+                                          : 'bg-[#FCFEFD] hover:bg-[#F2F7F5] dark:bg-transparent dark:hover:bg-zinc-800/40'
+                                      )}
+                                    >
+                                      {/* Unread Dot ở góc phải trên */}
+                                      {!n.isRead && (
+                                        <span
+                                          aria-label="Chưa đọc"
+                                          className="absolute right-3.5 top-3 h-2 w-2 rounded-full bg-[#0F766E] shadow-sm ring-2 ring-white dark:bg-sky-400 dark:ring-zinc-900"
+                                        />
+                                      )}
+
+                                      {/* Text Badge nhỏ bo góc ghi trạng thái + Thời gian */}
+                                      <div className="flex w-full items-center justify-between gap-2 pr-4">
+                                        <span
+                                          className={cn(
+                                            'inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold',
+                                            visual.badgeClass
+                                          )}
+                                        >
+                                          {visual.badgeLabel}
+                                        </span>
+                                        <span className="font-mono text-[10.5px] text-[#5C7871] dark:text-zinc-500">
+                                          {new Date(n.created_at).toLocaleTimeString('vi-VN', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                          })}
+                                        </span>
+                                      </div>
+
+                                      {/* Tiêu đề thông báo */}
+                                      <span
+                                        className={cn(
+                                          'mt-1 line-clamp-1 block text-xs',
+                                          !n.isRead
+                                            ? 'font-semibold text-[#11221E] dark:text-zinc-100'
+                                            : 'font-medium text-[#415A54] dark:text-zinc-300'
+                                        )}
+                                      >
+                                        {n.title}
+                                      </span>
+
+                                      {/* Nội dung thông báo nhấn mạnh Typography */}
+                                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-[#415A54] dark:text-zinc-400">
+                                        {renderNotificationMessage(n.message)}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>

@@ -96,6 +96,19 @@
   - **3. Dropdown Trạng thái linh hoạt**: Bỏ nút "Đóng" đáy dư thừa và 2 nút cứng tiến/lùi; tích hợp Dropdown Select 6 trạng thái (`APPLIED`, `AI_SCREENED`, `INTERVIEW`, `OFFER`, `ONBOARDED`, `REJECTED`), cho phép HR nhảy cóc bước hoặc loại hồ sơ nhanh chỉ với 1 click.
   - **4. Thao tác Cốt lõi (Core Actions)**: Bổ sung 2 nút hành động nổi bật: "Xem CV" (mở modal CV Preview chi tiết và tải tệp) và "Thêm đánh giá/Ghi chú" (nhập nhận xét phỏng vấn, đánh giá sao 1-5, lưu thời gian thực).
   - **5. Copy Câu hỏi Phỏng vấn 1-click**: Thêm icon Copy ở từng câu hỏi phỏng vấn gợi ý, click để copy vào Clipboard (với hiệu ứng Check xanh trong 2s) dán trực tiếp vào Google Meet/Zoom *(Hoàn thành)*.
+- **B1.8 (Intercept Kéo thả Phỏng vấn, Xóa Câu hỏi Gợi ý & Chuẩn hóa UI Thông báo - Swarm verified):**
+  - **1. Xóa bỏ Khối Câu hỏi Phỏng vấn Gợi ý**: Đã gỡ bỏ hoàn toàn danh sách 3 câu hỏi gợi ý và nút copy khỏi Side-Drawer chi tiết ứng viên theo yêu cầu; thay thế bằng hiển thị chi tiết lịch phỏng vấn khi hồ sơ đã được lên lịch.
+  - **2. Intercept Kéo thả Xếp lịch Phỏng vấn (`ats-view.tsx`)**:
+    - Khi kéo thẻ vào cột "Phỏng vấn", hệ thống lập tức chặn lưu trạng thái tự động và kích hoạt Modal "Lên lịch phỏng vấn".
+    - Form đầy đủ các trường: Ngày (date), Giờ (time), Hình thức (Online/Offline), Người phỏng vấn, Checkbox bật mặc định "Gửi thông báo & email cho ứng viên", Link họp / Địa điểm.
+    - HR bấm "Xác nhận & Gửi thông báo" mới chính thức cập nhật thẻ sang `INTERVIEW`, lưu bản ghi `interview_schedule` và kích hoạt notification thời gian thực tới ứng viên.
+    - Cơ chế Rollback: Nếu HR bấm "Hủy", tắt modal, phím Esc hoặc click ngoài backdrop mà chưa xác nhận, thẻ lập tức giật quay ngược về đúng vị trí cột ban đầu trước khi kéo.
+  - **3. Chuẩn hóa Giao diện Thông báo Tuyển dụng & Ứng viên (`header.tsx` & `candidate/page.tsx`)**:
+    - **Left Accent Border 4px**: Dải màu viền cạnh trái thay thế icon cồng kềnh (`border-l-sky-500` cho Phỏng vấn, `border-l-amber-500` cho Sàng lọc, `border-l-violet-500` cho Đề nghị, `border-l-emerald-500` cho Đã nhận việc / Duyệt, `border-l-rose-500` cho Từ chối).
+    - **Text Badge Trạng thái**: Badge nhỏ bo góc hiển thị rõ loại thông báo đặt ngay trên đầu đoạn nội dung.
+    - **Typography & Bỏ câu chào lặp**: Xóa triệt để các câu chào thừa thãi ("Chào Đinh Tuấn Kiệt...", "Chào dasdas..."), in đậm chữ sáng cho tên vị trí công việc.
+    - **Phân biệt Chưa đọc**: Đổ lớp nền mờ (`bg-[#E8F3EF]/60` hoặc `dark:bg-white/5`) kèm chấm tròn xanh (Unread dot) ở góc phải.
+    - **Gộp nhóm thời gian (Time Grouping)**: Tự động phân lô hiển thị "Hôm nay", "Hôm qua", "Tuần trước", "Cũ hơn" giúp danh sách có nhịp điệu và quét thông tin nhanh *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

@@ -546,6 +546,8 @@ export default function CandidatePortalPage() {
       current_company: `${currentCandidate.current_company} · [ỨNG VIÊN ĐÃ RÚT HỒ SƠ: ${actionReason || 'Nguyện vọng cá nhân'}]`,
     };
     saveRuntimeCandidate(updated);
+    setActiveCandidate(updated);
+    setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     setActionModal(null);
     setActionReason('');
     showToast(
@@ -860,7 +862,8 @@ export default function CandidatePortalPage() {
                       <button
                         type="button"
                         onClick={() => setActionModal('withdraw')}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/50 transition-all shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/50 transition-all shadow-sm cursor-pointer"
+                        title="Rút hồ sơ ứng tuyển vị trí này"
                       >
                         <XCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
                         Rút hồ sơ
@@ -871,13 +874,21 @@ export default function CandidatePortalPage() {
                         Đã rút hồ sơ
                       </span>
                     ) : (
-                      <span
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-[#5C7871]/70 dark:text-zinc-500 cursor-not-allowed select-none"
-                        title="Hồ sơ đã bước vào giai đoạn phỏng vấn/xét tuyển chuyên sâu, không thể rút hồ sơ trực tuyến."
+                      <button
+                        type="button"
+                        onClick={() => {
+                          showToast(
+                            'Không thể rút hồ sơ',
+                            'Hồ sơ của bạn đã bước vào vòng phỏng vấn/xét tuyển chuyên sâu (bước 3/5). Theo quy định, không thể tự rút hồ sơ trực tuyến ở giai đoạn này.',
+                            'warning'
+                          );
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-100/80 px-2.5 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-200/70 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+                        title="Hồ sơ đã bước vào giai đoạn phỏng vấn/xét tuyển chuyên sâu. Nhấp để xem chi tiết."
                       >
-                        <ShieldCheck className="h-3.5 w-3.5 text-[#0F766E]/70 dark:text-teal-400/70" />
+                        <ShieldCheck className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
                         Đang phỏng vấn/xét tuyển (Không thể rút)
-                      </span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1255,7 +1266,11 @@ export default function CandidatePortalPage() {
                 else if (actionModal === 'withdraw') handleWithdraw();
               }}
             >
-              {actionModal === 'interview' ? 'Gửi yêu cầu dời lịch' : 'Xác nhận gửi phản hồi'}
+              {actionModal === 'interview'
+                ? 'Gửi yêu cầu dời lịch'
+                : actionModal === 'withdraw'
+                ? 'Xác nhận rút hồ sơ'
+                : 'Xác nhận gửi phản hồi'}
             </Button>
           </DialogFooter>
         </DialogContent>

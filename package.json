@@ -16,8 +16,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:unit": "node scripts/test-hrm.mjs",
-    "test:workflows": "node scripts/test-recruitment-workflows.mjs",
-    "test": "node scripts/test-hrm.mjs && node scripts/test-recruitment-workflows.mjs"
+    "test:recruitment": "node scripts/test-recruitment-workflows.mjs",
+    "test:all-workflows": "node scripts/test-all-system-workflows.mjs",
+    "test": "node scripts/test-hrm.mjs && node scripts/test-recruitment-workflows.mjs && node scripts/test-all-system-workflows.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

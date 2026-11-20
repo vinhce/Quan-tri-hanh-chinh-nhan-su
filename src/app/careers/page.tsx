@@ -26,11 +26,13 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { MOCK_JOB_POSTINGS } from '@/mock/ats';
+import { MOCK_JOB_POSTINGS, MOCK_CANDIDATES } from '@/mock/ats';
 import type { Candidate, JobPosting } from '@/mock/types';
+import { useApp } from '@/context/app-context';
 import {
   getJobPostings,
   HRM_RUNTIME_EVENT,
+  mergeWithRuntimeCandidates,
   pushNotification,
   saveRuntimeCandidate,
 } from '@/lib/runtime-store';
@@ -61,10 +63,20 @@ const DEPARTMENT_FILTERS = [
 const LEVEL_FILTERS = ['ALL', 'Senior', 'Mid - Senior', 'Mid', 'Lead'];
 
 export default function CareersPage() {
+  const { currentUserEmail } = useApp();
   const [jobs, setJobs] = useState<JobPosting[]>(MOCK_JOB_POSTINGS);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedLevel, setSelectedLevel] = useState('ALL');
+
+  // Active Application Restriction Modal
+  const [blockedNotice, setBlockedNotice] = useState<{
+    type: 'must_withdraw' | 'locked_interview';
+    currentJobTitle: string;
+    currentJobCode: string;
+    stageLabel: string;
+  } | null>(null);
 
   // Job detail / Apply modal
   const [activeJob, setActiveJob] = useState<JobPosting | null>(null);
@@ -90,19 +102,53 @@ export default function CareersPage() {
     email: string;
   } | null>(null);
 
-  const syncJobs = useCallback(() => {
+  const syncJobsAndCandidates = useCallback(() => {
     setJobs(getJobPostings(MOCK_JOB_POSTINGS));
+    setCandidates(mergeWithRuntimeCandidates(MOCK_CANDIDATES));
   }, []);
 
   useEffect(() => {
-    syncJobs();
-    window.addEventListener(HRM_RUNTIME_EVENT, syncJobs);
-    window.addEventListener('storage', syncJobs);
+    syncJobsAndCandidates();
+    window.addEventListener(HRM_RUNTIME_EVENT, syncJobsAndCandidates);
+    window.addEventListener('storage', syncJobsAndCandidates);
     return () => {
-      window.removeEventListener(HRM_RUNTIME_EVENT, syncJobs);
-      window.removeEventListener('storage', syncJobs);
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncJobsAndCandidates);
+      window.removeEventListener('storage', syncJobsAndCandidates);
     };
-  }, [syncJobs]);
+  }, [syncJobsAndCandidates]);
+
+  // Derive candidate's active application (not rejected / withdrawn)
+  const activeCandidate = useMemo(() => {
+    if (candidates.length === 0) return null;
+
+    // 1. Session applied candidate
+    const lastAppliedEmail =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('lacviet_applied_candidate_email')
+        : null;
+    if (lastAppliedEmail) {
+      const match = candidates.find(
+        (c) => c.email.toLowerCase() === lastAppliedEmail.toLowerCase() && c.stage !== 'REJECTED'
+      );
+      if (match) return match;
+    }
+
+    // 2. Logged-in email
+    if (currentUserEmail && currentUserEmail !== 'ungvien@gmail.com') {
+      const match = candidates.find(
+        (c) => c.email.toLowerCase() === currentUserEmail.toLowerCase() && c.stage !== 'REJECTED'
+      );
+      if (match) return match;
+    }
+
+    // 3. Default Candidate UV-2026-104 (Đinh Tuấn Kiệt - matches candidate portal)
+    const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104');
+    if (defaultCand && defaultCand.stage !== 'REJECTED') {
+      return defaultCand;
+    }
+
+    return null;
+  }, [candidates, currentUserEmail]);
 
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -120,10 +166,63 @@ export default function CareersPage() {
     });
   }, [jobs, selectedDept, selectedLevel, searchQuery]);
 
-  const handleOpenJob = (job: JobPosting, _tab: 'jd' | 'apply' = 'jd') => {
+  const handleOpenJob = (job: JobPosting, tab: 'jd' | 'apply' = 'jd') => {
+    if (tab === 'apply') {
+      if (activeCandidate) {
+        const isCurrentJob =
+          activeCandidate.job_id === job.id || activeCandidate.job_code === job.job_code;
+        if (!isCurrentJob) {
+          const isInterviewOrLater = ['INTERVIEW', 'OFFER', 'ONBOARDED'].includes(
+            activeCandidate.stage
+          );
+          setBlockedNotice({
+            type: isInterviewOrLater ? 'locked_interview' : 'must_withdraw',
+            currentJobTitle: activeCandidate.job_title,
+            currentJobCode: activeCandidate.job_code,
+            stageLabel:
+              activeCandidate.stage === 'INTERVIEW'
+                ? 'Phỏng vấn chuyên môn'
+                : activeCandidate.stage === 'OFFER'
+                ? 'Đề nghị nhận việc'
+                : activeCandidate.stage === 'ONBOARDED'
+                ? 'Đã nhận việc'
+                : 'Đang sàng lọc hồ sơ',
+          });
+          return;
+        }
+      }
+    }
     setActiveJob(job);
-    setModalTab('jd'); // Bắt buộc mở Mô tả công việc (JD) trước theo yêu cầu người dùng
+    setModalTab(tab);
     setFormErrors({});
+  };
+
+  const handleProceedToApply = () => {
+    if (!activeJob) return;
+    if (activeCandidate) {
+      const isCurrentJob =
+        activeCandidate.job_id === activeJob.id || activeCandidate.job_code === activeJob.job_code;
+      if (!isCurrentJob) {
+        const isInterviewOrLater = ['INTERVIEW', 'OFFER', 'ONBOARDED'].includes(
+          activeCandidate.stage
+        );
+        setBlockedNotice({
+          type: isInterviewOrLater ? 'locked_interview' : 'must_withdraw',
+          currentJobTitle: activeCandidate.job_title,
+          currentJobCode: activeCandidate.job_code,
+          stageLabel:
+            activeCandidate.stage === 'INTERVIEW'
+              ? 'Phỏng vấn chuyên môn'
+              : activeCandidate.stage === 'OFFER'
+              ? 'Đề nghị nhận việc'
+              : activeCandidate.stage === 'ONBOARDED'
+              ? 'Đã nhận việc'
+              : 'Đang sàng lọc hồ sơ',
+        });
+        return;
+      }
+    }
+    setModalTab('apply');
   };
 
   const handleCloseJob = () => {
@@ -151,7 +250,36 @@ export default function CareersPage() {
     e.preventDefault();
     if (!activeJob) return;
 
-    // Bỏ qua validate hoàn toàn theo yêu cầu người dùng
+    // Strict validation of personal information
+    const errors: Record<string, string> = {};
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.fullName = 'Vui lòng nhập họ và tên (tối thiểu 2 ký tự)';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      errors.email = 'Vui lòng nhập địa chỉ email';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errors.email = 'Định dạng email không hợp lệ (ví dụ: name@company.com)';
+    }
+
+    const phoneRegex = /^[0-9+() -]{9,15}$/;
+    if (!trimmedPhone) {
+      errors.phone = 'Vui lòng nhập số điện thoại liên hệ';
+    } else if (!phoneRegex.test(trimmedPhone)) {
+      errors.phone = 'Số điện thoại không hợp lệ (9 - 15 chữ số)';
+    }
+
+    // CV upload is optional per user rule ("chi ko validate cai upload cv thoi")
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     setFormErrors({});
     setIsSubmitting(true);
 
@@ -159,9 +287,9 @@ export default function CareersPage() {
     const candidateCode = `UV-2026-${candidateSeq}`;
     const candidateId = `cand-${Date.now()}`;
     const parsedSalary = Number(expectedSalary) || activeJob.salary_range_min_vnd;
-    const finalFullName = fullName.trim() || 'Nguyễn Văn A';
-    const finalEmail = email.trim() || 'candidate.demo@lacviet.com.vn';
-    const finalPhone = phone.trim() || '0912345678';
+    const finalFullName = trimmedName;
+    const finalEmail = trimmedEmail;
+    const finalPhone = trimmedPhone;
 
     const newCandidate: Candidate = {
       id: candidateId,
@@ -180,7 +308,7 @@ export default function CareersPage() {
       current_company: currentCompany.trim() || 'Ứng viên tự do',
       ai_evaluation: {
         match_score: 91,
-        education_fit: 'Phù hợp xuất sắc yêu cầu vị trí',
+        education_fit: 'Phù hợp yêu cầu vị trí',
         experience_years: 3,
         key_skills_matched: ['Kỹ năng chuyên môn', 'Kinh nghiệm dự án thực tế'],
         strengths: [
@@ -199,6 +327,11 @@ export default function CareersPage() {
     };
 
     saveRuntimeCandidate(newCandidate);
+    try {
+      window.localStorage.setItem('lacviet_applied_candidate_email', finalEmail);
+    } catch {
+      // Ignore storage errors
+    }
 
     pushNotification({
       title: `Ứng viên mới nộp hồ sơ (${candidateCode})`,
@@ -464,15 +597,30 @@ export default function CareersPage() {
                   <FileText className="mr-1.5 h-3.5 w-3.5 text-[#0F766E]" />
                   Xem mô tả JD
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="flex-1 text-xs font-semibold shadow-sm"
-                  onClick={() => handleOpenJob(job, 'jd')}
-                >
-                  Ứng tuyển ngay
-                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                </Button>
+                {activeCandidate &&
+                (activeCandidate.job_id === job.id || activeCandidate.job_code === job.job_code) ? (
+                  <Link href="/candidate" className="flex-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-emerald-500 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-bold dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-sm"
+                      title="Bạn đã ứng tuyển vị trí này. Nhấp để theo dõi tiến trình tại Cổng ứng viên."
+                    >
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      Đã ứng tuyển
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="flex-1 text-xs font-semibold shadow-sm"
+                    onClick={() => handleOpenJob(job, 'apply')}
+                  >
+                    Ứng tuyển ngay
+                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </Card>
           ))}
@@ -655,14 +803,29 @@ export default function CareersPage() {
                       <p className="text-xs text-[#5C7871] dark:text-zinc-400">
                         Đã nắm rõ yêu cầu? Tiếp tục sang bước nộp hồ sơ ứng tuyển.
                       </p>
-                      <Button
-                        variant="primary"
-                        onClick={() => setModalTab('apply')}
-                        className="text-xs font-semibold shadow-sm"
-                      >
-                        Tiến hành nộp hồ sơ ứng tuyển
-                        <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                      </Button>
+                      {activeCandidate &&
+                      (activeCandidate.job_id === activeJob.id || activeCandidate.job_code === activeJob.job_code) ? (
+                        <Link href="/candidate">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-emerald-500 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-bold dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-sm"
+                          >
+                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            Đã ứng tuyển vị trí này
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={handleProceedToApply}
+                          className="text-xs font-semibold shadow-sm"
+                        >
+                          Tiến hành nộp hồ sơ ứng tuyển
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -670,42 +833,81 @@ export default function CareersPage() {
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                          Họ và tên
+                          Họ và tên <span className="text-rose-500">*</span>
                         </label>
                         <Input
                           value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Nguyễn Văn A"
-                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          onChange={(e) => {
+                            setFullName(e.target.value);
+                            if (formErrors.fullName) {
+                              setFormErrors((prev) => ({ ...prev, fullName: '' }));
+                            }
+                          }}
+                          placeholder="Nhập họ và tên đầy đủ"
+                          className={cn(
+                            'mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100',
+                            formErrors.fullName && 'border-rose-500 focus-visible:ring-rose-500/20'
+                          )}
                         />
+                        {formErrors.fullName && (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                            {formErrors.fullName}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                          Địa chỉ Email
+                          Địa chỉ Email <span className="text-rose-500">*</span>
                         </label>
                         <Input
                           type="email"
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (formErrors.email) {
+                              setFormErrors((prev) => ({ ...prev, email: '' }));
+                            }
+                          }}
                           placeholder="email@example.com"
-                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className={cn(
+                            'mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100',
+                            formErrors.email && 'border-rose-500 focus-visible:ring-rose-500/20'
+                          )}
                         />
+                        {formErrors.email && (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                            {formErrors.email}
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                          Số điện thoại
+                          Số điện thoại <span className="text-rose-500">*</span>
                         </label>
                         <Input
                           type="tel"
                           value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
+                          onChange={(e) => {
+                            setPhone(e.target.value);
+                            if (formErrors.phone) {
+                              setFormErrors((prev) => ({ ...prev, phone: '' }));
+                            }
+                          }}
                           placeholder="0912 345 678"
-                          className="mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className={cn(
+                            'mt-1 text-xs border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100',
+                            formErrors.phone && 'border-rose-500 focus-visible:ring-rose-500/20'
+                          )}
                         />
+                        {formErrors.phone && (
+                          <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                            {formErrors.phone}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -724,7 +926,7 @@ export default function CareersPage() {
 
                     <div>
                       <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                        Đơn vị công tác hiện tại / Gần nhất
+                        Đơn vị công tác hiện tại / Gần nhất (Tùy chọn)
                       </label>
                       <Input
                         value={currentCompany}
@@ -734,10 +936,10 @@ export default function CareersPage() {
                       />
                     </div>
 
-                    {/* File Upload Dropzone */}
+                    {/* File Upload Dropzone - Optional */}
                     <div>
                       <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-                        Đính kèm tệp CV (Tùy chọn - có thể bỏ qua khi thử nghiệm)
+                        Đính kèm tệp CV (Tùy chọn - không bắt buộc)
                       </label>
                       <div className="mt-1.5 rounded-xl border-2 border-dashed border-[#C6D9D3] bg-[#EFF5F3] p-5 text-center transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800/60">
                         <input
@@ -840,6 +1042,82 @@ export default function CareersPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Active Application Restriction Dialog */}
+      <Dialog
+        open={Boolean(blockedNotice)}
+        onOpenChange={(open) => !open && setBlockedNotice(null)}
+      >
+        <DialogContent className="max-w-md border border-[#C6D9D3] bg-[#FCFEFD] text-left dark:border-zinc-800 dark:bg-zinc-900 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-[#11221E] dark:text-zinc-100">
+              <ShieldCheck className="h-5 w-5 text-[#0F766E] dark:text-teal-400" />
+              {blockedNotice?.type === 'locked_interview'
+                ? 'Không thể ứng tuyển vị trí khác'
+                : 'Bạn đang có hồ sơ ứng tuyển hoạt động'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#5C7871] dark:text-zinc-400">
+              Quy định xét duyệt hồ sơ ứng viên tại Lạc Việt HRM
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 text-xs leading-relaxed text-[#415A54] dark:text-zinc-300">
+            {blockedNotice?.type === 'locked_interview' ? (
+              <div className="space-y-3">
+                <p>
+                  Hồ sơ ứng tuyển vị trí{' '}
+                  <strong className="text-[#11221E] dark:text-zinc-100">
+                    {blockedNotice.currentJobTitle}
+                  </strong>{' '}
+                  ({blockedNotice.currentJobCode}) của bạn hiện đang ở giai đoạn{' '}
+                  <span className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
+                    {blockedNotice.stageLabel}
+                  </span>
+                  .
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+                  Khi hồ sơ đã bước vào vòng phỏng vấn chuyên sâu hoặc nhận việc, bạn không thể rút hồ sơ trực tuyến hoặc ứng tuyển đồng thời vị trí khác.
+                </div>
+                <p className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                  Vui lòng liên hệ trực tiếp Bộ phận Tuyển dụng nếu cần hỗ trợ.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p>
+                  Bạn hiện đang có một hồ sơ ứng tuyển vị trí{' '}
+                  <strong className="text-[#11221E] dark:text-zinc-100">
+                    {blockedNotice?.currentJobTitle}
+                  </strong>{' '}
+                  ({blockedNotice?.currentJobCode}) đang trong quá trình xét duyệt.
+                </p>
+                <div className="rounded-lg border border-[#C6D9D3] bg-[#E8F3EF] p-3 text-[#0B4F4A] dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-200">
+                  Mỗi ứng viên chỉ duy trì 1 hồ sơ hoạt động tại một thời điểm. Để ứng tuyển vị trí mới, bạn cần rút hồ sơ hiện tại tại Cổng ứng viên.
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 border-t border-[#D5E3DF] pt-4 dark:border-zinc-800">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-[#C6D9D3] text-xs font-semibold"
+              onClick={() => setBlockedNotice(null)}
+            >
+              Đóng
+            </Button>
+            <Link href="/candidate">
+              <Button variant="primary" size="sm" className="w-full sm:w-auto text-xs font-semibold shadow-sm">
+                {blockedNotice?.type === 'locked_interview'
+                  ? 'Xem tiến trình tại Cổng ứng viên'
+                  : 'Đến Cổng ứng viên để rút hồ sơ'}
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

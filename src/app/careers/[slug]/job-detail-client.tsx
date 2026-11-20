@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,10 +24,17 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { MOCK_JOB_POSTINGS } from '@/mock/ats';
-import { getJobPostings, pushNotification, saveRuntimeCandidate } from '@/lib/runtime-store';
+import { MOCK_JOB_POSTINGS, MOCK_CANDIDATES } from '@/mock/ats';
+import {
+  getJobPostings,
+  HRM_RUNTIME_EVENT,
+  mergeWithRuntimeCandidates,
+  pushNotification,
+  saveRuntimeCandidate,
+} from '@/lib/runtime-store';
 import { cn, formatVND } from '@/lib/utils';
 import type { Candidate, JobPosting } from '@/mock/types';
+import { useApp } from '@/context/app-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,9 +43,11 @@ import { PublicFooter } from '@/components/layout/public-footer';
 
 export default function JobDetailClient({ slug }: { slug: string }) {
   const router = useRouter();
+  const { currentUserEmail } = useApp();
   const normalizedSlug = String(slug ?? '').toLowerCase();
 
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,6 +61,49 @@ export default function JobDetailClient({ slug }: { slug: string }) {
   const [submittedCode, setSubmittedCode] = useState<string | null>(null);
 
   const jobs = useMemo(() => getJobPostings(MOCK_JOB_POSTINGS), []);
+
+  const syncCandidates = useCallback(() => {
+    setCandidates(mergeWithRuntimeCandidates(MOCK_CANDIDATES));
+  }, []);
+
+  useEffect(() => {
+    syncCandidates();
+    window.addEventListener(HRM_RUNTIME_EVENT, syncCandidates);
+    window.addEventListener('storage', syncCandidates);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncCandidates);
+      window.removeEventListener('storage', syncCandidates);
+    };
+  }, [syncCandidates]);
+
+  const activeCandidate = useMemo(() => {
+    if (candidates.length === 0) return null;
+
+    const lastAppliedEmail =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('lacviet_applied_candidate_email')
+        : null;
+    if (lastAppliedEmail) {
+      const match = candidates.find(
+        (c) => c.email.toLowerCase() === lastAppliedEmail.toLowerCase() && c.stage !== 'REJECTED'
+      );
+      if (match) return match;
+    }
+
+    if (currentUserEmail && currentUserEmail !== 'ungvien@gmail.com') {
+      const match = candidates.find(
+        (c) => c.email.toLowerCase() === currentUserEmail.toLowerCase() && c.stage !== 'REJECTED'
+      );
+      if (match) return match;
+    }
+
+    const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104');
+    if (defaultCand && defaultCand.stage !== 'REJECTED') {
+      return defaultCand;
+    }
+
+    return null;
+  }, [candidates, currentUserEmail]);
 
   const job = useMemo(() => {
     return (
@@ -90,16 +142,45 @@ export default function JobDetailClient({ slug }: { slug: string }) {
     e.preventDefault();
     if (!job) return;
 
-    // Bỏ qua validate hoàn toàn theo yêu cầu người dùng
+    // Strict validation of personal information
+    const errors: Record<string, string> = {};
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      errors.fullName = 'Vui lòng nhập họ và tên (tối thiểu 2 ký tự)';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      errors.email = 'Vui lòng nhập địa chỉ email';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      errors.email = 'Định dạng email không hợp lệ (ví dụ: name@company.com)';
+    }
+
+    const phoneRegex = /^[0-9+() -]{9,15}$/;
+    if (!trimmedPhone) {
+      errors.phone = 'Vui lòng nhập số điện thoại liên hệ';
+    } else if (!phoneRegex.test(trimmedPhone)) {
+      errors.phone = 'Số điện thoại không hợp lệ (9 - 15 chữ số)';
+    }
+
+    // CV upload is optional per user rule ("chi ko validate cai upload cv thoi")
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     setFormErrors({});
     setIsSubmitting(true);
     const candidateSeq = Math.floor(100 + Math.random() * 900);
     const candidateCode = `UV-2026-${candidateSeq}`;
     const candidateId = `cand-slug-${Date.now()}`;
     const sal = Number(expectedSalary) || job.salary_range_min_vnd;
-    const finalFullName = fullName.trim() || 'Nguyễn Văn A';
-    const finalEmail = email.trim() || 'candidate.demo@lacviet.com.vn';
-    const finalPhone = phone.trim() || '0912345678';
+    const finalFullName = trimmedName;
+    const finalEmail = trimmedEmail;
+    const finalPhone = trimmedPhone;
 
     const newCand: Candidate = {
       id: candidateId,
@@ -130,9 +211,15 @@ export default function JobDetailClient({ slug }: { slug: string }) {
     };
 
     saveRuntimeCandidate(newCand);
+    try {
+      window.localStorage.setItem('lacviet_applied_candidate_email', finalEmail);
+    } catch {
+      // Ignore storage errors
+    }
+
     pushNotification({
       title: `Ứng viên mới nộp hồ sơ (${candidateCode})`,
-      message: `${fullName} vừa ứng tuyển vị trí ${job.title}.`,
+      message: `${finalFullName} vừa ứng tuyển vị trí ${job.title}.`,
       category: 'ONBOARDING',
       target_roles: ['HR_MANAGER', 'SUPER_ADMIN'],
       nav_id: 'recruitment',
@@ -141,6 +228,14 @@ export default function JobDetailClient({ slug }: { slug: string }) {
     setTimeout(() => {
       setIsSubmitting(false);
       setSubmittedCode(candidateCode);
+      setFullName('');
+      setEmail('');
+      setPhone('');
+      setExpectedSalary('');
+      setCurrentCompany('');
+      setPortfolioLink('');
+      setCoverLetter('');
+      setCvFile(null);
     }, 450);
   };
 
@@ -298,16 +393,94 @@ export default function JobDetailClient({ slug }: { slug: string }) {
                   </p>
                   <div className="mt-6 flex flex-col gap-2">
                     <Link href="/candidate">
-                      <Button variant="primary" className="w-full text-xs font-semibold">
+                      <Button variant="primary" className="w-full text-xs font-semibold shadow-sm">
                         Theo dõi hồ sơ tại Cổng Ứng viên
                       </Button>
                     </Link>
                     <Link href="/careers">
-                      <Button variant="outline" className="w-full border-[#C6D9D3] text-xs">
+                      <Button variant="outline" className="w-full border-[#C6D9D3] text-xs font-medium">
                         Xem các vị trí khác
                       </Button>
                     </Link>
                   </div>
+                </div>
+              ) : activeCandidate &&
+                (activeCandidate.job_id === job.id || activeCandidate.job_code === job.job_code) ? (
+                <div className="py-6 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <h3 className="mt-4 text-base font-bold text-[#11221E] dark:text-zinc-100">
+                    Bạn đã nộp hồ sơ cho vị trí này
+                  </h3>
+                  <p className="mt-1 font-mono text-xs font-semibold text-[#0F766E] dark:text-teal-400">
+                    Mã hồ sơ: {activeCandidate.candidate_code}
+                  </p>
+                  <p className="mt-3 text-xs leading-relaxed text-[#415A54] dark:text-zinc-400">
+                    Hồ sơ của bạn đang được phòng Nhân sự & Trưởng bộ phận chuyên môn xem xét. Bạn có thể theo dõi tiến trình xét duyệt trực tiếp tại Cổng Ứng viên.
+                  </p>
+                  <div className="mt-6 flex flex-col gap-2">
+                    <Link href="/candidate">
+                      <Button variant="primary" className="w-full text-xs font-semibold shadow-sm">
+                        Theo dõi tiến trình tại Cổng Ứng viên
+                        <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                    <Link href="/careers">
+                      <Button variant="outline" className="w-full border-[#C6D9D3] text-xs font-medium">
+                        Xem danh sách việc làm
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ) : activeCandidate ? (
+                <div className="py-6 text-left">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#11221E] dark:text-zinc-100 border-b border-[#D5E3DF] pb-3 dark:border-zinc-800">
+                    <ShieldCheck className="h-5 w-5 text-[#0F766E] dark:text-teal-400" />
+                    <span>Quy định ứng tuyển Lạc Việt</span>
+                  </div>
+
+                  {['INTERVIEW', 'OFFER', 'ONBOARDED'].includes(activeCandidate.stage) ? (
+                    <div className="mt-4 space-y-3 text-xs leading-relaxed text-[#415A54] dark:text-zinc-300">
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+                        <p className="font-semibold text-xs">Không thể ứng tuyển vị trí khác</p>
+                        <p className="mt-1">
+                          Hồ sơ ứng tuyển vị trí <strong>{activeCandidate.job_title}</strong> của bạn đã bước vào giai đoạn{' '}
+                          <span className="font-bold underline">
+                            {activeCandidate.stage === 'INTERVIEW'
+                              ? 'Phỏng vấn chuyên môn'
+                              : activeCandidate.stage === 'OFFER'
+                              ? 'Đề nghị nhận việc'
+                              : 'Đã nhận việc'}
+                          </span>
+                          . Khi đã vào vòng phỏng vấn, bạn không thể rút hồ sơ trực tuyến hoặc ứng tuyển đồng thời vị trí khác.
+                        </p>
+                      </div>
+                      <Link href="/candidate" className="block pt-2">
+                        <Button variant="primary" className="w-full text-xs font-semibold shadow-sm">
+                          Xem tiến trình tại Cổng Ứng viên
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-3 text-xs leading-relaxed text-[#415A54] dark:text-zinc-300">
+                      <p>
+                        Bạn hiện đang có hồ sơ ứng tuyển vị trí{' '}
+                        <strong className="text-[#11221E] dark:text-zinc-100">{activeCandidate.job_title}</strong>{' '}
+                        ({activeCandidate.job_code}).
+                      </p>
+                      <div className="rounded-xl border border-[#C6D9D3] bg-[#E8F3EF] p-3.5 text-[#0B4F4A] dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-200">
+                        Mỗi ứng viên chỉ duy trì 1 hồ sơ hoạt động tại một thời điểm. Để ứng tuyển vị trí này, bạn cần rút hồ sơ hiện tại tại Cổng Ứng viên.
+                      </div>
+                      <Link href="/candidate" className="block pt-2">
+                        <Button variant="primary" className="w-full text-xs font-semibold shadow-sm">
+                          Đến Cổng ứng viên để rút hồ sơ
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -321,48 +494,84 @@ export default function JobDetailClient({ slug }: { slug: string }) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                      Họ và tên *
+                    <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                      Họ và tên <span className="text-rose-500">*</span>
                     </label>
                     <Input
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Nguyễn Văn A"
-                      className="mt-1 text-xs"
+                      onChange={(e) => {
+                        setFullName(e.target.value);
+                        if (formErrors.fullName) {
+                          setFormErrors((prev) => ({ ...prev, fullName: '' }));
+                        }
+                      }}
+                      placeholder="Nhập họ và tên đầy đủ"
+                      className={cn(
+                        'mt-1 text-xs',
+                        formErrors.fullName && 'border-rose-500 focus-visible:ring-rose-500/20'
+                      )}
                     />
-                    {formErrors.fullName && <p className="mt-1 text-[11px] text-rose-600">{formErrors.fullName}</p>}
+                    {formErrors.fullName && (
+                      <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                        {formErrors.fullName}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                      Email *
+                    <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                      Địa chỉ Email <span className="text-rose-500">*</span>
                     </label>
                     <Input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (formErrors.email) {
+                          setFormErrors((prev) => ({ ...prev, email: '' }));
+                        }
+                      }}
                       placeholder="email@example.com"
-                      className="mt-1 text-xs"
+                      className={cn(
+                        'mt-1 text-xs',
+                        formErrors.email && 'border-rose-500 focus-visible:ring-rose-500/20'
+                      )}
                     />
-                    {formErrors.email && <p className="mt-1 text-[11px] text-rose-600">{formErrors.email}</p>}
+                    {formErrors.email && (
+                      <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                        {formErrors.email}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                      Số điện thoại *
+                    <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                      Số điện thoại <span className="text-rose-500">*</span>
                     </label>
                     <Input
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (formErrors.phone) {
+                          setFormErrors((prev) => ({ ...prev, phone: '' }));
+                        }
+                      }}
                       placeholder="0912 345 678"
-                      className="mt-1 text-xs"
+                      className={cn(
+                        'mt-1 text-xs',
+                        formErrors.phone && 'border-rose-500 focus-visible:ring-rose-500/20'
+                      )}
                     />
-                    {formErrors.phone && <p className="mt-1 text-[11px] text-rose-600">{formErrors.phone}</p>}
+                    {formErrors.phone && (
+                      <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                        {formErrors.phone}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                    <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
                       Lương kỳ vọng (VNĐ/tháng)
                     </label>
                     <Input
@@ -375,8 +584,20 @@ export default function JobDetailClient({ slug }: { slug: string }) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                      Tải lên file CV (PDF, DOCX) *
+                    <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                      Đơn vị công tác hiện tại / Gần nhất (Tùy chọn)
+                    </label>
+                    <Input
+                      value={currentCompany}
+                      onChange={(e) => setCurrentCompany(e.target.value)}
+                      placeholder="Công ty Cổ phần Công nghệ..."
+                      className="mt-1 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                      Đính kèm tệp CV (Tùy chọn - không bắt buộc)
                     </label>
                     <div className="mt-1.5 rounded-xl border border-dashed border-[#C6D9D3] p-4 text-center dark:border-zinc-800">
                       <input
@@ -403,14 +624,14 @@ export default function JobDetailClient({ slug }: { slug: string }) {
                         <label htmlFor="slug-cv-upload" className="flex cursor-pointer flex-col items-center">
                           <UploadCloud className="h-7 w-7 text-[#0F766E]" />
                           <span className="mt-1 text-xs font-medium text-[#0F766E]">Nhấp để tải lên CV</span>
+                          <span className="mt-0.5 text-[10px] text-[#5C7871]">Hỗ trợ PDF, DOCX tối đa 5MB</span>
                         </label>
                       )}
                     </div>
-                    {formErrors.cv && <p className="mt-1 text-[11px] text-rose-600">{formErrors.cv}</p>}
                   </div>
 
-                  <Button type="submit" variant="primary" disabled={isSubmitting} className="w-full text-xs font-semibold">
-                    {isSubmitting ? 'Đang gửi...' : 'Xác nhận nộp CV ngay'}
+                  <Button type="submit" variant="primary" disabled={isSubmitting} className="w-full text-xs font-semibold shadow-sm">
+                    {isSubmitting ? 'Đang gửi hồ sơ...' : 'Xác nhận nộp CV ngay'}
                     <Send className="ml-1.5 h-3.5 w-3.5" />
                   </Button>
                 </form>

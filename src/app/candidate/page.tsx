@@ -92,10 +92,10 @@ const STAGE_META: Record<
     desc: 'Bạn đã chính thức gia nhập Lạc Việt và hoàn tất thủ tục tiếp nhận nhân sự.',
   },
   REJECTED: {
-    label: 'Đã loại',
+    label: 'Đã rút / Dừng tuyển',
     variant: 'danger',
     stepNum: 0,
-    desc: 'Hồ sơ chưa phù hợp trong đợt tuyển dụng hiện tại.',
+    desc: 'Hồ sơ đã dừng xét duyệt hoặc đã rút theo nguyện vọng của ứng viên.',
   },
 };
 
@@ -522,14 +522,28 @@ export default function CandidatePortalPage() {
 
   const handleWithdraw = () => {
     if (!currentCandidate) return;
+    if (['INTERVIEW', 'OFFER', 'ONBOARDED'].includes(currentCandidate.stage)) {
+      showToast(
+        'Không thể rút hồ sơ',
+        'Hồ sơ của bạn đã bước vào vòng phỏng vấn/xét tuyển chuyên sâu. Không thể rút hồ sơ trực tuyến.',
+        'warning'
+      );
+      setActionModal(null);
+      return;
+    }
     const updated: Candidate = {
       ...currentCandidate,
-      current_company: `${currentCandidate.current_company} · [ỨNG VIÊN ĐÃ RÚT HỒ SƠ: ${actionReason || 'Không có lý do'}]`,
+      stage: 'REJECTED',
+      current_company: `${currentCandidate.current_company} · [ỨNG VIÊN ĐÃ RÚT HỒ SƠ: ${actionReason || 'Nguyện vọng cá nhân'}]`,
     };
     saveRuntimeCandidate(updated);
     setActionModal(null);
     setActionReason('');
-    showToast('Đã rút hồ sơ ứng tuyển', 'Hồ sơ của bạn đã được cập nhật trạng thái dừng tuyển.', 'default');
+    showToast(
+      'Đã rút hồ sơ ứng tuyển',
+      'Hồ sơ của bạn đã được cập nhật trạng thái dừng tuyển. Bạn có thể ứng tuyển vị trí khác tại Cổng việc làm.',
+      'default'
+    );
   };
 
   return (
@@ -833,14 +847,27 @@ export default function CandidatePortalPage() {
                   </div>
 
                   <div className="flex items-center">
-                    {currentCandidate.stage !== 'ONBOARDED' && (
+                    {currentCandidate.stage === 'APPLIED' || currentCandidate.stage === 'AI_SCREENED' ? (
                       <button
                         type="button"
                         onClick={() => setActionModal('withdraw')}
-                        className="text-xs text-[#5C7871] hover:text-rose-600 dark:text-zinc-400 hover:underline transition-colors"
+                        className="text-xs font-medium text-[#5C7871] hover:text-rose-600 dark:text-zinc-400 hover:underline transition-colors"
                       >
                         Rút hồ sơ
                       </button>
+                    ) : currentCandidate.stage === 'REJECTED' ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                        <XCircle className="h-3.5 w-3.5" />
+                        Đã rút hồ sơ
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-[#5C7871]/70 dark:text-zinc-500 cursor-not-allowed select-none"
+                        title="Hồ sơ đã bước vào giai đoạn phỏng vấn/xét tuyển chuyên sâu, không thể rút hồ sơ trực tuyến."
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#0F766E]/70 dark:text-teal-400/70" />
+                        Đang phỏng vấn/xét tuyển (Không thể rút)
+                      </span>
                     )}
                   </div>
                 </div>
@@ -926,6 +953,8 @@ export default function CandidatePortalPage() {
                       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0F766E]/10 text-[#0F766E] dark:bg-teal-400/10 dark:text-teal-400">
                         {currentCandidate.stage === 'ONBOARDED' ? (
                           <CheckCircle2 className="h-4 w-4" />
+                        ) : currentCandidate.stage === 'REJECTED' ? (
+                          <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                         ) : currentCandidate.stage === 'INTERVIEW' || currentCandidate.stage === 'OFFER' ? (
                           <Sparkles className="h-4 w-4" />
                         ) : (
@@ -938,7 +967,9 @@ export default function CandidatePortalPage() {
                             {STAGE_META[currentCandidate.stage]?.label}
                           </span>
                           <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                            currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
+                            currentCandidate.stage === 'REJECTED'
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300'
+                              : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
                               : currentCandidate.stage === 'INTERVIEW' && currentCandidate.reschedule_request?.status === 'PENDING'
                               ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
@@ -946,7 +977,9 @@ export default function CandidatePortalPage() {
                               ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
                               : 'bg-[#0F766E]/15 text-[#0F766E] dark:bg-teal-400/20 dark:text-teal-300'
                           }`}>
-                            {currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
+                            {currentCandidate.stage === 'REJECTED'
+                              ? 'Đã dừng'
+                              : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
                               ? '✓ Đã chốt lịch'
                               : currentCandidate.stage === 'INTERVIEW' && currentCandidate.reschedule_request?.status === 'PENDING'
                               ? 'Chờ phản hồi'
@@ -956,7 +989,9 @@ export default function CandidatePortalPage() {
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-300 leading-relaxed">
-                          {currentCandidate.stage === 'INTERVIEW' && !currentCandidate.interview_schedule?.date
+                          {currentCandidate.stage === 'REJECTED'
+                            ? 'Hồ sơ đã được rút theo nguyện vọng của bạn. Bạn hiện có thể truy cập Cổng việc làm Lạc Việt để ứng tuyển vị trí mới bất kỳ lúc nào.'
+                            : currentCandidate.stage === 'INTERVIEW' && !currentCandidate.interview_schedule?.date
                             ? 'Bộ phận Tuyển dụng đang sắp xếp hội đồng phỏng vấn chuyên môn. Khi có lịch chính xác, bạn sẽ nhận được thông báo để xác nhận tham gia.'
                             : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.date
                             ? `Lịch phỏng vấn: ${currentCandidate.interview_schedule.time || '09:30'} ngày ${formatDateVN(currentCandidate.interview_schedule.date)} (${currentCandidate.interview_schedule.format || 'Online'}) - ${currentCandidate.interview_schedule.location_or_link || 'Đường dẫn sẽ gửi qua email'}.`
@@ -970,8 +1005,17 @@ export default function CandidatePortalPage() {
                       </div>
                     </div>
 
-                    {/* Interactive Actions when in Interview or Offer */}
-                    {(currentCandidate.stage === 'INTERVIEW' || currentCandidate.stage === 'OFFER') && (
+                    {/* Interactive Actions when in Rejected, Interview or Offer */}
+                    {currentCandidate.stage === 'REJECTED' ? (
+                      <div className="pt-2 sm:pt-0 shrink-0">
+                        <Link href="/careers">
+                          <Button variant="primary" size="sm" className="text-xs font-semibold shadow-sm">
+                            <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+                            Khám phá việc làm khác
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : (currentCandidate.stage === 'INTERVIEW' || currentCandidate.stage === 'OFFER') && (
                       <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 shrink-0">
                         {currentCandidate.stage === 'INTERVIEW' && (
                           <>

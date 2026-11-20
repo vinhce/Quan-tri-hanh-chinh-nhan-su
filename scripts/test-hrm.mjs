@@ -332,6 +332,80 @@ try {
     });
   });
 
+  // 8. P3c: Careers Form Validation Rules
+  it('P3c: Careers application form validates required personal info and permits optional CV', () => {
+    function validateApplyForm({ fullName, email, phone, cvFile }) {
+      const errors = {};
+      const trimmedName = (fullName ?? '').trim();
+      const trimmedEmail = (email ?? '').trim();
+      const trimmedPhone = (phone ?? '').trim();
+
+      if (!trimmedName || trimmedName.length < 2) {
+        errors.fullName = 'Vui lòng nhập họ và tên (tối thiểu 2 ký tự)';
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+        errors.email = 'Vui lòng nhập địa chỉ email hợp lệ';
+      }
+
+      const phoneRegex = /^[0-9+() -]{9,15}$/;
+      if (!trimmedPhone || !phoneRegex.test(trimmedPhone)) {
+        errors.phone = 'Vui lòng nhập số điện thoại hợp lệ (9 - 15 số)';
+      }
+
+      // CV is optional: if provided, validate size and extension
+      if (cvFile) {
+        validateCvFile(cvFile.name, cvFile.size, cvFile.mimeType || 'application/pdf');
+      }
+
+      return errors;
+    }
+
+    // Empty fields must produce errors
+    const emptyErrors = validateApplyForm({ fullName: '', email: '', phone: '', cvFile: null });
+    assert.strictEqual(Boolean(emptyErrors.fullName), true);
+    assert.strictEqual(Boolean(emptyErrors.email), true);
+    assert.strictEqual(Boolean(emptyErrors.phone), true);
+
+    // Invalid email / short phone
+    const invalidErrors = validateApplyForm({
+      fullName: 'A',
+      email: 'not-an-email',
+      phone: '123',
+      cvFile: null,
+    });
+    assert.strictEqual(Boolean(invalidErrors.fullName), true);
+    assert.strictEqual(Boolean(invalidErrors.email), true);
+    assert.strictEqual(Boolean(invalidErrors.phone), true);
+
+    // Valid info without CV upload succeeds (optional CV)
+    const validNoCv = validateApplyForm({
+      fullName: 'Đinh Tuấn Kiệt',
+      email: 'kiet.dinh@gmail.com',
+      phone: '0937654321',
+      cvFile: null,
+    });
+    assert.strictEqual(Object.keys(validNoCv).length, 0);
+  });
+
+  // 9. P3c: Withdrawal Gate & Active Application Rules
+  it('P3c: Candidate withdrawal allowed in APPLIED/AI_SCREENED, locked in INTERVIEW/OFFER/ONBOARDED', () => {
+    function canWithdrawApplication(stage) {
+      if (['INTERVIEW', 'OFFER', 'ONBOARDED'].includes(stage)) {
+        return false;
+      }
+      return stage === 'APPLIED' || stage === 'AI_SCREENED';
+    }
+
+    assert.strictEqual(canWithdrawApplication('APPLIED'), true);
+    assert.strictEqual(canWithdrawApplication('AI_SCREENED'), true);
+    assert.strictEqual(canWithdrawApplication('INTERVIEW'), false);
+    assert.strictEqual(canWithdrawApplication('OFFER'), false);
+    assert.strictEqual(canWithdrawApplication('ONBOARDED'), false);
+    assert.strictEqual(canWithdrawApplication('REJECTED'), false);
+  });
+
   console.log(`\nTEST RESULTS: ${passedTests} passed, ${failedTests} failed.`);
   if (failedTests > 0) {
     process.exit(1);

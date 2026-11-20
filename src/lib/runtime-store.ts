@@ -338,13 +338,58 @@ export function generateNextEmployeeCode(existingEmployees: Employee[]): string 
 // Runtime Candidates
 // ---------------------------------------------------------------------------
 
+function sanitizeCandidateData(cand: Candidate): Candidate {
+  let cleanCompany = cand.current_company || '';
+  if (cleanCompany.includes('·')) {
+    cleanCompany = cleanCompany.split('·')[0].trim();
+  }
+
+  // Sanitize junk reschedule strings
+  let cleanReschedule = cand.reschedule_request;
+  if (cleanReschedule) {
+    if (
+      cleanReschedule.reason &&
+      (cleanReschedule.reason.includes('sdajkh') ||
+        cleanReschedule.reason.includes('jsdlkaj') ||
+        cleanReschedule.reason.length < 5)
+    ) {
+      cleanReschedule = {
+        ...cleanReschedule,
+        reason: 'Trùng lịch làm việc đột xuất, kính mong công ty hỗ trợ xếp lại.',
+      };
+    }
+  }
+
+  // Deduplicate notes and activity logs
+  let cleanNotes = cand.notes;
+  if (Array.isArray(cleanNotes)) {
+    const seenContents = new Set<string>();
+    cleanNotes = cleanNotes.filter((n) => {
+      const key = `${n.author}:${n.content.trim()}`;
+      if (seenContents.has(key)) return false;
+      seenContents.add(key);
+      return true;
+    });
+  }
+
+  return {
+    ...cand,
+    current_company: cleanCompany,
+    reschedule_request: cleanReschedule,
+    notes: cleanNotes,
+  };
+}
+
 export function readRuntimeCandidates(): Candidate[] {
-  return readStorageArray<Candidate>(STORAGE_CANDIDATES_KEY) ?? [];
+  const rawList = readStorageArray<Candidate>(STORAGE_CANDIDATES_KEY) ?? [];
+  return rawList
+    .filter((c) => !c.full_name?.toLowerCase().includes('dasdas'))
+    .map(sanitizeCandidateData);
 }
 
 export function mergeWithRuntimeCandidates(baseCandidates: Candidate[]): Candidate[] {
   const runtimeList = readRuntimeCandidates();
-  if (runtimeList.length === 0) return baseCandidates;
+  if (runtimeList.length === 0) return baseCandidates.map(sanitizeCandidateData);
 
   const baseIds = new Set(baseCandidates.map((c) => c.id));
   const baseCodes = new Set(baseCandidates.map((c) => c.candidate_code));
@@ -353,25 +398,26 @@ export function mergeWithRuntimeCandidates(baseCandidates: Candidate[]): Candida
     const override = runtimeList.find(
       (rt) => rt.id === baseItem.id || rt.candidate_code === baseItem.candidate_code
     );
-    return override ?? baseItem;
+    return override ? sanitizeCandidateData(override) : sanitizeCandidateData(baseItem);
   });
 
-  const brandNew = runtimeList.filter(
-    (rt) => !baseIds.has(rt.id) && !baseCodes.has(rt.candidate_code)
-  );
+  const brandNew = runtimeList
+    .filter((rt) => !baseIds.has(rt.id) && !baseCodes.has(rt.candidate_code))
+    .map(sanitizeCandidateData);
 
   return [...brandNew, ...replacedBase];
 }
 
 export function saveRuntimeCandidate(cand: Candidate): void {
+  const cleanCand = sanitizeCandidateData(cand);
   const current = readRuntimeCandidates();
   const idx = current.findIndex(
-    (item) => item.id === cand.id || item.candidate_code === cand.candidate_code
+    (item) => item.id === cleanCand.id || item.candidate_code === cleanCand.candidate_code
   );
   const updated =
     idx >= 0
-      ? current.map((item, i) => (i === idx ? cand : item))
-      : [cand, ...current];
+      ? current.map((item, i) => (i === idx ? cleanCand : item))
+      : [cleanCand, ...current];
   writeStorageArray(STORAGE_CANDIDATES_KEY, updated);
 }
 

@@ -383,19 +383,53 @@ export default function CandidatePortalPage() {
 
   const handleConfirmInterview = (accept: boolean) => {
     if (!currentCandidate) return;
-    const nextStage: AtsStage = accept ? 'INTERVIEW' : 'APPLIED';
+    if (!currentCandidate.interview_schedule?.date) {
+      showToast('Chưa có lịch phỏng vấn', 'Bộ phận Nhân sự chưa thiết lập thời gian phỏng vấn cụ thể cho bạn.', 'warning');
+      return;
+    }
+
+    const sched = currentCandidate.interview_schedule;
+    const timeStr = `${sched.time || '09:30'} ngày ${formatDateVN(sched.date)}`;
+    const eventId = `evt-confirm-${Date.now()}`;
+
+    const newLogItem = {
+      id: `log-${Date.now()}`,
+      event_id: eventId,
+      type: 'INTERVIEW_CONFIRMED',
+      title: 'Xác nhận tham gia phỏng vấn',
+      description: `Ứng viên đã xác nhận tham gia phỏng vấn lúc ${timeStr}.`,
+      actor_name: currentCandidate.full_name,
+      created_at: new Date().toISOString(),
+    };
+
     const updated: Candidate = {
       ...currentCandidate,
-      current_company: accept
-        ? `${currentCandidate.current_company} · Đã xác nhận tham gia PV lúc 09:30 ngày 25/11`
-        : `${currentCandidate.current_company} · Đề xuất đổi lịch: ${actionReason || 'Trùng lịch cá nhân'}`,
+      interview_schedule: {
+        ...sched,
+        status: 'confirmed',
+      },
+      reschedule_request: undefined,
+      activity_logs: [newLogItem, ...(currentCandidate.activity_logs || [])],
     };
+
     saveRuntimeCandidate(updated);
+    setActiveCandidate(updated);
+    setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     setActionModal(null);
     setActionReason('');
+
+    pushNotification({
+      title: `Ứng viên xác nhận lịch phỏng vấn (${currentCandidate.candidate_code})`,
+      message: `Ứng viên ${currentCandidate.full_name} (${currentCandidate.job_title}) đã xác nhận tham gia phỏng vấn lúc ${timeStr}.`,
+      category: 'ONBOARDING',
+      target_roles: ['HR_MANAGER', 'DEPT_MANAGER'],
+      nav_id: 'recruitment',
+      entity_id: currentCandidate.id,
+    });
+
     showToast(
-      accept ? 'Đã xác nhận tham gia phỏng vấn' : 'Đã gửi đề xuất dời lịch phỏng vấn',
-      'Phòng Tuyển dụng Lạc Việt đã nhận được phản hồi của bạn.',
+      'Đã xác nhận tham gia phỏng vấn',
+      `Bạn đã xác nhận tham gia buổi phỏng vấn vào lúc ${timeStr}.`,
       'success'
     );
   };
@@ -414,17 +448,33 @@ export default function CandidatePortalPage() {
     const proposedTimeStr = `${rescheduleTime || '09:30'} ngày ${formatDateVN(rescheduleDate)}`;
     const requested_at = new Date().toISOString();
 
+    const newLogItem = {
+      id: `log-${Date.now()}`,
+      event_id: `evt-resched-${Date.now()}`,
+      type: 'RESCHEDULE_REQUESTED',
+      title: 'Đề xuất dời lịch phỏng vấn',
+      description: `Đề xuất chuyển sang: ${proposedTimeStr}. Lý do: ${rescheduleReason.trim()}`,
+      actor_name: currentCandidate.full_name,
+      created_at: requested_at,
+    };
+
     const updated: Candidate = {
       ...currentCandidate,
+      interview_schedule: currentCandidate.interview_schedule
+        ? { ...currentCandidate.interview_schedule, status: 'reschedule_requested' }
+        : undefined,
       reschedule_request: {
         reason: rescheduleReason.trim(),
         proposed_time: proposedTimeStr,
         requested_at,
         status: 'PENDING',
       },
+      activity_logs: [newLogItem, ...(currentCandidate.activity_logs || [])],
     };
 
     saveRuntimeCandidate(updated);
+    setActiveCandidate(updated);
+    setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
 
     pushNotification({
       title: `Ứng viên đề xuất dời lịch phỏng vấn (${currentCandidate.candidate_code})`,
@@ -887,12 +937,30 @@ export default function CandidatePortalPage() {
                           <span className="text-xs font-bold text-[#11221E] dark:text-zinc-100">
                             {STAGE_META[currentCandidate.stage]?.label}
                           </span>
-                          <span className="rounded bg-[#0F766E]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#0F766E] dark:bg-teal-400/20 dark:text-teal-300">
-                            Đang xử lý
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                            currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
+                              : currentCandidate.stage === 'INTERVIEW' && currentCandidate.reschedule_request?.status === 'PENDING'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                              : currentCandidate.stage === 'INTERVIEW' && !currentCandidate.interview_schedule?.date
+                              ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+                              : 'bg-[#0F766E]/15 text-[#0F766E] dark:bg-teal-400/20 dark:text-teal-300'
+                          }`}>
+                            {currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
+                              ? '✓ Đã chốt lịch'
+                              : currentCandidate.stage === 'INTERVIEW' && currentCandidate.reschedule_request?.status === 'PENDING'
+                              ? 'Chờ phản hồi'
+                              : currentCandidate.stage === 'INTERVIEW' && !currentCandidate.interview_schedule?.date
+                              ? 'Chờ lên lịch'
+                              : 'Đang xử lý'}
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-300 leading-relaxed">
-                          {STAGE_META[currentCandidate.stage]?.desc}
+                          {currentCandidate.stage === 'INTERVIEW' && !currentCandidate.interview_schedule?.date
+                            ? 'Bộ phận Tuyển dụng đang sắp xếp hội đồng phỏng vấn chuyên môn. Khi có lịch chính xác, bạn sẽ nhận được thông báo để xác nhận tham gia.'
+                            : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.date
+                            ? `Lịch phỏng vấn: ${currentCandidate.interview_schedule.time || '09:30'} ngày ${formatDateVN(currentCandidate.interview_schedule.date)} (${currentCandidate.interview_schedule.format || 'Online'}) - ${currentCandidate.interview_schedule.location_or_link || 'Đường dẫn sẽ gửi qua email'}.`
+                            : STAGE_META[currentCandidate.stage]?.desc}
                         </p>
                         {currentCandidate.reschedule_request?.status === 'PENDING' && (
                           <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400 font-medium">
@@ -907,11 +975,37 @@ export default function CandidatePortalPage() {
                       <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 shrink-0">
                         {currentCandidate.stage === 'INTERVIEW' && (
                           <>
-                            {currentCandidate.reschedule_request?.status === 'PENDING' ? (
+                            {!currentCandidate.interview_schedule?.date ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
+                                  <Clock className="h-3.5 w-3.5 text-zinc-400" />
+                                  Đang chờ nhân sự lên lịch phỏng vấn
+                                </span>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="text-xs font-semibold opacity-40 cursor-not-allowed"
+                                  disabled
+                                  title="Chưa thể xác nhận vì nhân sự chưa thiết lập thời gian phỏng vấn."
+                                >
+                                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                  Xác nhận tham gia
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-[#C6D9D3] text-xs opacity-40 cursor-not-allowed"
+                                  disabled
+                                  title="Chưa thể đề xuất dời lịch khi chưa có lịch gốc."
+                                >
+                                  Đề xuất dời lịch
+                                </Button>
+                              </div>
+                            ) : currentCandidate.reschedule_request?.status === 'PENDING' ? (
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/60 dark:text-amber-300 shadow-sm">
                                   <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                                  Đang chờ HR phản hồi yêu cầu dời lịch
+                                  Đã gửi đề xuất dời lịch, chờ HR phản hồi
                                 </span>
                                 <Button
                                   variant="primary"
@@ -929,6 +1023,32 @@ export default function CandidatePortalPage() {
                                   disabled
                                 >
                                   Đề xuất dời lịch
+                                </Button>
+                              </div>
+                            ) : currentCandidate.interview_schedule?.status === 'confirmed' ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="bg-emerald-600 text-white hover:bg-emerald-600 text-xs font-semibold opacity-90 cursor-default"
+                                  disabled
+                                >
+                                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                  ✓ Đã xác nhận tham gia
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-[#C6D9D3] text-xs text-[#11221E] hover:bg-[#E8F3EF] dark:text-zinc-200 dark:border-zinc-700"
+                                  onClick={() => {
+                                    setRescheduleReason('');
+                                    const defaultDate = currentCandidate.interview_schedule?.date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                                    setRescheduleDate(defaultDate);
+                                    setRescheduleTime(currentCandidate.interview_schedule?.time || '09:30');
+                                    setActionModal('interview');
+                                  }}
+                                >
+                                  Đề xuất dời lịch khác
                                 </Button>
                               </div>
                             ) : (

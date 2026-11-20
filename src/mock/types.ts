@@ -367,6 +367,17 @@ export interface CandidateInterviewSchedule {
   send_notification: boolean;
   location_or_link: string;
   scheduled_at?: string;
+  status?: 'not_scheduled' | 'invited' | 'confirmed' | 'reschedule_requested' | 'scheduled' | 'completed' | 'cancelled';
+}
+
+export interface CandidateActivityLog {
+  id: string;
+  event_id: string;
+  type: string;
+  title: string;
+  description: string;
+  actor_name: string;
+  created_at: string;
 }
 
 export interface CandidateRescheduleRequest {
@@ -393,6 +404,7 @@ export interface Candidate {
   current_company: string;
   ai_evaluation: CandidateAiEvaluation;
   notes?: CandidateInterviewNote[];
+  activity_logs?: CandidateActivityLog[];
   cv_url?: string;
   interview_schedule?: CandidateInterviewSchedule;
   reschedule_request?: CandidateRescheduleRequest;

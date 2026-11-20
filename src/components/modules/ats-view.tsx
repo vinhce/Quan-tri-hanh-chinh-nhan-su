@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   FileText,
   Filter,
+  History,
   Laptop,
   Layers,
   Mail,
@@ -68,6 +69,7 @@ import {
   saveRuntimeJob,
 } from '@/lib/runtime-store';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
+import { formatDateTimeVN, sanitizeText } from '@/lib/hrm/format';
 import type {
   AssetCategory,
   AtsStage,
@@ -297,6 +299,7 @@ export function AtsView() {
   const [timeFilter, setTimeFilter] = useState<'30_DAYS' | 'CURRENT_MONTH' | 'ALL'>('30_DAYS');
   const [showArchived, setShowArchived] = useState<boolean>(false);
   const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState<boolean>(false);
 
   const toggleColCollapse = (colId: string) => {
     setCollapsedCols((prev) => ({ ...prev, [colId]: !prev[colId] }));
@@ -694,12 +697,25 @@ export function AtsView() {
 
   const handleRejectReschedule = (candidate: Candidate) => {
     if (!candidate.reschedule_request) return;
+    const newLogItem = {
+      id: `log-${Date.now()}`,
+      event_id: `evt-reject-resched-${Date.now()}`,
+      type: 'RESCHEDULE_REJECTED',
+      title: 'Từ chối đề xuất dời lịch',
+      description: `Nhân sự đã từ chối yêu cầu dời lịch, giữ nguyên thời gian phỏng vấn cũ.`,
+      actor_name: actorName,
+      created_at: new Date().toISOString(),
+    };
     const updatedCandidate: Candidate = {
       ...candidate,
+      interview_schedule: candidate.interview_schedule
+        ? { ...candidate.interview_schedule, status: 'invited' }
+        : undefined,
       reschedule_request: {
         ...candidate.reschedule_request,
         status: 'REJECTED',
       },
+      activity_logs: [newLogItem, ...(candidate.activity_logs || [])],
     };
     saveRuntimeCandidate(updatedCandidate);
     setCandidates((prev) =>
@@ -786,6 +802,19 @@ export function AtsView() {
     }
 
     const isFromReschedule = schedulingCandidate.reschedule_request?.status === 'PENDING';
+    const newStatus = isFromReschedule ? 'scheduled' : 'invited';
+    const timeStr = `${interviewTime} ngày ${formatDateVN(interviewDate)}`;
+
+    const newLogItem = {
+      id: `log-${Date.now()}`,
+      event_id: `evt-sched-${Date.now()}`,
+      type: isFromReschedule ? 'INTERVIEW_RESCHEDULED' : 'INTERVIEW_SCHEDULED',
+      title: isFromReschedule ? 'Xếp lại lịch phỏng vấn mới' : 'Thiết lập lịch phỏng vấn',
+      description: `Lịch phỏng vấn mới vào lúc ${timeStr} (${interviewFormat}). Người PV: ${interviewInterviewer.trim()}.`,
+      actor_name: actorName,
+      created_at: new Date().toISOString(),
+    };
+
     const updatedCandidate: Candidate = {
       ...schedulingCandidate,
       stage: 'INTERVIEW',
@@ -797,6 +826,7 @@ export function AtsView() {
         send_notification: interviewSendNotification,
         location_or_link: interviewLocationOrLink.trim(),
         scheduled_at: new Date().toISOString(),
+        status: newStatus,
       },
       reschedule_request: schedulingCandidate.reschedule_request
         ? {
@@ -804,6 +834,7 @@ export function AtsView() {
             status: 'ACCEPTED',
           }
         : undefined,
+      activity_logs: [newLogItem, ...(schedulingCandidate.activity_logs || [])],
     };
 
     saveRuntimeCandidate(updatedCandidate);
@@ -908,22 +939,35 @@ export function AtsView() {
     e.preventDefault();
     if (!selectedCandidate) return;
     const trimmed = noteContent.trim();
-    if (!trimmed) {
-      showToast('Thiếu nội dung ghi chú', 'Vui lòng nhập nhận xét phỏng vấn trước khi lưu.', 'warning');
+    const check = sanitizeText(trimmed, 5, 500);
+    if (!check.valid) {
+      showToast('Nội dung không hợp lệ', check.error || 'Vui lòng kiểm tra độ dài ghi chú.', 'warning');
       return;
     }
 
+    const noteId = `note-${Date.now()}`;
     const newNote = {
-      id: `note-${Date.now()}`,
+      id: noteId,
       author: actorName,
-      content: trimmed,
+      content: check.value,
       created_at: new Date().toISOString(),
       rating: noteRating,
+    };
+
+    const newLogItem = {
+      id: `log-${Date.now()}`,
+      event_id: `evt-note-${Date.now()}`,
+      type: 'INTERVIEW_NOTE',
+      title: 'Thêm nhận xét phỏng vấn',
+      description: `Đánh giá: ${noteRating}/5 sao · "${check.value.slice(0, 80)}${check.value.length > 80 ? '...' : ''}"`,
+      actor_name: actorName,
+      created_at: new Date().toISOString(),
     };
 
     const updatedCand: Candidate = {
       ...selectedCandidate,
       notes: [newNote, ...(selectedCandidate.notes || [])],
+      activity_logs: [newLogItem, ...(selectedCandidate.activity_logs || [])],
     };
 
     saveRuntimeCandidate(updatedCand);
@@ -1607,7 +1651,16 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             const renderCandidateCard = (cand: Candidate, forceCompact = false) => {
               const isCompact = forceCompact || isCompactMode || cand.stage === 'ONBOARDED';
               const isArchived = isCandidateArchived(cand);
-              const isReschedulePending = cand.reschedule_request?.status === 'PENDING';
+              const isInterviewConfirmed =
+                cand.stage === 'INTERVIEW' && cand.interview_schedule?.status === 'confirmed';
+              const isInterviewScheduled =
+                cand.stage === 'INTERVIEW' && cand.interview_schedule?.status === 'scheduled';
+              const isReschedulePending =
+                !isInterviewConfirmed &&
+                cand.reschedule_request?.status === 'PENDING' &&
+                cand.interview_schedule?.status !== 'scheduled';
+              const isInterviewUnscheduled =
+                cand.stage === 'INTERVIEW' && !cand.interview_schedule?.date;
 
               if (isCompact) {
                 return (
@@ -1621,6 +1674,8 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     className={`group cursor-pointer rounded-lg border px-2.5 py-2 shadow-2xs transition-all ${
                       isReschedulePending
                         ? 'border-amber-400 bg-amber-50/70 hover:border-amber-500 hover:bg-amber-100/70 dark:border-amber-600/70 dark:bg-amber-950/30 dark:hover:border-amber-500 ring-1 ring-amber-400/50'
+                        : isInterviewConfirmed
+                        ? 'border-emerald-300 bg-emerald-50/30 hover:border-emerald-500 dark:border-emerald-800 dark:bg-emerald-950/20'
                         : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]'
                     }`}
                   >
@@ -1643,9 +1698,19 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                             {cand.job_title}
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
+                            {isInterviewConfirmed && (
+                              <span className="inline-flex items-center gap-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.2 text-[9px] font-bold text-emerald-700 dark:text-emerald-300">
+                                <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" /> Đã chốt
+                              </span>
+                            )}
                             {isReschedulePending && (
                               <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/40 bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 dark:text-amber-200 animate-pulse">
-                                ⚠️ Dời lịch
+                                <AlertTriangle className="h-2.5 w-2.5 text-amber-600" /> Dời lịch
+                              </span>
+                            )}
+                            {isInterviewUnscheduled && (
+                              <span className="inline-flex items-center gap-0.5 rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 text-[9px] font-medium text-rose-700 dark:text-rose-300">
+                                Chưa có lịch
                               </span>
                             )}
                             {cand.stage === 'ONBOARDED' && (
@@ -1677,6 +1742,8 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                   className={`cursor-pointer rounded-xl border p-3 shadow-2xs transition-all ${
                     isReschedulePending
                       ? 'border-amber-400 bg-amber-50/40 hover:border-amber-500 hover:bg-amber-100/60 dark:border-amber-600/70 dark:bg-amber-950/25 dark:hover:border-amber-500 ring-1 ring-amber-400/50'
+                      : isInterviewConfirmed
+                      ? 'border-emerald-300 bg-emerald-50/30 hover:border-emerald-500 dark:border-emerald-800 dark:bg-emerald-950/20'
                       : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]'
                   }`}
                 >
@@ -1685,9 +1752,16 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       {cand.candidate_code}
                     </span>
                     <div className="flex items-center gap-1.5">
+                      {isInterviewConfirmed && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:border-emerald-500/50 dark:bg-emerald-900/40 dark:text-emerald-200">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                          Đã chốt lịch
+                        </span>
+                      )}
                       {isReschedulePending && (
                         <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:border-amber-500/50 dark:bg-amber-900/40 dark:text-amber-200 animate-pulse">
-                          ⚠️ Yêu cầu dời lịch
+                          <AlertTriangle className="h-3 w-3 text-amber-600" />
+                          Yêu cầu dời lịch
                         </span>
                       )}
                       {cand.stage === 'OFFER' && (
@@ -1720,12 +1794,12 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </div>
                   )}
 
-                  {/* Badge cảnh báo dời lịch nổi bật kèm animation pulse */}
+                  {/* Cảnh báo dời lịch (chỉ hiện khi pending và chưa xác nhận) */}
                   {isReschedulePending && (
                     <div className="mt-2 flex items-center justify-between gap-1.5 rounded-lg border border-amber-400/60 bg-amber-100/80 px-2.5 py-1 text-[11px] font-bold text-amber-950 dark:border-amber-600/60 dark:bg-amber-950/50 dark:text-amber-200 animate-pulse">
                       <div className="flex items-center gap-1 min-w-0">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                        <span className="truncate">⚠️ Yêu cầu dời lịch:</span>
+                        <span className="truncate">Yêu cầu dời lịch:</span>
                       </div>
                       <span className="shrink-0 text-[10px] font-medium text-amber-800 dark:text-amber-300">
                         {cand.reschedule_request?.proposed_time || 'Chờ duyệt'}
@@ -1733,17 +1807,42 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </div>
                   )}
 
-                  {cand.stage === 'INTERVIEW' && cand.interview_schedule && (
+                  {/* Lịch phỏng vấn đã chốt (B3: CheckCircle2 icon xanh) */}
+                  {isInterviewConfirmed && cand.interview_schedule && (
+                    <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span className="truncate">
+                        Đã chốt: {cand.interview_schedule.time} {formatDateVN(cand.interview_schedule.date)} ({cand.interview_schedule.format})
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Lịch phỏng vấn chưa có (B3: Cảnh báo chưa có lịch) */}
+                  {isInterviewUnscheduled && (
+                    <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                      <AlertCircle className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-400" />
+                      <span className="truncate">Chưa thiết lập lịch phỏng vấn</span>
+                    </div>
+                  )}
+
+                  {/* Lịch phỏng vấn đã xếp nhưng chưa chốt / vừa xếp lại */}
+                  {!isInterviewConfirmed && !isReschedulePending && !isInterviewUnscheduled && cand.stage === 'INTERVIEW' && cand.interview_schedule && (
                     <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                       <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
                       <span className="truncate">
-                        PV: {cand.interview_schedule.time} {formatDateVN(cand.interview_schedule.date)} ({cand.interview_schedule.format})
+                        {isInterviewScheduled ? 'Lịch mới: ' : 'PV: '}
+                        {cand.interview_schedule.time} {formatDateVN(cand.interview_schedule.date)} ({cand.interview_schedule.format})
                       </span>
                     </div>
                   )}
 
                   <div className="mt-2.5 flex items-center justify-between border-t border-[#D5E3DF] pt-2 text-xs dark:border-zinc-800/80">
                     <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
+                      <Calendar className="h-3 w-3" strokeWidth={1.5} />
+                      {formatDateVN(cand.applied_date)}
+                    </span>
+                    <span className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400">
+                      Chi tiết ›
                       <Calendar className="h-3 w-3" strokeWidth={1.5} />
                       {formatDateVN(cand.applied_date)}
                     </span>
@@ -2087,7 +2186,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <Building className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" />
-                      {selectedCandidate.current_company}
+                      {selectedCandidate.current_company ? selectedCandidate.current_company.split('·')[0].trim() : 'Chưa cập nhật'}
                     </span>
                     {!hideSalary && (
                       <span className="inline-flex items-center gap-1 font-mono text-emerald-700 dark:text-emerald-400">
@@ -2363,8 +2462,10 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                   </div>
                 </div>
 
-                {/* Khối Callout cảnh báo dời lịch phỏng vấn */}
-                {selectedCandidate.reschedule_request?.status === 'PENDING' && (
+                {/* Khối Callout cảnh báo dời lịch phỏng vấn (Chỉ hiện khi PENDING và chưa xếp lại) */}
+                {selectedCandidate.reschedule_request?.status === 'PENDING' &&
+                  selectedCandidate.interview_schedule?.status !== 'scheduled' &&
+                  selectedCandidate.interview_schedule?.status !== 'confirmed' && (
                   <div className="rounded-xl border-2 border-amber-400 bg-amber-50/90 p-4 shadow-sm space-y-3 dark:border-amber-600/80 dark:bg-amber-950/30">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2.5">
@@ -2429,6 +2530,36 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                         Từ chối dời lịch
                       </Button>
                     </div>
+                  </div>
+                )}
+
+                {/* Banner khi HR đã xếp lại lịch mới */}
+                {selectedCandidate.interview_schedule?.status === 'scheduled' && (
+                  <div className="rounded-xl border border-sky-300/80 bg-sky-50/80 p-3.5 text-xs text-sky-900 dark:border-sky-700/50 dark:bg-sky-950/30 dark:text-sky-200 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <CalendarCheck className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                      <span>
+                        Lịch phỏng vấn mới: {selectedCandidate.interview_schedule.time} ngày {formatDateVN(selectedCandidate.interview_schedule.date)} ({selectedCandidate.interview_schedule.format})
+                      </span>
+                    </span>
+                    <span className="rounded bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800 dark:bg-sky-900 dark:text-sky-200 shrink-0">
+                      Chờ ứng viên xác nhận
+                    </span>
+                  </div>
+                )}
+
+                {/* Banner khi ứng viên đã chốt xác nhận */}
+                {selectedCandidate.interview_schedule?.status === 'confirmed' && (
+                  <div className="rounded-xl border border-emerald-300/80 bg-emerald-50/80 p-3.5 text-xs text-emerald-900 dark:border-emerald-700/50 dark:bg-emerald-950/30 dark:text-emerald-200 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>
+                        Đã chốt lịch phỏng vấn: {selectedCandidate.interview_schedule.time} ngày {formatDateVN(selectedCandidate.interview_schedule.date)}
+                      </span>
+                    </span>
+                    <span className="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 shrink-0">
+                      ✓ Đã xác nhận
+                    </span>
                   </div>
                 )}
                 {selectedCandidate.reschedule_request?.status === 'ACCEPTED' && (
@@ -2538,6 +2669,69 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </Button>
                   </div>
                 )}
+
+                {/* 4. Nhật ký hoạt động & Phản hồi (Timeline - B1) */}
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 shadow-2xs dark:border-zinc-800 dark:bg-zinc-900/60 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <History className="h-4 w-4 text-[#0F766E] dark:text-teal-400" />
+                      <h4 className="text-xs font-bold text-[#11221E] dark:text-zinc-100 uppercase tracking-wider">
+                        Nhật ký hoạt động &amp; Phản hồi
+                      </h4>
+                    </div>
+                    <span className="text-[11px] font-mono text-[#5C7871] dark:text-zinc-400">
+                      {(selectedCandidate.activity_logs || []).length} sự kiện
+                    </span>
+                  </div>
+
+                  {(!selectedCandidate.activity_logs || selectedCandidate.activity_logs.length === 0) ? (
+                    <p className="text-xs text-[#5C7871] dark:text-zinc-400 italic py-2">
+                      Chưa có ghi nhận hoạt động mới.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {(isTimelineExpanded
+                        ? selectedCandidate.activity_logs
+                        : selectedCandidate.activity_logs.slice(0, 5)
+                      ).map((item, idx) => (
+                        <div
+                          key={item.id || item.event_id || idx}
+                          className="flex items-start gap-2.5 rounded-lg border border-[#D5E3DF] bg-[#F2F7F5]/50 p-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/40"
+                        >
+                          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0F766E]/15 text-[#0F766E] dark:bg-teal-500/20 dark:text-teal-300">
+                            <Clock className="h-3 w-3" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-semibold text-[#11221E] dark:text-zinc-100">
+                                {item.title}
+                              </span>
+                              <span className="font-mono text-[10px] text-[#5C7871] dark:text-zinc-400 shrink-0">
+                                {formatDateTimeVN(item.created_at)}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-[#415A54] dark:text-zinc-300 leading-relaxed">
+                              {item.description}
+                            </p>
+                            <span className="mt-1 block text-[10px] text-[#5C7871] dark:text-zinc-400">
+                              Người thực hiện: <strong className="text-zinc-700 dark:text-zinc-300">{item.actor_name}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+
+                      {selectedCandidate.activity_logs.length > 5 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+                          className="w-full rounded-lg border border-dashed border-[#C6D9D3] py-1.5 text-center text-xs font-semibold text-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:text-teal-400 dark:hover:bg-zinc-800/60"
+                        >
+                          {isTimelineExpanded ? 'Thu gọn nhật ký' : `Xem thêm ${selectedCandidate.activity_logs.length - 5} sự kiện trước`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

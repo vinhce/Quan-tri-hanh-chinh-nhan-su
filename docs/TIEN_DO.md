@@ -121,11 +121,28 @@
     - Cột "Phỏng vấn" trên Kanban tự động gắn cờ viền amber và Badge `⚠️ Yêu cầu dời lịch` (hiệu ứng `animate-pulse`) trên mặt thẻ ứng viên.
     - Side-Drawer chi tiết ứng viên hiển thị Callout cảnh báo dời lịch với 2 nút xử lý: "Chấp nhận & Xếp lại lịch" (tự động điền ngày giờ mới) và "Từ chối dời lịch" (giữ lịch cũ, gửi phản hồi tới ứng viên).
     - Khay thông báo HR hiển thị item cảnh báo ưu tiên cao `border-l-amber-500` kèm link điều hướng mở trực tiếp Side-Drawer ứng viên *(Hoàn thành)*.
-- **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
-- **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
-- **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.
-- **B3:** Xây dựng Service tuyển dụng Luồng 1 (HR đăng tin, quy trình phê duyệt, transaction, định biên, tự đóng tin).
-- **B4:** Xây dựng Luồng nộp hồ sơ `/careers/[slug]`, kiểm soát an toàn, rate-limit và token hash SHA-256.
-- **B5:** Xây dựng Luồng 2 (Ứng viên phản hồi lịch PV/Offer tại `/candidate`, ATS Kanban đồng bộ, ẩn danh hóa).
-- **B6:** Xây dựng Transaction Nhận việc → Nhân sự chờ onboarding, kích hoạt hợp đồng và Báo cáo tuyển dụng xuất CSV.
-- **B7:** Kiểm thử hồi quy toàn diện, kiểm tra 6 role, đa tab, xuất báo cáo và cập nhật README.
+- **P0 - P3b (Quy trình Tuyển dụng Cốt lõi & Sửa Triệt để 4 Lỗi B1-B4 - Hoàn thành & Verified):**
+  - **Phase P0 (Chuẩn hóa Schema, Types, Mã & Dọn Dữ liệu Rác)**:
+    - Tạo migration schema DDL: `db/migrations/001_recruitment_core.sql` với 10 bảng chuẩn InnoDB/utf8mb4 (`counters`, `job_proposals`, `job_postings`, `candidates`, `files`, `applications`, `interviews`, `offers`, `notifications`, `audit_logs`, `outbox_emails`).
+    - Hệ thống Types & Enums nghiêm ngặt: `src/lib/hrm/types.ts` (không dùng `any`).
+    - Bộ sinh mã tập trung: `src/lib/hrm/ids.ts` (`YC-YYYY-DEPTXX`, `JD-YYYY-DEPTXX`, `UV-YYYY-XXX`, `evt-xxxx`).
+    - Định dạng ngày/tiền và sanitize text: `src/lib/hrm/format.ts`.
+    - Dọn dẹp dữ liệu rác trên runtime store và candidate model.
+  - **Phase P1 (Workflow Engine, Phân quyền & Audit Logging)**:
+    - State machine tập trung: `src/lib/hrm/workflow.ts` quản lý chuyển trạng thái cho Proposal, Application (5 stages: new -> screening -> interview -> offer -> hired), Interview và Offer; tích hợp optimistic locking (`version`).
+    - Ma trận phân quyền 6 vai trò: `src/lib/hrm/permissions.ts` (Director, HR Manager, Dept Manager, Employee, Candidate).
+    - Audit log chuẩn: `src/lib/hrm/audit.ts` ghi nhật ký với `event_id` duy nhất chống trùng lặp.
+    - Bộ kiểm thử tự động: `scripts/test-hrm.mjs` (10/10 test pass 100%).
+  - **Phase P2 (Đề xuất Tuyển dụng → Phê duyệt → Duyệt & Tạo Tin Giao Dịch)**:
+    - Route Handlers: `src/app/api/hrm/proposals/route.ts`, `[id]/route.ts`, `[id]/approve-create-job/route.ts`.
+    - Thao tác nguyên tử "Duyệt & Tạo tin": liên kết `proposal_id <-> job_id`, chuyển status sang `posted`, tạo `JobPosting` tương ứng.
+    - Bắt buộc lý do khi từ chối đề xuất; kiểm tra định biên và ngưỡng duyệt của Giám đốc (>3 người hoặc >50M).
+  - **Phase P3 (/careers Ứng tuyển kèm CV, /candidate & ATS Kanban API)**:
+    - Xác thực và lưu trữ CV an toàn ngoài `public`: `src/lib/hrm/files.ts` (kiểm tra MIME, đuôi tệp .pdf/.doc/.docx, giới hạn dung lượng <= 5MB, SHA-256 hash, lưu tại `scratch/uploads`).
+    - API nộp hồ sơ & quản lý: `src/app/api/hrm/applications/route.ts`, `[id]/transition/route.ts`, `src/app/api/hrm/jobs/route.ts`, `src/app/api/hrm/interviews/route.ts`.
+    - Kiến trúc Dual Repository: `src/lib/hrm/repository.ts` với `repo.local.ts` (runtime store fallback) và `repo.mysql.ts`.
+  - **Phase P3b (Khắc phục Triệt để 4 Lỗi B1 - B4)**:
+    - **B1 (Lặp nhật ký hoạt động)**: Chấm dứt nối chuỗi log vào `current_company`. Tách riêng `activity_logs` có `event_id` duy nhất; xây dựng Timeline Component ở cuối Side-Drawer của ứng viên (`ats-view.tsx`), hiển thị 5 sự kiện gần nhất, gộp sự kiện trùng, có nút "Xem thêm".
+    - **B2 (Banner dời lịch cam kẹt lại)**: Tính toán banner phụ thuộc trực tiếp vào trạng thái lịch phỏng vấn. Khi HR duyệt & xếp lại lịch (`status = 'scheduled'`), banner cam biến mất ngay lập tức và thay bằng khối "Lịch phỏng vấn mới đã cập nhật".
+    - **B3 (Thẻ Kanban hiện cờ sai)**: Cờ và icon trên thẻ Kanban phản ánh đúng `interview_schedule.status`: khi ứng viên đã xác nhận hoặc lịch đã chốt, thẻ hiển thị biểu tượng Check xanh (`CheckCircle2`), gỡ bỏ hoàn toàn cờ cảnh báo `AlertTriangle` cam; khi hồ sơ chưa có lịch hiển thị badge cảnh báo "Chưa có lịch".
+    - **B4 (Nút Xác nhận tham gia không bấm được / thiếu lịch)**: Chặn chuyển sang bước Phỏng vấn nếu chưa tạo lịch; tại Cổng ứng viên, nếu chưa có lịch cụ thể thì hiển thị trạng thái "Đang chờ nhân sự lên lịch" và khóa mờ 2 nút Xác nhận/Dời lịch; khi có lịch và ứng viên bấm Xác nhận, cập nhật `interview.status = 'confirmed'`, đổi badge thành "✓ Đã chốt lịch" (xanh lục), khóa nút và gửi thông báo real-time tới HR. Hồ sơ UV-2026-104 đồng bộ 100% trên cả 3 giao diện *(Hoàn thành)*.

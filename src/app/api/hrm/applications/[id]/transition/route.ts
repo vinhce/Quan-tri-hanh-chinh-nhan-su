@@ -3,6 +3,10 @@ import { hrmRepo } from '@/lib/hrm/repo.mysql';
 import { transitionApplicationStage } from '@/lib/hrm/workflow';
 import type { Actor, Stage, TerminalReason } from '@/lib/hrm/types';
 
+export function generateStaticParams() {
+  return [];
+}
+
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }

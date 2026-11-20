@@ -3,6 +3,10 @@ import { can } from '@/lib/hrm/permissions';
 import { hrmRepo } from '@/lib/hrm/repo.mysql';
 import type { Actor, JobPostingEntity } from '@/lib/hrm/types';
 
+export function generateStaticParams() {
+  return [];
+}
+
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }

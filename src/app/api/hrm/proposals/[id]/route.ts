@@ -3,6 +3,10 @@ import { hrmRepo } from '@/lib/hrm/repo.mysql';
 import { transitionProposal } from '@/lib/hrm/workflow';
 import type { Actor, ProposalStatus } from '@/lib/hrm/types';
 
+export function generateStaticParams() {
+  return [];
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }

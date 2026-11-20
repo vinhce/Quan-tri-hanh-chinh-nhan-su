@@ -11,15 +11,34 @@ import type {
   UploadedFileEntity,
 } from './types';
 
-// In-memory singletons for server runtime / fallback
-const memoryProposals = new Map<string, JobProposal>();
-const memoryJobs = new Map<string, JobPostingEntity>();
-const memoryCandidates = new Map<string, CandidateEntity>();
-const memoryApplications = new Map<string, ApplicationEntity>();
-const memoryInterviews = new Map<string, InterviewEntity>();
-const memoryOffers = new Map<string, OfferEntity>();
-const memoryFiles = new Map<string, UploadedFileEntity>();
-const memoryNotifications = new Map<string, NotificationEntity>();
+// In-memory singletons for server runtime / fallback (persisted on globalThis across Next.js route chunks)
+declare global {
+  // eslint-disable-next-line no-var
+  var _hrmMemoryProposals: Map<string, JobProposal> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryJobs: Map<string, JobPostingEntity> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryCandidates: Map<string, CandidateEntity> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryApplications: Map<string, ApplicationEntity> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryInterviews: Map<string, InterviewEntity> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryOffers: Map<string, OfferEntity> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryFiles: Map<string, UploadedFileEntity> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmMemoryNotifications: Map<string, NotificationEntity> | undefined;
+}
+
+const memoryProposals = (globalThis._hrmMemoryProposals = globalThis._hrmMemoryProposals || new Map<string, JobProposal>());
+const memoryJobs = (globalThis._hrmMemoryJobs = globalThis._hrmMemoryJobs || new Map<string, JobPostingEntity>());
+const memoryCandidates = (globalThis._hrmMemoryCandidates = globalThis._hrmMemoryCandidates || new Map<string, CandidateEntity>());
+const memoryApplications = (globalThis._hrmMemoryApplications = globalThis._hrmMemoryApplications || new Map<string, ApplicationEntity>());
+const memoryInterviews = (globalThis._hrmMemoryInterviews = globalThis._hrmMemoryInterviews || new Map<string, InterviewEntity>());
+const memoryOffers = (globalThis._hrmMemoryOffers = globalThis._hrmMemoryOffers || new Map<string, OfferEntity>());
+const memoryFiles = (globalThis._hrmMemoryFiles = globalThis._hrmMemoryFiles || new Map<string, UploadedFileEntity>());
+const memoryNotifications = (globalThis._hrmMemoryNotifications = globalThis._hrmMemoryNotifications || new Map<string, NotificationEntity>());
 
 export class LocalHrmRepository implements IHrmRepository {
   async getProposals(): Promise<JobProposal[]> {

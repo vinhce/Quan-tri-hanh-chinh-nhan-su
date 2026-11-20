@@ -264,8 +264,16 @@ export function transitionInterview(params: {
     throw new WorkflowError('Chỉ ứng viên hoặc nhân sự phụ trách mới được xác nhận lịch phỏng vấn.', 'PERMISSION_DENIED');
   }
 
-  if (toStatus === 'reschedule_requested' && !can(actor, 'reschedule_interview')) {
-    throw new WorkflowError('Bạn không có quyền gửi đề xuất dời lịch.', 'PERMISSION_DENIED');
+  if (toStatus === 'reschedule_requested') {
+    if (!can(actor, 'reschedule_interview')) {
+      throw new WorkflowError('Bạn không có quyền gửi đề xuất dời lịch.', 'PERMISSION_DENIED');
+    }
+    if (interview.status === 'confirmed' && actor.role === 'CANDIDATE') {
+      throw new WorkflowError(
+        'Lịch phỏng vấn đã được xác nhận chốt lịch. Không thể đề xuất dời lịch trực tuyến.',
+        'INVALID_INTERVIEW_TRANSITION'
+      );
+    }
   }
 
   const eventId = formatEventId('evt-interview');

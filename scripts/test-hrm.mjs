@@ -280,6 +280,16 @@ try {
     });
     interview = confirmed.interview;
     assert.strictEqual(interview.status, 'confirmed');
+
+    // Candidate cannot reschedule once confirmed
+    assert.throws(() => {
+      transitionInterview({
+        interview,
+        toStatus: 'reschedule_requested',
+        actor: candidate,
+        payload: { reschedule_reason: 'Muốn dời lại' },
+      });
+    }, /Lịch phỏng vấn đã được xác nhận chốt lịch/);
   });
 
   // 6. Optimistic concurrency

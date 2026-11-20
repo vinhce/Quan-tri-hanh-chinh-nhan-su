@@ -436,6 +436,15 @@ export default function CandidatePortalPage() {
 
   const handleSendReschedule = () => {
     if (!currentCandidate) return;
+    if (currentCandidate.interview_schedule?.status === 'confirmed') {
+      showToast(
+        'Lịch phỏng vấn đã được xác nhận',
+        'Bạn đã xác nhận tham gia buổi phỏng vấn này. Lịch hẹn đã được chốt với hội đồng chuyên môn và không thể dời trực tuyến.',
+        'warning'
+      );
+      setActionModal(null);
+      return;
+    }
     if (!rescheduleReason.trim()) {
       showToast('Thiếu thông tin', 'Vui lòng nhập lý do đề xuất dời lịch', 'warning');
       return;
@@ -1074,25 +1083,11 @@ export default function CandidatePortalPage() {
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  className="bg-emerald-600 text-white hover:bg-emerald-600 text-xs font-semibold opacity-90 cursor-default"
+                                  className="bg-emerald-600 text-white hover:bg-emerald-600 text-xs font-semibold opacity-95 cursor-default shadow-sm"
                                   disabled
                                 >
                                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                                   ✓ Đã xác nhận tham gia
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-[#C6D9D3] text-xs text-[#11221E] hover:bg-[#E8F3EF] dark:text-zinc-200 dark:border-zinc-700"
-                                  onClick={() => {
-                                    setRescheduleReason('');
-                                    const defaultDate = currentCandidate.interview_schedule?.date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
-                                    setRescheduleDate(defaultDate);
-                                    setRescheduleTime(currentCandidate.interview_schedule?.time || '09:30');
-                                    setActionModal('interview');
-                                  }}
-                                >
-                                  Đề xuất dời lịch khác
                                 </Button>
                               </div>
                             ) : (

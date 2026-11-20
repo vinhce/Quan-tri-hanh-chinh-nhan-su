@@ -754,22 +754,44 @@ export function AtsView() {
   };
 
   const handleCancelInterviewModal = () => {
-    if (schedulingCandidate && prevCandidateStage) {
+    if (schedulingCandidate) {
+      const hasValidSchedule = Boolean(schedulingCandidate.interview_schedule?.date);
+      let targetStage = prevCandidateStage || schedulingCandidate.stage;
+      // Quy tắc cốt lõi: Nếu không thiết lập lịch phỏng vấn,
+      // ứng viên tuyệt đối không thể sang hoặc ở lại cột 'Phỏng vấn' (INTERVIEW).
+      if (!hasValidSchedule) {
+        targetStage =
+          prevCandidateStage && prevCandidateStage !== 'INTERVIEW'
+            ? prevCandidateStage
+            : 'AI_SCREENED';
+      }
+
+      const updatedCandidate: Candidate = {
+        ...schedulingCandidate,
+        stage: targetStage,
+      };
+      saveRuntimeCandidate(updatedCandidate);
+
       setCandidates((prev) =>
-        prev.map((c) =>
-          c.id === schedulingCandidate.id ? { ...c, stage: prevCandidateStage } : c
-        )
+        prev.map((c) => (c.id === schedulingCandidate.id ? updatedCandidate : c))
       );
       setSelectedCandidate((prev) =>
-        prev && prev.id === schedulingCandidate.id
-          ? { ...prev, stage: prevCandidateStage }
-          : prev
+        prev && prev.id === schedulingCandidate.id ? updatedCandidate : prev
       );
-      showToast(
-        'Đã hủy lên lịch phỏng vấn',
-        `Ứng viên ${schedulingCandidate.full_name} đã được giữ nguyên ở cột ban đầu (${getStageDisplayLabel(prevCandidateStage)}).`,
-        'default'
-      );
+
+      if (!hasValidSchedule) {
+        showToast(
+          'Chưa thiết lập lịch phỏng vấn',
+          `Ứng viên ${schedulingCandidate.full_name} không thể sang cột Phỏng vấn và đã được lưu ở cột 'Hồ sơ đã nhận'.`,
+          'warning'
+        );
+      } else {
+        showToast(
+          'Đã hủy lên lịch phỏng vấn',
+          `Ứng viên ${schedulingCandidate.full_name} được giữ nguyên trạng thái (${getStageDisplayLabel(targetStage)}).`,
+          'default'
+        );
+      }
     }
     setIsInterviewModalOpen(false);
     setSchedulingCandidate(null);
@@ -903,9 +925,11 @@ export function AtsView() {
       openOnboardingInitDialog(candidate);
       return;
     }
-    if (targetStage === 'INTERVIEW' && candidate.stage !== 'INTERVIEW') {
-      openInterviewScheduleModal(candidate);
-      return;
+    if (targetStage === 'INTERVIEW') {
+      if (!candidate.interview_schedule?.date) {
+        openInterviewScheduleModal(candidate);
+        return;
+      }
     }
 
     const updatedCandidate: Candidate = { ...candidate, stage: targetStage };
@@ -1709,9 +1733,18 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                               </span>
                             )}
                             {isInterviewUnscheduled && (
-                              <span className="inline-flex items-center gap-0.5 rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 text-[9px] font-medium text-rose-700 dark:text-rose-300">
-                                Chưa có lịch
-                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openInterviewScheduleModal(cand);
+                                }}
+                                className="inline-flex items-center gap-1 rounded border border-rose-400/80 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 hover:bg-rose-500/25 hover:border-rose-500 dark:border-rose-700/80 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 transition-all cursor-pointer"
+                                title="Nhấp vào đây để thiết lập lịch phỏng vấn"
+                              >
+                                <AlertCircle className="h-2.5 w-2.5 text-rose-600 dark:text-rose-400" />
+                                <span>Chưa có lịch ›</span>
+                              </button>
                             )}
                             {cand.stage === 'ONBOARDED' && (
                               <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300">
@@ -1817,12 +1850,25 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </div>
                   )}
 
-                  {/* Lịch phỏng vấn chưa có (B3: Cảnh báo chưa có lịch) */}
+                  {/* Lịch phỏng vấn chưa có: Click để thiết lập lịch ngay */}
                   {isInterviewUnscheduled && (
-                    <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-                      <AlertCircle className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-400" />
-                      <span className="truncate">Chưa thiết lập lịch phỏng vấn</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInterviewScheduleModal(cand);
+                      }}
+                      className="mt-2 flex w-full items-center justify-between gap-1.5 rounded-lg border border-rose-400/80 bg-rose-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-500/25 hover:border-rose-500 dark:border-rose-700/80 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60 transition-all cursor-pointer text-left group/sched shadow-2xs"
+                      title="Nhấp vào đây để thiết lập lịch phỏng vấn ngay"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400 group-hover/sched:scale-110 transition-transform" />
+                        <span className="truncate font-bold">Chưa thiết lập lịch phỏng vấn</span>
+                      </div>
+                      <span className="shrink-0 font-bold text-[10px] text-rose-600 dark:text-rose-400 group-hover/sched:underline flex items-center gap-0.5">
+                        Thiết lập ngay ›
+                      </span>
+                    </button>
                   )}
 
                   {/* Lịch phỏng vấn đã xếp nhưng chưa chốt / vừa xếp lại */}
@@ -1838,11 +1884,6 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
 
                   <div className="mt-2.5 flex items-center justify-between border-t border-[#D5E3DF] pt-2 text-xs dark:border-zinc-800/80">
                     <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      <Calendar className="h-3 w-3" strokeWidth={1.5} />
-                      {formatDateVN(cand.applied_date)}
-                    </span>
-                    <span className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400">
-                      Chi tiết ›
                       <Calendar className="h-3 w-3" strokeWidth={1.5} />
                       {formatDateVN(cand.applied_date)}
                     </span>
@@ -1948,11 +1989,14 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     droppedCand.stage !== 'AI_SCREENED'
                   ) {
                     handleMoveStage(droppedCand, 'APPLIED');
-                  } else if (colIdx === 1 && droppedCand.stage !== 'INTERVIEW') {
+                  } else if (colIdx === 1) {
                     // Intercept sự kiện kéo thả thẻ vào cột 'Phỏng vấn' (cột 2):
-                    // Khi nhả thẻ vào cột 'Phỏng vấn', KHÔNG cập nhật trạng thái ngay.
-                    // Tự động mở Modal/Dialog 'Lên lịch phỏng vấn' cho ứng viên đó.
-                    openInterviewScheduleModal(droppedCand);
+                    // Bắt buộc phải có lịch phỏng vấn cụ thể mới được chuyển sang cột này.
+                    if (!droppedCand.interview_schedule?.date) {
+                      openInterviewScheduleModal(droppedCand);
+                    } else if (droppedCand.stage !== 'INTERVIEW') {
+                      handleMoveStage(droppedCand, 'INTERVIEW');
+                    }
                   } else if (
                     colIdx === 2 &&
                     droppedCand.stage !== 'OFFER' &&
@@ -2650,22 +2694,27 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </div>
                   </div>
                 )}
-                {selectedCandidate.stage === 'INTERVIEW' && !selectedCandidate.interview_schedule && (
-                  <div className="rounded-xl border border-amber-300/50 bg-amber-50/50 p-3 flex items-center justify-between gap-3 dark:border-amber-700/30 dark:bg-amber-950/20">
+                {selectedCandidate.stage === 'INTERVIEW' && !selectedCandidate.interview_schedule?.date && (
+                  <div className="rounded-xl border border-rose-300/80 bg-rose-500/15 p-3 flex items-center justify-between gap-3 dark:border-rose-800/80 dark:bg-rose-950/40">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
-                        Chưa thiết lập lịch phỏng vấn
-                      </span>
+                      <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                      <div>
+                        <span className="text-xs font-bold text-rose-900 dark:text-rose-200 block">
+                          Chưa thiết lập lịch phỏng vấn
+                        </span>
+                        <span className="text-[11px] text-rose-700 dark:text-rose-300 block">
+                          Bắt buộc phải có lịch phỏng vấn để duy trì ứng viên ở bước này.
+                        </span>
+                      </div>
                     </div>
                     <Button
                       type="button"
                       size="sm"
                       variant="primary"
                       onClick={() => openInterviewScheduleModal(selectedCandidate)}
-                      className="h-7 text-xs"
+                      className="h-7 text-xs shrink-0"
                     >
-                      Lên lịch ngay
+                      Thiết lập ngay
                     </Button>
                   </div>
                 )}

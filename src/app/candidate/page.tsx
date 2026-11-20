@@ -860,8 +860,9 @@ export default function CandidatePortalPage() {
                       <button
                         type="button"
                         onClick={() => setActionModal('withdraw')}
-                        className="text-xs font-medium text-[#5C7871] hover:text-rose-600 dark:text-zinc-400 hover:underline transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:border-rose-800 dark:hover:bg-rose-900/50 transition-all shadow-sm"
                       >
+                        <XCircle className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />
                         Rút hồ sơ
                       </button>
                     ) : currentCandidate.stage === 'REJECTED' ? (

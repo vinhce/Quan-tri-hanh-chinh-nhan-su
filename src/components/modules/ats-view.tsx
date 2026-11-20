@@ -1882,12 +1882,12 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </div>
                   )}
 
-                  <div className="mt-2.5 flex items-center justify-between border-t border-[#D5E3DF] pt-2 text-xs dark:border-zinc-800/80">
-                    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      <Calendar className="h-3 w-3" strokeWidth={1.5} />
-                      {formatDateVN(cand.applied_date)}
+                  <div className="mt-2.5 flex items-center justify-between border-t border-[#D5E3DF] pt-2 text-xs dark:border-zinc-800/80 whitespace-nowrap leading-none">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400 shrink-0">
+                      <Calendar className="h-3 w-3 shrink-0 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
+                      <span className="tabular-nums">{formatDateVN(cand.applied_date)}</span>
                     </span>
-                    <span className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400">
+                    <span className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400 shrink-0">
                       Chi tiết ›
                     </span>
                   </div>

@@ -818,7 +818,7 @@ export default function CandidatePortalPage() {
                       </span>
                       <span className="text-xs text-[#C6D9D3] dark:text-zinc-700">·</span>
                       <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                        Nộp ngày: {currentCandidate.applied_date}
+                        Nộp ngày: {formatDateVN(currentCandidate.applied_date)}
                       </span>
                     </div>
 

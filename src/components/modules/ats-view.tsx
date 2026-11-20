@@ -298,6 +298,7 @@ export function AtsView() {
   const [expandedLimits, setExpandedLimits] = useState<Record<string, boolean>>({});
   const [timeFilter, setTimeFilter] = useState<'30_DAYS' | 'CURRENT_MONTH' | 'ALL'>('30_DAYS');
   const [showArchived, setShowArchived] = useState<boolean>(false);
+  const [showRejected, setShowRejected] = useState<boolean>(false);
   const [isCompactMode, setIsCompactMode] = useState<boolean>(false);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState<boolean>(false);
 
@@ -1667,6 +1668,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             );
             const offerCandidates = colCandidates.filter((c) => c.stage === 'OFFER');
             const onboardedCandidates = colCandidates.filter((c) => c.stage === 'ONBOARDED');
+            const rejectedCandidates = filteredCandidates.filter((c) => c.stage === 'REJECTED');
             const archivedInOfferColCount = candidates.filter(
               (c) => col.stages.includes(c.stage) && isCandidateArchived(c)
             ).length;
@@ -1751,6 +1753,11 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                                 Đã nhận việc
                               </span>
                             )}
+                            {cand.stage === 'REJECTED' && (
+                              <span className="rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.2 text-[9px] font-semibold text-rose-700 dark:text-rose-300">
+                                Đã rút
+                              </span>
+                            )}
                             {isArchived && (
                               <span className="rounded border border-[#C6D9D3] bg-[#D5E3DF]/50 px-1 py-0.2 text-[9px] font-medium text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
                                 Lưu trữ
@@ -1805,6 +1812,11 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       {cand.stage === 'ONBOARDED' && (
                         <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
                           Đã nhận việc
+                        </span>
+                      )}
+                      {cand.stage === 'REJECTED' && (
+                        <span className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                          Đã rút / Loại
                         </span>
                       )}
                       {isArchived && (
@@ -2158,6 +2170,29 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                 ) : (
                   <div className="flex-1 space-y-2.5">
                     {renderSectionCards(colCandidates, col.id)}
+
+                    {col.id === 'col-received' && rejectedCandidates.length > 0 && (
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-rose-300 bg-rose-50/70 px-2.5 py-2 text-[11px] text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <XCircle className="h-3.5 w-3.5 text-rose-500" />
+                            Đã ẩn {rejectedCandidates.length} hồ sơ đã rút / loại
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowRejected(!showRejected)}
+                            className="font-bold text-rose-700 hover:underline dark:text-rose-300 cursor-pointer"
+                          >
+                            {showRejected ? 'Ẩn bớt' : 'Hiện lại'}
+                          </button>
+                        </div>
+                        {showRejected && (
+                          <div className="mt-2 space-y-2">
+                            {rejectedCandidates.map((cand) => renderCandidateCard(cand))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2253,6 +2288,25 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
 
               {/* Scrollable Drawer Body */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {selectedCandidate.stage === 'REJECTED' && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50/80 p-3.5 text-xs text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-300">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                      <span>
+                        Hồ sơ này đã <strong>Rút hồ sơ</strong> hoặc bị loại khỏi quy trình tuyển dụng.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickStageChange('AI_SCREENED')}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-zinc-900 dark:text-rose-300 cursor-pointer transition-all shadow-2xs shrink-0"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Khôi phục hồ sơ
+                    </button>
+                  </div>
+                )}
+
                 {/* 1. Thay nút cứng tiến/lùi bằng Dropdown Select trạng thái */}
                 <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/80 p-3.5 dark:border-zinc-800 dark:bg-zinc-900/60">
                   <div className="flex items-center justify-between gap-2 mb-2">

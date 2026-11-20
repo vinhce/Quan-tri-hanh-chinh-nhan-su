@@ -289,14 +289,24 @@ export default function CandidatePortalPage() {
   // Demo profile candidate or matched candidate
   const currentCandidate = useMemo(() => {
     if (candidates.length === 0) return null;
+    if (activeCandidate) {
+      const match = candidates.find((c) => c.id === activeCandidate.id);
+      if (match) return match;
+    }
+    if (typeof window !== 'undefined') {
+      const lastEmail = window.localStorage.getItem('lacviet_applied_candidate_email');
+      if (lastEmail) {
+        const match = candidates.find((c) => c.email.toLowerCase() === lastEmail.toLowerCase());
+        if (match) return match;
+      }
+    }
     if (currentUserEmail && currentUserEmail !== 'ungvien@gmail.com') {
       const match = candidates.find((c) => c.email.toLowerCase() === currentUserEmail.toLowerCase());
       if (match) return match;
     }
-    // Default to active candidate UV-2026-104 (Đinh Tuấn Kiệt) or the first available
     const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
     return defaultCand ?? null;
-  }, [candidates, currentUserEmail]);
+  }, [candidates, activeCandidate, currentUserEmail]);
 
   const syncCandidateData = useCallback(() => {
     const list = mergeWithRuntimeCandidates(MOCK_CANDIDATES);
@@ -804,6 +814,32 @@ export default function CandidatePortalPage() {
                 Email: <strong>{currentCandidate?.email ?? 'ungvien@gmail.com'}</strong> · SĐT: {currentCandidate?.phone ?? 'Chưa cập nhật'}
               </p>
             </div>
+
+            {/* Quick Demo Switcher */}
+            <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+              <label className="text-[11px] font-semibold text-[#5C7871] dark:text-zinc-400">
+                Đang xem hồ sơ ứng viên:
+              </label>
+              <select
+                value={currentCandidate?.id || ''}
+                onChange={(e) => {
+                  const targetCand = candidates.find((c) => c.id === e.target.value);
+                  if (targetCand) {
+                    setActiveCandidate(targetCand);
+                    if (typeof window !== 'undefined') {
+                      window.localStorage.setItem('lacviet_applied_candidate_email', targetCand.email);
+                    }
+                  }
+                }}
+                className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-1.5 text-xs font-semibold text-[#11221E] shadow-2xs focus:border-[#0F766E] focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 cursor-pointer"
+              >
+                {candidates.map((cand) => (
+                  <option key={cand.id} value={cand.id}>
+                    {cand.candidate_code} - {cand.full_name} ({STAGE_META[cand.stage]?.label ?? cand.stage})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -869,10 +905,34 @@ export default function CandidatePortalPage() {
                         Rút hồ sơ
                       </button>
                     ) : currentCandidate.stage === 'REJECTED' ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                        <XCircle className="h-3.5 w-3.5" />
-                        Đã rút hồ sơ
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400">
+                          <XCircle className="h-3.5 w-3.5" />
+                          Đã rút hồ sơ
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const restored: Candidate = {
+                              ...currentCandidate,
+                              stage: 'APPLIED',
+                            };
+                            saveRuntimeCandidate(restored);
+                            setActiveCandidate(restored);
+                            setCandidates((prev) => prev.map((c) => (c.id === restored.id ? restored : c)));
+                            showToast(
+                              'Đã khôi phục hồ sơ',
+                              'Hồ sơ của bạn đã được chuyển lại về trạng thái Đang xét duyệt (Hồ sơ mới nhận).',
+                              'success'
+                            );
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#0F766E]/40 bg-[#0F766E]/10 px-2.5 py-1 text-xs font-semibold text-[#0F766E] hover:bg-[#0F766E]/20 dark:border-teal-700/60 dark:bg-teal-950/40 dark:text-teal-300 transition-all cursor-pointer"
+                          title="Khôi phục lại hồ sơ đã rút"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Khôi phục hồ sơ
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"

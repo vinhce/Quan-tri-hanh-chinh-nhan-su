@@ -369,6 +369,13 @@ export interface CandidateInterviewSchedule {
   scheduled_at?: string;
 }
 
+export interface CandidateRescheduleRequest {
+  reason: string;
+  proposed_time: string;
+  requested_at: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+}
+
 export interface Candidate {
   id: string;
   candidate_code: string;
@@ -388,6 +395,7 @@ export interface Candidate {
   notes?: CandidateInterviewNote[];
   cv_url?: string;
   interview_schedule?: CandidateInterviewSchedule;
+  reschedule_request?: CandidateRescheduleRequest;
 }
 
 export interface RoleDefinition {

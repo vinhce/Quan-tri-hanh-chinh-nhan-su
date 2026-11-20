@@ -3,11 +3,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   Archive,
   ArrowRight,
   Briefcase,
   Building,
   Calendar,
+  CalendarCheck,
+  CalendarX,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -71,6 +74,7 @@ import type {
   Candidate,
   CandidateAiEvaluation,
   CandidateInterviewSchedule,
+  CandidateRescheduleRequest,
   CompanyAsset,
   Department,
   DepartmentRecruitmentRequest,
@@ -263,7 +267,7 @@ function suggestCorporateEmail(fullName: string, existingEmployees: Employee[]):
 }
 
 export function AtsView() {
-  const { role, currentUserProfile, showToast, navigateWithIntent } = useApp();
+  const { role, currentUserProfile, showToast, navigateWithIntent, navIntent, clearNavIntent } = useApp();
   const hideSalary = role === 'DEPT_MANAGER';
   const defaultProfile = ROLE_DEFAULT_PROFILES[role];
   const actorName = currentUserProfile?.fullName || defaultProfile.fullName;
@@ -454,6 +458,22 @@ export function AtsView() {
     };
   }, [syncRuntimeData]);
 
+  useEffect(() => {
+    if (
+      navIntent &&
+      (navIntent.navId === 'ats' || navIntent.navId === 'recruitment') &&
+      navIntent.entityId
+    ) {
+      const match = candidates.find(
+        (c) => c.id === navIntent.entityId || c.candidate_code === navIntent.entityId
+      );
+      if (match) {
+        setSelectedCandidate(match);
+        clearNavIntent();
+      }
+    }
+  }, [navIntent, candidates, clearNavIntent]);
+
   const stageOrder = useMemo(() => kanbanStages.map((s) => s.stage), [kanbanStages]);
 
   const isCandidateArchived = useCallback((c: Candidate) => {
@@ -626,15 +646,19 @@ export function AtsView() {
     );
   };
 
-  const openInterviewScheduleModal = (candidate: Candidate) => {
+  const openInterviewScheduleModal = (
+    candidate: Candidate,
+    initialDate?: string,
+    initialTime?: string
+  ) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const defaultDate = tomorrow.toISOString().split('T')[0];
 
     setSchedulingCandidate(candidate);
     setPrevCandidateStage(candidate.stage);
-    setInterviewDate(candidate.interview_schedule?.date || defaultDate);
-    setInterviewTime(candidate.interview_schedule?.time || '09:30');
+    setInterviewDate(initialDate || candidate.interview_schedule?.date || defaultDate);
+    setInterviewTime(initialTime || candidate.interview_schedule?.time || '09:30');
     setInterviewFormat(candidate.interview_schedule?.format || 'Online');
     setInterviewInterviewer(
       candidate.interview_schedule?.interviewer ||
@@ -649,6 +673,68 @@ export function AtsView() {
         `https://meet.google.com/hrm-${candidate.candidate_code.toLowerCase()}`
     );
     setIsInterviewModalOpen(true);
+  };
+
+  const handleAcceptReschedule = (candidate: Candidate) => {
+    let prepDate = candidate.interview_schedule?.date;
+    let prepTime = candidate.interview_schedule?.time;
+    if (candidate.reschedule_request?.proposed_time) {
+      const pt = candidate.reschedule_request.proposed_time.trim();
+      const dateMatch = pt.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        prepDate = dateMatch[1];
+      }
+      const timeMatch = pt.match(/(\d{1,2}:\d{2})/);
+      if (timeMatch) {
+        prepTime = timeMatch[1].padStart(5, '0');
+      }
+    }
+    openInterviewScheduleModal(candidate, prepDate, prepTime);
+  };
+
+  const handleRejectReschedule = (candidate: Candidate) => {
+    if (!candidate.reschedule_request) return;
+    const updatedCandidate: Candidate = {
+      ...candidate,
+      reschedule_request: {
+        ...candidate.reschedule_request,
+        status: 'REJECTED',
+      },
+    };
+    saveRuntimeCandidate(updatedCandidate);
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === candidate.id ? updatedCandidate : c))
+    );
+    setSelectedCandidate(updatedCandidate);
+
+    const scheduleInfo = candidate.interview_schedule
+      ? `Lịch phỏng vấn vẫn giữ nguyên vào lúc ${candidate.interview_schedule.time} ngày ${formatDateVN(candidate.interview_schedule.date)} (${candidate.interview_schedule.format}).`
+      : 'Vui lòng liên hệ bộ phận tuyển dụng để biết thêm chi tiết.';
+
+    pushNotification({
+      title: `Phản hồi yêu cầu dời lịch: ${candidate.job_title}`,
+      message: `Chào ${candidate.full_name}, rất tiếc yêu cầu dời lịch phỏng vấn của bạn chưa được chấp thuận do lịch của người phỏng vấn đã kín. ${scheduleInfo} Vui lòng sắp xếp tham dự đúng giờ.`,
+      category: 'ONBOARDING',
+      target_roles: ['CANDIDATE', 'HR_MANAGER'],
+      target_employee_codes: [candidate.candidate_code],
+      nav_id: 'candidate',
+    });
+
+    recordAuditLog({
+      actor_name: actorName,
+      actor_code: actorCode,
+      actor_role: role,
+      action: 'UPDATE_CONTRACT' as any,
+      module: 'Tuyển dụng & AI CV',
+      target: `${candidate.candidate_code} - ${candidate.full_name}`,
+      detail: `Từ chối đề xuất dời lịch phỏng vấn của ứng viên ${candidate.full_name}, giữ nguyên lịch cũ.`,
+    });
+
+    showToast(
+      'Đã từ chối dời lịch',
+      `Giữ nguyên lịch phỏng vấn cũ và đã gửi thông báo phản hồi tới ứng viên ${candidate.full_name}.`,
+      'default'
+    );
   };
 
   const handleCancelInterviewModal = () => {
@@ -699,6 +785,7 @@ export function AtsView() {
       return;
     }
 
+    const isFromReschedule = schedulingCandidate.reschedule_request?.status === 'PENDING';
     const updatedCandidate: Candidate = {
       ...schedulingCandidate,
       stage: 'INTERVIEW',
@@ -711,6 +798,12 @@ export function AtsView() {
         location_or_link: interviewLocationOrLink.trim(),
         scheduled_at: new Date().toISOString(),
       },
+      reschedule_request: schedulingCandidate.reschedule_request
+        ? {
+            ...schedulingCandidate.reschedule_request,
+            status: 'ACCEPTED',
+          }
+        : undefined,
     };
 
     saveRuntimeCandidate(updatedCandidate);
@@ -722,7 +815,16 @@ export function AtsView() {
       prev && prev.id === schedulingCandidate.id ? updatedCandidate : prev
     );
 
-    if (interviewSendNotification) {
+    if (isFromReschedule) {
+      pushNotification({
+        title: `Chấp thuận dời lịch phỏng vấn: ${schedulingCandidate.job_title}`,
+        message: `Chào ${schedulingCandidate.full_name}, yêu cầu dời lịch phỏng vấn của bạn đã được chấp thuận. Lịch phỏng vấn mới đã được xếp vào lúc ${interviewTime} ngày ${formatDateVN(interviewDate)} (${interviewFormat === 'Online' ? 'Online: ' + interviewLocationOrLink.trim() : 'Địa điểm: ' + interviewLocationOrLink.trim()}). Người phỏng vấn: ${interviewInterviewer.trim()}.`,
+        category: 'ONBOARDING',
+        target_roles: ['CANDIDATE', 'HR_MANAGER'],
+        target_employee_codes: [schedulingCandidate.candidate_code],
+        nav_id: 'candidate',
+      });
+    } else if (interviewSendNotification) {
       pushNotification({
         title: `Lịch phỏng vấn: ${schedulingCandidate.job_title}`,
         message: `Chào ${schedulingCandidate.full_name}, bạn có lịch phỏng vấn vị trí ${schedulingCandidate.job_title} vào lúc ${interviewTime} ngày ${formatDateVN(interviewDate)} (${interviewFormat === 'Online' ? 'Online: ' + interviewLocationOrLink.trim() : 'Địa điểm: ' + interviewLocationOrLink.trim()}). Người phỏng vấn: ${interviewInterviewer.trim()}.`,
@@ -747,12 +849,16 @@ export function AtsView() {
       action: 'UPDATE_CONTRACT' as any,
       module: 'Tuyển dụng & AI CV',
       target: `${schedulingCandidate.candidate_code} - ${schedulingCandidate.full_name}`,
-      detail: `Lên lịch phỏng vấn ${interviewTime} ngày ${formatDateVN(interviewDate)} (${interviewFormat}), người PV: ${interviewInterviewer.trim()}, địa điểm/link: ${interviewLocationOrLink.trim()}`,
+      detail: isFromReschedule
+        ? `Chấp thuận dời lịch phỏng vấn và xếp lại: ${interviewTime} ngày ${formatDateVN(interviewDate)} (${interviewFormat}), người PV: ${interviewInterviewer.trim()}`
+        : `Lên lịch phỏng vấn ${interviewTime} ngày ${formatDateVN(interviewDate)} (${interviewFormat}), người PV: ${interviewInterviewer.trim()}, địa điểm/link: ${interviewLocationOrLink.trim()}`,
     });
 
     showToast(
-      'Đã lên lịch phỏng vấn & cập nhật trạng thái',
-      `${schedulingCandidate.full_name} -> Phỏng vấn (${interviewTime} ngày ${formatDateVN(interviewDate)})${interviewSendNotification ? ' · Đã gửi thông báo Real-time cho ứng viên.' : '.'}`,
+      isFromReschedule ? 'Đã xếp lại lịch phỏng vấn thành công' : 'Đã lên lịch phỏng vấn & cập nhật trạng thái',
+      isFromReschedule
+        ? `Đã chấp thuận đề xuất dời lịch của ${schedulingCandidate.full_name}. Lịch mới: ${interviewTime} ngày ${formatDateVN(interviewDate)}.`
+        : `${schedulingCandidate.full_name} -> Phỏng vấn (${interviewTime} ngày ${formatDateVN(interviewDate)})${interviewSendNotification ? ' · Đã gửi thông báo Real-time cho ứng viên.' : '.'}`,
       'success'
     );
 
@@ -1501,6 +1607,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             const renderCandidateCard = (cand: Candidate, forceCompact = false) => {
               const isCompact = forceCompact || isCompactMode || cand.stage === 'ONBOARDED';
               const isArchived = isCandidateArchived(cand);
+              const isReschedulePending = cand.reschedule_request?.status === 'PENDING';
 
               if (isCompact) {
                 return (
@@ -1511,7 +1618,11 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       e.dataTransfer.setData('text/plain', cand.id);
                     }}
                     onClick={() => setSelectedCandidate(cand)}
-                    className="group cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-2 shadow-2xs transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
+                    className={`group cursor-pointer rounded-lg border px-2.5 py-2 shadow-2xs transition-all ${
+                      isReschedulePending
+                        ? 'border-amber-400 bg-amber-50/70 hover:border-amber-500 hover:bg-amber-100/70 dark:border-amber-600/70 dark:bg-amber-950/30 dark:hover:border-amber-500 ring-1 ring-amber-400/50'
+                        : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]'
+                    }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Avatar
@@ -1532,6 +1643,11 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                             {cand.job_title}
                           </span>
                           <div className="flex items-center gap-1 shrink-0">
+                            {isReschedulePending && (
+                              <span className="inline-flex items-center gap-0.5 rounded border border-amber-500/40 bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 dark:text-amber-200 animate-pulse">
+                                ⚠️ Dời lịch
+                              </span>
+                            )}
                             {cand.stage === 'ONBOARDED' && (
                               <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300">
                                 Đã nhận việc
@@ -1558,13 +1674,22 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     e.dataTransfer.setData('text/plain', cand.id);
                   }}
                   onClick={() => setSelectedCandidate(cand)}
-                  className="cursor-pointer rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3 shadow-2xs transition-all hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]"
+                  className={`cursor-pointer rounded-xl border p-3 shadow-2xs transition-all ${
+                    isReschedulePending
+                      ? 'border-amber-400 bg-amber-50/40 hover:border-amber-500 hover:bg-amber-100/60 dark:border-amber-600/70 dark:bg-amber-950/25 dark:hover:border-amber-500 ring-1 ring-amber-400/50'
+                      : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-xs text-[#5C7871] dark:text-zinc-400">
                       {cand.candidate_code}
                     </span>
                     <div className="flex items-center gap-1.5">
+                      {isReschedulePending && (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:border-amber-500/50 dark:bg-amber-900/40 dark:text-amber-200 animate-pulse">
+                          ⚠️ Yêu cầu dời lịch
+                        </span>
+                      )}
                       {cand.stage === 'OFFER' && (
                         <span className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
                           Đề nghị nhận việc
@@ -1592,6 +1717,19 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                   {selectedJobId === 'ALL' && (
                     <div className="mt-0.5 line-clamp-1 text-xs text-[#415A54] dark:text-zinc-400">
                       {cand.job_title}
+                    </div>
+                  )}
+
+                  {/* Badge cảnh báo dời lịch nổi bật kèm animation pulse */}
+                  {isReschedulePending && (
+                    <div className="mt-2 flex items-center justify-between gap-1.5 rounded-lg border border-amber-400/60 bg-amber-100/80 px-2.5 py-1 text-[11px] font-bold text-amber-950 dark:border-amber-600/60 dark:bg-amber-950/50 dark:text-amber-200 animate-pulse">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span className="truncate">⚠️ Yêu cầu dời lịch:</span>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                        {cand.reschedule_request?.proposed_time || 'Chờ duyệt'}
+                      </span>
                     </div>
                   )}
 
@@ -2225,6 +2363,91 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                   </div>
                 </div>
 
+                {/* Khối Callout cảnh báo dời lịch phỏng vấn */}
+                {selectedCandidate.reschedule_request?.status === 'PENDING' && (
+                  <div className="rounded-xl border-2 border-amber-400 bg-amber-50/90 p-4 shadow-sm space-y-3 dark:border-amber-600/80 dark:bg-amber-950/30">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 animate-pulse">
+                          <AlertTriangle className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5 uppercase tracking-wide">
+                            ⚠️ Ứng viên yêu cầu dời lịch phỏng vấn
+                          </h4>
+                          <span className="text-[11px] text-amber-800 dark:text-amber-300">
+                            Gửi lúc: {selectedCandidate.reschedule_request.requested_at ? new Date(selectedCandidate.reschedule_request.requested_at).toLocaleString('vi-VN') : 'Gần đây'}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:border-amber-500/50 dark:bg-amber-900/40 dark:text-amber-200 animate-pulse">
+                        Chờ duyệt
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 rounded-lg bg-white/90 p-3 border border-amber-200/80 dark:bg-zinc-900/80 dark:border-zinc-800 text-xs">
+                      <div>
+                        <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 block uppercase tracking-wider">
+                          Lý do dời lịch:
+                        </span>
+                        <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap leading-relaxed">
+                          {selectedCandidate.reschedule_request.reason || '(Không nêu lý do)'}
+                        </p>
+                      </div>
+
+                      <div className="border-t border-amber-100 pt-2 dark:border-zinc-800">
+                        <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 block uppercase tracking-wider">
+                          Thời gian đề xuất mới:
+                        </span>
+                        <div className="mt-1 flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                          <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>{selectedCandidate.reschedule_request.proposed_time}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nút thao tác */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleAcceptReschedule(selectedCandidate)}
+                        className="text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white border-none shadow-xs"
+                      >
+                        <CalendarCheck className="mr-1.5 h-3.5 w-3.5" />
+                        Chấp nhận &amp; Xếp lại lịch
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRejectReschedule(selectedCandidate)}
+                        className="text-xs font-semibold border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                      >
+                        <CalendarX className="mr-1.5 h-3.5 w-3.5" />
+                        Từ chối dời lịch
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {selectedCandidate.reschedule_request?.status === 'ACCEPTED' && (
+                  <div className="rounded-xl border border-emerald-300/60 bg-emerald-50/70 p-3 text-xs text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-950/20 dark:text-emerald-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Yêu cầu dời lịch đã được chấp thuận &amp; xếp lại lịch</span>
+                    </span>
+                  </div>
+                )}
+                {selectedCandidate.reschedule_request?.status === 'REJECTED' && (
+                  <div className="rounded-xl border border-zinc-300 bg-zinc-50 p-3 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <CalendarX className="h-4 w-4 text-zinc-500" />
+                      <span>Đã từ chối dời lịch (giữ nguyên lịch cũ)</span>
+                    </span>
+                  </div>
+                )}
+
                 {/* Thông tin lịch phỏng vấn đã xếp */}
                 {selectedCandidate.interview_schedule && (
                   <div className="rounded-xl border border-amber-300/60 bg-amber-50/70 p-3.5 space-y-3 dark:border-amber-700/40 dark:bg-amber-950/20">
@@ -2334,7 +2557,9 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-[#11221E] dark:text-zinc-100">
               <Calendar className="h-5 w-5 text-[#0F766E] dark:text-teal-400" />
-              Lên lịch phỏng vấn ứng viên
+              {schedulingCandidate?.reschedule_request?.status === 'PENDING'
+                ? 'Chấp thuận & Xếp lại lịch phỏng vấn'
+                : 'Lên lịch phỏng vấn ứng viên'}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#5C7871] dark:text-zinc-400">
               {schedulingCandidate ? (
@@ -2348,6 +2573,23 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
           </DialogHeader>
 
           <form onSubmit={handleConfirmInterviewSchedule} className="mt-4 space-y-4">
+            {/* Cảnh báo nếu đang xử lý yêu cầu dời lịch */}
+            {schedulingCandidate?.reschedule_request?.status === 'PENDING' && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-100">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Ứng viên đề xuất thời gian mới:</span>
+                  <span className="font-mono text-amber-800 dark:text-amber-300">
+                    {schedulingCandidate.reschedule_request.proposed_time}
+                  </span>
+                </div>
+                {schedulingCandidate.reschedule_request.reason && (
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 pl-5.5">
+                    Lý do: <span className="italic">{schedulingCandidate.reschedule_request.reason}</span>
+                  </p>
+                )}
+              </div>
+            )}
             {/* Ngày và Giờ phỏng vấn */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -2495,7 +2737,9 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
               </Button>
               <Button type="submit" variant="primary">
                 <Send className="h-4 w-4 mr-1.5" strokeWidth={1.5} />
-                Xác nhận &amp; Gửi thông báo
+                {schedulingCandidate?.reschedule_request?.status === 'PENDING'
+                  ? 'Chấp nhận & Cập nhật lịch mới'
+                  : 'Xác nhận & Gửi thông báo'}
               </Button>
             </DialogFooter>
           </form>

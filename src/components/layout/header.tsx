@@ -81,6 +81,21 @@ function getNotificationVisualMeta(item: {
 }): NotificationVisualMeta {
   const text = `${item.title} ${item.message}`.toLowerCase();
 
+  // 0. Yêu cầu dời lịch phỏng vấn (Amber)
+  if (
+    text.includes("dời lịch") ||
+    text.includes("đổi lịch") ||
+    text.includes("reschedule") ||
+    text.includes("đề xuất dời")
+  ) {
+    return {
+      borderColor: "border-l-amber-500",
+      badgeLabel: "Dời lịch",
+      badgeClass:
+        "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/50 dark:text-amber-300",
+    };
+  }
+
   // 1. Phỏng vấn (Sky / Blue)
   if (
     text.includes("phỏng vấn") ||
@@ -227,13 +242,21 @@ function renderNotificationMessage(rawMessage: string) {
     .replace(/^(?:Xin\s+chào|Chào)\s+[^,!.:\n]+[,!.:]\s*/i, "")
     .trim();
 
-  if (message.length > 0) {
+  if (message.length > 0 && !message.startsWith("⚠️")) {
     message = message.charAt(0).toUpperCase() + message.slice(1);
   }
 
-  // 2. Làm nổi bật tên vị trí công việc: In đậm chữ trắng sáng cho tên vị trí
+  // 2. Làm nổi bật tên vị trí công việc hoặc định dạng dời lịch nếu chưa có Markdown bold
   if (!message.includes("**")) {
-    if (/(?:vị trí|chức danh)\s+/i.test(message)) {
+    if (
+      message.includes("vừa đề xuất dời lịch phỏng vấn") ||
+      message.includes("đề xuất dời lịch")
+    ) {
+      message = message.replace(
+        /^(?:⚠️\s*)?(?:Ứng viên\s+)?([^(]+)\s*\(([^)]+)\)\s*(?:vừa\s+)?đề xuất dời lịch(?:.*)$/i,
+        "⚠️ **$1** (**$2**) vừa đề xuất dời lịch phỏng vấn. Xem chi tiết"
+      );
+    } else if (/(?:vị trí|chức danh)\s+/i.test(message)) {
       message = message.replace(
         /((?:vị trí|chức danh)\s+)([^,.\n]+?)(?=\s+(?:của bạn|đã|đang|vừa|\.|$))/i,
         "$1**$2**"
@@ -246,9 +269,28 @@ function renderNotificationMessage(rawMessage: string) {
     }
   }
 
+  if (
+    (message.includes("đề xuất dời lịch") || message.includes("dời lịch phỏng vấn")) &&
+    !message.includes("Xem chi tiết")
+  ) {
+    message = `${message.replace(/[.\s]+$/, "")}. Xem chi tiết`;
+  }
+
   // 3. Phân tách và render Typography
   const parts = message.split(/\*\*(.*?)\*\*/g);
   if (parts.length === 1) {
+    if (parts[0].includes("Xem chi tiết")) {
+      const sub = parts[0].split("Xem chi tiết");
+      return (
+        <span>
+          {sub[0]}
+          <span className="font-semibold text-[#0F766E] hover:underline dark:text-teal-400">
+            Xem chi tiết
+          </span>
+          {sub[1]}
+        </span>
+      );
+    }
     return message;
   }
 
@@ -261,6 +303,18 @@ function renderNotificationMessage(rawMessage: string) {
         >
           {part}
         </strong>
+      );
+    }
+    if (part.includes("Xem chi tiết")) {
+      const sub = part.split("Xem chi tiết");
+      return (
+        <React.Fragment key={index}>
+          {sub[0]}
+          <span className="font-semibold text-[#0F766E] hover:underline dark:text-teal-400">
+            Xem chi tiết
+          </span>
+          {sub[1]}
+        </React.Fragment>
       );
     }
     return <React.Fragment key={index}>{part}</React.Fragment>;
@@ -391,7 +445,12 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
     markNotificationRead(item.id, role, actorEmpCode);
     setIsBellOpen(false);
     setConfirmResetOpen(false);
-    navigateWithIntent(item.nav_id, {
+    const targetNav =
+      item.nav_id ||
+      (item.title.toLowerCase().includes("dời lịch") || item.message.toLowerCase().includes("dời lịch")
+        ? "ats"
+        : "dashboard");
+    navigateWithIntent(targetNav, {
       entityId: item.entity_id,
       subTab: item.sub_tab,
     });

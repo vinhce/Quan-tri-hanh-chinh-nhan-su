@@ -109,6 +109,18 @@
     - **Typography & Bỏ câu chào lặp**: Xóa triệt để các câu chào thừa thãi ("Chào Đinh Tuấn Kiệt...", "Chào dasdas..."), in đậm chữ sáng cho tên vị trí công việc.
     - **Phân biệt Chưa đọc**: Đổ lớp nền mờ (`bg-[#E8F3EF]/60` hoặc `dark:bg-white/5`) kèm chấm tròn xanh (Unread dot) ở góc phải.
     - **Gộp nhóm thời gian (Time Grouping)**: Tự động phân lô hiển thị "Hôm nay", "Hôm qua", "Tuần trước", "Cũ hơn" giúp danh sách có nhịp điệu và quét thông tin nhanh *(Hoàn thành)*.
+- **B1.9 (Dọn dẹp Cổng Ứng viên & Khép kín Luồng 2 chiều Đề xuất Dời lịch - Swarm verified):**
+  - **1. Dọn dẹp Góc phải Cổng Ứng viên (`candidate/page.tsx`)**:
+    - Xóa hẳn nút "Tìm kiếm vị trí mới" ở khối banner chào mừng, tập trung hoàn toàn vào thông tin cá nhân.
+    - Chuyển hành động "Đổi tài khoản" và "Đăng xuất" vào **Avatar Dropdown Menu** ở góc trên cùng bên phải Header, giải phóng diện tích thanh điều hướng.
+    - Thu nhỏ nhãn trạng thái ("Mời phỏng vấn chuyên môn") thành Badge trạng thái nhỏ gọn nằm ngay cạnh tiêu đề vị trí.
+    - Chuyển nút "Rút hồ sơ" thành text link gạch chân màu xám nhạt (`hover:text-rose-600 hover:underline`) ở góc phải, loại bỏ hoàn toàn nút khối đắc địa để tránh bấm nhầm.
+    - Gióng thẳng mép phải Header, Banner và Card trên cùng 1 trục dọc chuẩn `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`.
+  - **2. Khép kín Luồng Ứng viên Đề xuất Dời lịch (`candidate/page.tsx` ↔ `ats-view.tsx` & `header.tsx`)**:
+    - Ứng viên bấm "Đề xuất dời lịch" mở Modal nhập Lý do và Ngày/Giờ đề xuất mới; submit hiển thị Toast, lưu `reschedule_request` vào candidate store, bắn notification tới HR, và vô hiệu hóa cụm nút kèm badge cảnh báo "Đang chờ HR phản hồi yêu cầu dời lịch".
+    - Cột "Phỏng vấn" trên Kanban tự động gắn cờ viền amber và Badge `⚠️ Yêu cầu dời lịch` (hiệu ứng `animate-pulse`) trên mặt thẻ ứng viên.
+    - Side-Drawer chi tiết ứng viên hiển thị Callout cảnh báo dời lịch với 2 nút xử lý: "Chấp nhận & Xếp lại lịch" (tự động điền ngày giờ mới) và "Từ chối dời lịch" (giữ lịch cũ, gửi phản hồi tới ứng viên).
+    - Khay thông báo HR hiển thị item cảnh báo ưu tiên cao `border-l-amber-500` kèm link điều hướng mở trực tiếp Side-Drawer ứng viên *(Hoàn thành)*.
 - **B2:** Landing Page Công ty (`/`) giới thiệu giải pháp Lạc Việt & chuyển đổi.
 - **B3:** Luồng 1 - HR đăng tin có duyệt (StateMachine, Transaction all-or-nothing, Định biên phòng ban).
 - **B2:** Xây dựng Landing Page công ty tại `/` theo nhận diện thương hiệu Lạc Việt.

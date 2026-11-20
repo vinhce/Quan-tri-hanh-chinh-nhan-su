@@ -37,12 +37,14 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   mergeWithRuntimeCandidates,
+  pushNotification,
   readRuntimeCandidates,
   saveRuntimeCandidate,
 } from '@/lib/runtime-store';
 import { MOCK_CANDIDATES } from '@/mock/ats';
 import { cn, formatDateVN, formatVND } from '@/lib/utils';
 import type { AtsStage, Candidate, HrmNotification, JobPosting } from '@/mock/types';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -270,14 +272,19 @@ function renderNotificationMessage(rawMessage: string) {
 
 export default function CandidatePortalPage() {
   const router = useRouter();
-  const { role, theme, toggleTheme, currentUserEmail, currentUserProfile, showToast } = useApp();
+  const { role, theme, toggleTheme, currentUserEmail, currentUserProfile, showToast, logout } = useApp();
   const [candidates, setCandidates] = useState<Candidate[]>(MOCK_CANDIDATES);
   const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
   const [actionModal, setActionModal] = useState<'interview' | 'offer' | 'withdraw' | null>(null);
   const [actionReason, setActionReason] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('09:30');
   const [notifications, setNotifications] = useState<(HrmNotification & { isRead: boolean })[]>([]);
   const [isNotiOpen, setIsNotiOpen] = useState(false);
   const notiRef = useRef<HTMLDivElement>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Demo profile candidate or matched candidate
   const currentCandidate = useMemo(() => {
@@ -328,6 +335,21 @@ export default function CandidatePortalPage() {
     };
   }, [isNotiOpen]);
 
+  // Close user dropdown menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
+
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.isRead).length,
     [notifications]
@@ -373,6 +395,51 @@ export default function CandidatePortalPage() {
     setActionReason('');
     showToast(
       accept ? 'Đã xác nhận tham gia phỏng vấn' : 'Đã gửi đề xuất dời lịch phỏng vấn',
+      'Phòng Tuyển dụng Lạc Việt đã nhận được phản hồi của bạn.',
+      'success'
+    );
+  };
+
+  const handleSendReschedule = () => {
+    if (!currentCandidate) return;
+    if (!rescheduleReason.trim()) {
+      showToast('Thiếu thông tin', 'Vui lòng nhập lý do đề xuất dời lịch', 'warning');
+      return;
+    }
+    if (!rescheduleDate) {
+      showToast('Thiếu thông tin', 'Vui lòng chọn ngày đề xuất mới', 'warning');
+      return;
+    }
+
+    const proposedTimeStr = `${rescheduleTime || '09:30'} ngày ${formatDateVN(rescheduleDate)}`;
+    const requested_at = new Date().toISOString();
+
+    const updated: Candidate = {
+      ...currentCandidate,
+      reschedule_request: {
+        reason: rescheduleReason.trim(),
+        proposed_time: proposedTimeStr,
+        requested_at,
+        status: 'PENDING',
+      },
+    };
+
+    saveRuntimeCandidate(updated);
+
+    pushNotification({
+      title: `Ứng viên đề xuất dời lịch phỏng vấn (${currentCandidate.candidate_code})`,
+      message: `Ứng viên ${currentCandidate.full_name} (${currentCandidate.job_title}) đề xuất dời lịch sang ${proposedTimeStr}. Lý do: ${rescheduleReason.trim()}`,
+      category: 'ONBOARDING',
+      target_roles: ['HR_MANAGER', 'DEPT_MANAGER'],
+      nav_id: 'recruitment',
+      entity_id: currentCandidate.id,
+    });
+
+    setActionModal(null);
+    setRescheduleReason('');
+
+    showToast(
+      'Đã gửi yêu cầu dời lịch phỏng vấn',
       'Phòng Tuyển dụng Lạc Việt đã nhận được phản hồi của bạn.',
       'success'
     );
@@ -587,19 +654,66 @@ export default function CandidatePortalPage() {
               <span>Xem việc làm khác</span>
             </Link>
 
-            <Link
-              href="/login"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs font-medium text-[#5C7871] hover:text-rose-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Đổi tài khoản</span>
-            </Link>
+            {/* Avatar Dropdown Menu */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                aria-label="Menu tài khoản ứng viên"
+                className="flex items-center gap-2 rounded-full border border-[#C6D9D3] bg-[#FCFEFD] p-0.5 transition-all hover:ring-2 hover:ring-[#0F766E]/30 dark:border-zinc-700 dark:bg-zinc-800"
+              >
+                <Avatar
+                  name={currentCandidate?.full_name ?? 'Ứng viên'}
+                  className="h-8 w-8 text-xs font-bold text-[#0F766E] bg-[#CBE8E2] dark:bg-teal-950 dark:text-teal-300 border-none"
+                />
+              </button>
+
+              {isUserMenuOpen && (
+                <div className="absolute right-0 top-11 z-50 w-60 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-1.5 shadow-xl overflow-hidden dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="border-b border-[#D5E3DF] px-3 py-2.5 dark:border-zinc-800 bg-[#F2F7F5] dark:bg-zinc-950/50 rounded-t-lg">
+                    <p className="text-xs font-bold text-[#11221E] dark:text-zinc-100 truncate">
+                      {currentCandidate?.full_name ?? 'Ứng viên Lạc Việt'}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-[#5C7871] dark:text-zinc-400 truncate">
+                      {currentCandidate?.email ?? 'ungvien@gmail.com'}
+                    </p>
+                    <span className="mt-1.5 inline-flex items-center rounded bg-[#CBE8E2] px-2 py-0.5 text-[10px] font-semibold text-[#0B4F4A] dark:bg-teal-950 dark:text-teal-300">
+                      Cổng Ứng viên
+                    </span>
+                  </div>
+
+                  <div className="py-1">
+                    <Link
+                      href="/login"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#415A54] hover:bg-[#EFF5F3] hover:text-[#0F766E] dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-teal-400 transition-colors"
+                    >
+                      <User className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                      <span>Đổi tài khoản</span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        logout();
+                        router.push('/login');
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Welcome Banner */}
         <div className="rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -614,14 +728,6 @@ export default function CandidatePortalPage() {
               <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
                 Email: <strong>{currentCandidate?.email ?? 'ungvien@gmail.com'}</strong> · SĐT: {currentCandidate?.phone ?? 'Chưa cập nhật'}
               </p>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <Link href="/careers">
-                <Button variant="outline" size="sm" className="border-[#C6D9D3] text-xs">
-                  Tìm kiếm vị trí mới
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
@@ -643,9 +749,18 @@ export default function CandidatePortalPage() {
                       </span>
                     </div>
 
-                    <h2 className="text-lg font-bold text-[#11221E] dark:text-zinc-100">
-                      {currentCandidate.job_title}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h2 className="text-lg font-bold text-[#11221E] dark:text-zinc-100">
+                        {currentCandidate.job_title}
+                      </h2>
+                      <Badge
+                        variant={STAGE_META[currentCandidate.stage]?.variant ?? 'teal'}
+                        className="text-[11px] font-semibold px-2 py-0.5"
+                      >
+                        {STAGE_META[currentCandidate.stage]?.label ?? currentCandidate.stage}
+                      </Badge>
+                    </div>
+
                     <p className="text-xs text-[#415A54] dark:text-zinc-400">
                       {currentCandidate.department_name} · Mã vị trí: {currentCandidate.job_code}
                     </p>
@@ -667,20 +782,15 @@ export default function CandidatePortalPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Badge variant={STAGE_META[currentCandidate.stage]?.variant ?? 'teal'}>
-                      {STAGE_META[currentCandidate.stage]?.label ?? currentCandidate.stage}
-                    </Badge>
-
+                  <div className="flex items-center">
                     {currentCandidate.stage !== 'ONBOARDED' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 border-rose-200 px-3 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                      <button
+                        type="button"
                         onClick={() => setActionModal('withdraw')}
+                        className="text-xs text-[#5C7871] hover:text-rose-600 dark:text-zinc-400 hover:underline transition-colors"
                       >
                         Rút hồ sơ
-                      </Button>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -784,6 +894,11 @@ export default function CandidatePortalPage() {
                         <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-300 leading-relaxed">
                           {STAGE_META[currentCandidate.stage]?.desc}
                         </p>
+                        {currentCandidate.reschedule_request?.status === 'PENDING' && (
+                          <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400 font-medium">
+                            Đã gửi yêu cầu dời sang: <strong>{currentCandidate.reschedule_request.proposed_time}</strong> · Lý do: {currentCandidate.reschedule_request.reason}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -792,23 +907,57 @@ export default function CandidatePortalPage() {
                       <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0 shrink-0">
                         {currentCandidate.stage === 'INTERVIEW' && (
                           <>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              className="text-xs font-semibold"
-                              onClick={() => handleConfirmInterview(true)}
-                            >
-                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                              Xác nhận tham gia
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-[#C6D9D3] text-xs"
-                              onClick={() => setActionModal('interview')}
-                            >
-                              Đề xuất dời lịch
-                            </Button>
+                            {currentCandidate.reschedule_request?.status === 'PENDING' ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/60 dark:text-amber-300 shadow-sm">
+                                  <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                  Đang chờ HR phản hồi yêu cầu dời lịch
+                                </span>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="text-xs font-semibold opacity-50 cursor-not-allowed"
+                                  disabled
+                                >
+                                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                  Xác nhận tham gia
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-[#C6D9D3] text-xs opacity-50 cursor-not-allowed"
+                                  disabled
+                                >
+                                  Đề xuất dời lịch
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  className="text-xs font-semibold"
+                                  onClick={() => handleConfirmInterview(true)}
+                                >
+                                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                  Xác nhận tham gia
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-[#C6D9D3] text-xs"
+                                  onClick={() => {
+                                    setRescheduleReason('');
+                                    const defaultDate = currentCandidate.interview_schedule?.date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                                    setRescheduleDate(defaultDate);
+                                    setRescheduleTime(currentCandidate.interview_schedule?.time || '09:30');
+                                    setActionModal('interview');
+                                  }}
+                                >
+                                  Đề xuất dời lịch
+                                </Button>
+                              </>
+                            )}
                           </>
                         )}
 
@@ -871,23 +1020,66 @@ export default function CandidatePortalPage() {
             </DialogTitle>
             <DialogDescription>
               {actionModal === 'interview'
-                ? 'Vui lòng cung cấp khung giờ bạn có thể tham gia phỏng vấn để Ban Tuyển dụng sắp xếp lại lịch.'
+                ? 'Vui lòng cung cấp lý do và khung thời gian mới bạn có thể tham gia để Ban Tuyển dụng sắp xếp lại lịch.'
                 : 'Hành động này sẽ gửi thông báo phản hồi chính thức đến Trưởng phòng Tuyển dụng.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-3">
-            <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
-              Lý do hoặc ghi chú phản hồi
-            </label>
-            <textarea
-              rows={3}
-              value={actionReason}
-              onChange={(e) => setActionReason(e.target.value)}
-              placeholder="Nhập lý do cụ thể..."
-              className="mt-1.5 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </div>
+          {actionModal === 'interview' ? (
+            <div className="space-y-3 mt-3">
+              <div>
+                <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                  Lý do đề xuất dời lịch <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  placeholder="Nhập lý do cụ thể (trùng lịch công tác, việc cá nhân đột xuất...)"
+                  className="mt-1.5 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                    Ngày đề xuất mới <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={rescheduleDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-2 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                    Khung giờ đề xuất mới <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={rescheduleTime}
+                    onChange={(e) => setRescheduleTime(e.target.value)}
+                    className="mt-1.5 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-2 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <label className="text-xs font-semibold text-[#11221E] dark:text-zinc-200">
+                Lý do hoặc ghi chú phản hồi
+              </label>
+              <textarea
+                rows={3}
+                value={actionReason}
+                onChange={(e) => setActionReason(e.target.value)}
+                placeholder="Nhập lý do cụ thể..."
+                className="mt-1.5 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs text-[#11221E] focus:border-[#0F766E] focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+            </div>
+          )}
 
           <DialogFooter className="mt-4">
             <Button variant="outline" size="sm" onClick={() => setActionModal(null)} className="text-xs">
@@ -898,12 +1090,12 @@ export default function CandidatePortalPage() {
               size="sm"
               className="text-xs font-semibold"
               onClick={() => {
-                if (actionModal === 'interview') handleConfirmInterview(false);
+                if (actionModal === 'interview') handleSendReschedule();
                 else if (actionModal === 'offer') handleOfferDecision('DECLINE');
                 else if (actionModal === 'withdraw') handleWithdraw();
               }}
             >
-              Xác nhận gửi phản hồi
+              {actionModal === 'interview' ? 'Gửi yêu cầu dời lịch' : 'Xác nhận gửi phản hồi'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -912,7 +912,7 @@ export function AtsView() {
       isFromReschedule ? 'Đã xếp lại lịch phỏng vấn thành công' : 'Đã lên lịch phỏng vấn & cập nhật trạng thái',
       isFromReschedule
         ? `Đã chấp thuận đề xuất dời lịch của ${schedulingCandidate.full_name}. Lịch mới: ${interviewTime} ngày ${formatDateVN(interviewDate)}.`
-        : `${schedulingCandidate.full_name} -> Phỏng vấn (${interviewTime} ngày ${formatDateVN(interviewDate)})${interviewSendNotification ? ' · Đã gửi thông báo Real-time cho ứng viên.' : '.'}`,
+        : `${schedulingCandidate.full_name} -> Phỏng vấn (${interviewTime} ngày ${formatDateVN(interviewDate)})${interviewSendNotification ? ' · Đã gửi thông báo thời gian thực cho ứng viên.' : '.'}`,
       'success'
     );
 
@@ -938,7 +938,7 @@ export function AtsView() {
 
     const stageLabel = getStageDisplayLabel(targetStage);
 
-    // Real-time notification to Candidate & HR
+    // Thông báo thời gian thực tới Ứng viên & HR
     notifyCandidateStageChange(candidate, targetStage, stageLabel, actorName);
 
     setCandidates((prev) =>
@@ -949,7 +949,7 @@ export function AtsView() {
     );
     showToast(
       'Đã cập nhật trạng thái ứng viên',
-      `${candidate.full_name} (${candidate.candidate_code}) -> ${stageLabel}. Đã đồng bộ thông báo Real-time cho ứng viên.`,
+      `${candidate.full_name} (${candidate.candidate_code}) -> ${stageLabel}. Đã đồng bộ thông báo thời gian thực cho ứng viên.`,
       'success'
     );
   };
@@ -1132,7 +1132,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
     setDeptRequests(getDepartmentRecruitmentRequests());
     showToast(
       'Đã gửi đề xuất tuyển dụng',
-      `Mã ${createdReq.request_code} đã gửi tới HR Manager và Giám đốc với thông báo Real-time.`,
+      `Mã ${createdReq.request_code} đã gửi tới HR Manager và Giám đốc với thông báo thời gian thực.`,
       'success'
     );
   };
@@ -1343,7 +1343,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
               </Badge>
             </div>
             <span className="text-xs text-[#5C7871] dark:text-zinc-400">
-              Tự động đồng bộ Real-time tới HR & Trưởng phòng
+              Tự động đồng bộ thời gian thực tới HR & Trưởng phòng
             </span>
           </div>
 
@@ -1656,7 +1656,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
               className="text-xs text-[#0F766E] border-[#0F766E]/30 hover:bg-[#E8F3EF] dark:border-teal-500/30 dark:text-teal-300 dark:hover:bg-zinc-800"
             >
               <Download className="h-3.5 w-3.5" />
-              Export
+              Xuất file
             </Button>
           </div>
         </div>
@@ -2063,7 +2063,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                           <div className="flex items-center justify-between rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] px-2.5 py-2 text-[11px] text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
                             <span className="flex items-center gap-1.5 font-medium">
                               <Archive className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
-                              Đã ẩn {archivedInOfferColCount} hồ sơ bàn giao (Auto-Archive)
+                              Đã ẩn {archivedInOfferColCount} hồ sơ bàn giao (Tự động lưu trữ)
                             </span>
                             <button
                               type="button"
@@ -2153,7 +2153,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                           <div className="flex items-center justify-between rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] px-2.5 py-2 text-[11px] text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
                             <span className="flex items-center gap-1.5 font-medium">
                               <Archive className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
-                              Đã ẩn {archivedInOfferColCount} hồ sơ bàn giao (Auto-Archive)
+                              Đã ẩn {archivedInOfferColCount} hồ sơ bàn giao (Tự động lưu trữ)
                             </span>
                             <button
                               type="button"
@@ -2315,7 +2315,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       Trạng thái tuyển dụng (Chuyển nhanh)
                     </span>
                     <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      Tự động đồng bộ Kanban &amp; Real-time
+                      Tự động đồng bộ Kanban &amp; thời gian thực
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -3018,7 +3018,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     Gửi thông báo &amp; email cho ứng viên
                   </span>
                   <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                    Ứng viên sẽ nhận được thông báo Real-time kèm ngày giờ, người phỏng vấn và đường dẫn tham dự.
+                    Ứng viên sẽ nhận được thông báo thời gian thực kèm ngày giờ, người phỏng vấn và đường dẫn tham dự.
                   </span>
                 </div>
               </label>
@@ -3610,7 +3610,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
           <DialogHeader>
             <DialogTitle>Tạo Đề xuất Tuyển dụng từ Phòng ban</DialogTitle>
             <DialogDescription>
-              Đề xuất bổ sung nhân sự từ Trưởng bộ phận. Sau khi gửi, thông báo Real-time sẽ gửi tới HR Manager và Giám đốc để phê duyệt và mở tin tuyển dụng.
+              Đề xuất bổ sung nhân sự từ Trưởng bộ phận. Sau khi gửi, thông báo thời gian thực sẽ gửi tới HR Manager và Giám đốc để phê duyệt và mở tin tuyển dụng.
             </DialogDescription>
           </DialogHeader>
 

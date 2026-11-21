@@ -368,6 +368,13 @@ export function AtsView() {
   const [reqDeadline, setReqDeadline] = useState('2026-12-25');
   const [selectedSource, setSelectedSource] = useState<string>('ALL');
 
+  // Department Requests detail drawer & confirmation dialogs
+  const [selectedDeptReq, setSelectedDeptReq] = useState<DepartmentRecruitmentRequest | null>(null);
+  const [rejectTargetReq, setRejectTargetReq] = useState<DepartmentRecruitmentRequest | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState<string>('');
+  const [rejectReasonError, setRejectReasonError] = useState<string | null>(null);
+  const [approvePreviewReq, setApprovePreviewReq] = useState<DepartmentRecruitmentRequest | null>(null);
+
   const syncRuntimeData = useCallback(() => {
     if (baseJobsRef.current.length > 0) {
       setJobs(mergeWithRuntimeJobs(baseJobsRef.current));
@@ -1137,32 +1144,63 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
     );
   };
 
-  const handleApproveDeptRequest = (req: DepartmentRecruitmentRequest) => {
-    const result = approveDepartmentRecruitmentRequest(req.id, actorName);
+  const handleOpenApprovePreview = (req: DepartmentRecruitmentRequest) => {
+    setApprovePreviewReq(req);
+  };
+
+  const handleConfirmApproveDeptRequest = () => {
+    if (!approvePreviewReq) return;
+    const result = approveDepartmentRecruitmentRequest(approvePreviewReq.id, actorName);
     if (!result) return;
     setDeptRequests(getDepartmentRecruitmentRequests());
     setJobs(mergeWithRuntimeJobs(baseJobsRef.current));
+    if (selectedDeptReq && selectedDeptReq.id === approvePreviewReq.id) {
+      setSelectedDeptReq(result.request);
+    }
     showToast(
       'Đã duyệt đề xuất & Mở tin tuyển dụng',
       `Đã khởi tạo tin ${result.job.job_code} (${result.job.title}) và đồng bộ sang Cổng việc làm.`,
       'success'
     );
+    setApprovePreviewReq(null);
+  };
+
+  const handleOpenRejectDialog = (req: DepartmentRecruitmentRequest) => {
+    setRejectTargetReq(req);
+    setRejectReasonInput('');
+    setRejectReasonError(null);
+  };
+
+  const handleConfirmRejectDeptRequest = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!rejectTargetReq) return;
+    const trimmed = rejectReasonInput.trim();
+    if (!trimmed) {
+      setRejectReasonError('Vui lòng nhập lý do từ chối (bắt buộc).');
+      return;
+    }
+    const result = rejectDepartmentRecruitmentRequest(rejectTargetReq.id, trimmed, actorName);
+    if (!result) return;
+    setDeptRequests(getDepartmentRecruitmentRequests());
+    if (selectedDeptReq && selectedDeptReq.id === rejectTargetReq.id) {
+      setSelectedDeptReq(result);
+    }
+    showToast(
+      'Đã từ chối đề xuất tuyển dụng',
+      `Đã cập nhật trạng thái đề xuất ${rejectTargetReq.request_code} và thông báo tới Trưởng phòng.`,
+      'default'
+    );
+    setRejectTargetReq(null);
+    setRejectReasonInput('');
+    setRejectReasonError(null);
+  };
+
+  const handleApproveDeptRequest = (req: DepartmentRecruitmentRequest) => {
+    handleOpenApprovePreview(req);
   };
 
   const handleRejectDeptRequest = (req: DepartmentRecruitmentRequest) => {
-    const reason = window.prompt(
-      'Nhập lý do từ chối đề xuất tuyển dụng:',
-      'Chưa phù hợp với định biên ngân sách Quý 4/2026'
-    );
-    if (reason === null) return;
-    const result = rejectDepartmentRecruitmentRequest(req.id, reason, actorName);
-    if (!result) return;
-    setDeptRequests(getDepartmentRecruitmentRequests());
-    showToast(
-      'Đã từ chối đề xuất tuyển dụng',
-      `Đã cập nhật trạng thái đề xuất ${req.request_code} và thông báo tới Trưởng phòng.`,
-      'default'
-    );
+    handleOpenRejectDialog(req);
   };
 
   const handleAddJob = (e: React.FormEvent) => {
@@ -1351,12 +1389,10 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             <table className="w-full text-left text-xs">
               <thead className="bg-[#F2F7F5] text-[#415A54] dark:bg-zinc-800/80 dark:text-zinc-300">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">Mã ĐX</th>
-                  <th className="px-3 py-2 font-semibold">Vị trí & Cấp bậc</th>
+                  <th className="px-3 py-2 font-semibold">Vị trí</th>
                   <th className="px-3 py-2 font-semibold">Phòng ban</th>
-                  <th className="px-3 py-2 font-semibold">Lý do tuyển dụng</th>
-                  <th className="px-3 py-2 font-semibold">Mức lương & Hạn</th>
-                  <th className="px-3 py-2 font-semibold">Người đề xuất</th>
+                  <th className="px-3 py-2 font-semibold text-center">SL</th>
+                  <th className="px-3 py-2 font-semibold">Hạn</th>
                   <th className="px-3 py-2 font-semibold text-center">Trạng thái</th>
                   <th className="px-3 py-2 font-semibold text-right">Thao tác</th>
                 </tr>
@@ -1370,45 +1406,32 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                   return (
                     <tr
                       key={req.id}
-                      className="hover:bg-[#F8FAF9] transition-colors dark:hover:bg-zinc-800/40"
+                      onClick={() => setSelectedDeptReq(req)}
+                      className="cursor-pointer hover:bg-[#F8FAF9] transition-colors dark:hover:bg-zinc-800/40"
                     >
-                      <td className="px-3 py-2.5 font-mono text-[11px] font-medium text-[#415A54] dark:text-zinc-400 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          {req.urgency === 'URGENT' && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" title="Gấp" />
-                          )}
-                          {req.request_code}
-                        </div>
-                      </td>
                       <td className="px-3 py-2.5">
-                        <div className="font-semibold text-[#11221E] dark:text-zinc-100">
-                          {req.position_title}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-[#11221E] dark:text-zinc-100">
+                            {req.position_title}
+                          </span>
+                          {req.urgency === 'URGENT' && (
+                            <Badge variant="danger" className="text-[10px] px-1.5 py-0 font-medium">
+                              Gấp
+                            </Badge>
+                          )}
                         </div>
-                        <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                          Cấp bậc: {req.level} · SL: <span className="font-semibold text-[#11221E] dark:text-zinc-200">{req.quantity}</span>
+                        <div className="mt-0.5 font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
+                          {req.request_code} · {req.level}
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-[#415A54] dark:text-zinc-300 whitespace-nowrap">
                         {req.department_name}
                       </td>
-                      <td className="px-3 py-2.5 max-w-[240px]">
-                        <p
-                          className="line-clamp-1 text-[#415A54] dark:text-zinc-300"
-                          title={req.reason}
-                        >
-                          {req.reason}
-                        </p>
+                      <td className="px-3 py-2.5 text-center font-mono font-semibold text-[#11221E] dark:text-zinc-200">
+                        {req.quantity}
                       </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <div className="font-mono text-[11px] text-[#11221E] dark:text-zinc-200">
-                          {req.expected_salary_range}
-                        </div>
-                        <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                          Hạn: {formatDateVN(req.deadline_date)}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-[11px] text-[#5C7871] dark:text-zinc-400 whitespace-nowrap" title={req.requested_by_name}>
-                        {req.requested_by_name.split(' (')[0]}
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-[#415A54] dark:text-zinc-300 whitespace-nowrap">
+                        {formatDateVN(req.deadline_date)}
                       </td>
                       <td className="px-3 py-2.5 text-center whitespace-nowrap">
                         <Badge
@@ -1418,7 +1441,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                           {isApproved ? 'Đã lập tin' : isRejected ? 'Từ chối' : 'Chờ duyệt'}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         {isPending && (
                           <div className="inline-flex items-center gap-1.5">
                             <button
@@ -3740,6 +3763,328 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Department Request Details Slide-over Drawer */}
+      {selectedDeptReq && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div
+            className="fixed inset-0 bg-[#11221E]/25 backdrop-blur-[1px] transition-opacity duration-300 dark:bg-zinc-950/40"
+            onClick={() => setSelectedDeptReq(null)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-y-0 right-0 flex max-w-full pl-6 sm:pl-10">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="dept-req-drawer-title"
+              className="flex w-screen max-w-md flex-col border-l border-[#C6D9D3] bg-[#FCFEFD] text-[#11221E] shadow-2xl transition-all duration-300 dark:border-zinc-800 dark:bg-[#18181b] dark:text-zinc-100"
+            >
+              <div className="flex items-start justify-between border-b border-[#D5E3DF] p-5 dark:border-zinc-800">
+                <div className="min-w-0 flex-1 pr-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded border border-[#C6D9D3] bg-[#F2F7F5] dark:border-zinc-700 dark:bg-zinc-800">
+                      {selectedDeptReq.request_code}
+                    </span>
+                    {selectedDeptReq.urgency === 'URGENT' && (
+                      <Badge variant="danger" className="text-[10px] px-1.5 py-0 font-medium">
+                        Gấp
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={
+                        selectedDeptReq.status === 'APPROVED'
+                          ? 'teal'
+                          : selectedDeptReq.status === 'REJECTED'
+                          ? 'muted'
+                          : 'warning'
+                      }
+                      className="text-[10px]"
+                    >
+                      {selectedDeptReq.status === 'APPROVED'
+                        ? 'Đã lập tin'
+                        : selectedDeptReq.status === 'REJECTED'
+                        ? 'Từ chối'
+                        : 'Chờ duyệt'}
+                    </Badge>
+                  </div>
+                  <h3
+                    id="dept-req-drawer-title"
+                    className="mt-2 text-base font-bold text-[#11221E] dark:text-zinc-100"
+                  >
+                    {selectedDeptReq.position_title}
+                  </h3>
+                  <p className="text-xs text-[#5C7871] dark:text-zinc-400">
+                    {selectedDeptReq.department_name} · Cấp bậc: {selectedDeptReq.level}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDeptReq(null)}
+                  className="rounded-lg p-1 text-[#5C7871] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  aria-label="Đóng"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto p-5 text-xs">
+                <div className="grid grid-cols-2 gap-3 rounded-lg border border-[#D5E3DF] bg-[#F2F7F5]/50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+                  <div>
+                    <span className="text-[#5C7871] dark:text-zinc-400">Số lượng cần tuyển:</span>
+                    <p className="font-semibold text-sm text-[#11221E] dark:text-zinc-100 font-mono">
+                      {selectedDeptReq.quantity} người
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[#5C7871] dark:text-zinc-400">Hạn tuyển dụng:</span>
+                    <p className="font-semibold text-sm text-[#11221E] dark:text-zinc-100 font-mono">
+                      {formatDateVN(selectedDeptReq.deadline_date)}
+                    </p>
+                  </div>
+                  <div className="col-span-2 pt-1 border-t border-[#D5E3DF] dark:border-zinc-800">
+                    <span className="text-[#5C7871] dark:text-zinc-400">Mức lương dự kiến:</span>
+                    <p className="font-semibold text-[#0F766E] dark:text-teal-400 font-mono">
+                      {selectedDeptReq.expected_salary_range}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-[#11221E] dark:text-zinc-200 mb-1">
+                    Lý do tuyển dụng & Mục tiêu
+                  </h4>
+                  <div className="rounded-lg border border-[#D5E3DF] bg-white p-3 text-[#415A54] leading-relaxed dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-300">
+                    {selectedDeptReq.reason}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-[#11221E] dark:text-zinc-200 mb-1">
+                    Người đề xuất
+                  </h4>
+                  <div className="flex items-center gap-2 rounded-lg border border-[#D5E3DF] bg-[#FCFEFD] p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+                    <Avatar
+                      name={selectedDeptReq.requested_by_name}
+                      className="h-8 w-8 text-xs font-bold"
+                    />
+                    <div>
+                      <div className="font-medium text-[#11221E] dark:text-zinc-200">
+                        {selectedDeptReq.requested_by_name}
+                      </div>
+                      <div className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                        {selectedDeptReq.department_name}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedDeptReq.status === 'REJECTED' && selectedDeptReq.rejection_reason && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-3 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
+                    <span className="font-bold block mb-1">Lý do từ chối:</span>
+                    <p>{selectedDeptReq.rejection_reason}</p>
+                  </div>
+                )}
+
+                {selectedDeptReq.status === 'APPROVED' && selectedDeptReq.job_code_created && (
+                  <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-3 text-teal-800 dark:border-teal-900/50 dark:bg-teal-950/40 dark:text-teal-300">
+                    <span className="font-bold block mb-1">Tin tuyển dụng đã lập:</span>
+                    <p className="font-mono font-semibold">{selectedDeptReq.job_code_created}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[#D5E3DF] p-4 flex items-center justify-between gap-2 dark:border-zinc-800">
+                <Button variant="outline" size="sm" onClick={() => setSelectedDeptReq(null)}>
+                  Đóng
+                </Button>
+                {selectedDeptReq.status === 'PENDING' && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        handleOpenRejectDialog(selectedDeptReq);
+                      }}
+                      className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400"
+                    >
+                      Từ chối
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        handleOpenApprovePreview(selectedDeptReq);
+                      }}
+                    >
+                      Duyệt & Tạo tin
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Department Request Dialog */}
+      <Dialog
+        open={Boolean(rejectTargetReq)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTargetReq(null);
+            setRejectReasonInput('');
+            setRejectReasonError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Từ chối Đề xuất Tuyển dụng</DialogTitle>
+            <DialogDescription>
+              Vui lòng nhập lý do từ chối đề xuất {rejectTargetReq?.request_code} ({rejectTargetReq?.position_title}) để phản hồi cho Trưởng bộ phận.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmRejectDeptRequest} className="mt-3 space-y-3">
+            <div>
+              <label
+                htmlFor="reject-reason"
+                className="mb-1 block text-xs font-medium text-[#415A54] dark:text-zinc-300"
+              >
+                Lý do từ chối *
+              </label>
+              <textarea
+                id="reject-reason"
+                rows={3}
+                required
+                value={rejectReasonInput}
+                onChange={(e) => {
+                  setRejectReasonInput(e.target.value);
+                  setRejectReasonError(null);
+                }}
+                placeholder="Nhập lý do từ chối (bắt buộc, ví dụ: Chưa phù hợp với ngân sách Q4/2026, hoãn sang năm sau...)"
+                className={cn(
+                  'w-full rounded-md border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 text-xs text-[#11221E] placeholder:text-[#5C7871] shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100',
+                  rejectReasonError && 'border-rose-500 ring-1 ring-rose-500'
+                )}
+              />
+              {rejectReasonError && (
+                <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+                  {rejectReasonError}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter className="mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRejectTargetReq(null);
+                  setRejectReasonInput('');
+                  setRejectReasonError(null);
+                }}
+              >
+                Hủy
+              </Button>
+              <Button type="submit" variant="danger" size="sm">
+                Xác nhận từ chối
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Department Request & Create Job Preview Dialog */}
+      <Dialog
+        open={Boolean(approvePreviewReq)}
+        onOpenChange={(open) => {
+          if (!open) setApprovePreviewReq(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Xem trước &amp; Xác nhận Duyệt Đề xuất</DialogTitle>
+            <DialogDescription>
+              Hệ thống sẽ phê duyệt đề xuất và tự động tạo tin tuyển dụng mới đồng bộ sang Cổng việc làm.
+            </DialogDescription>
+          </DialogHeader>
+
+          {approvePreviewReq && (
+            <div className="mt-3 space-y-3.5 text-xs">
+              <div className="rounded-xl border border-[#0F766E]/30 bg-[#E8F3EF]/60 p-4 dark:border-teal-500/30 dark:bg-zinc-900/60">
+                <div className="flex items-center justify-between gap-2 border-b border-[#D5E3DF] pb-2 dark:border-zinc-800">
+                  <div>
+                    <span className="font-mono text-[11px] font-semibold text-[#0F766E] dark:text-teal-400">
+                      Mã đề xuất: {approvePreviewReq.request_code}
+                    </span>
+                    <h4 className="text-sm font-bold text-[#11221E] dark:text-zinc-100 mt-0.5">
+                      {approvePreviewReq.position_title}
+                    </h4>
+                  </div>
+                  <Badge variant={approvePreviewReq.urgency === 'URGENT' ? 'danger' : 'teal'}>
+                    {approvePreviewReq.urgency === 'URGENT' ? 'Tuyển gấp' : 'Tiêu chuẩn'}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2.5 text-[#415A54] dark:text-zinc-300">
+                  <div>
+                    <span className="text-[#5C7871] dark:text-zinc-400">Phòng ban:</span>{' '}
+                    <span className="font-semibold text-[#11221E] dark:text-zinc-200">
+                      {approvePreviewReq.department_name}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#5C7871] dark:text-zinc-400">Cấp bậc:</span>{' '}
+                    <span className="font-semibold text-[#11221E] dark:text-zinc-200">
+                      {approvePreviewReq.level}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#5C7871] dark:text-zinc-400">Chỉ tiêu:</span>{' '}
+                    <span className="font-mono font-semibold text-[#11221E] dark:text-zinc-200">
+                      {approvePreviewReq.quantity} người
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#5C7871] dark:text-zinc-400">Hạn nộp:</span>{' '}
+                    <span className="font-mono font-semibold text-[#11221E] dark:text-zinc-200">
+                      {formatDateVN(approvePreviewReq.deadline_date)}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[#5C7871] dark:text-zinc-400">Mức lương:</span>{' '}
+                    <span className="font-mono font-semibold text-[#0F766E] dark:text-teal-400">
+                      {approvePreviewReq.expected_salary_range}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setApprovePreviewReq(null)}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleConfirmApproveDeptRequest}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  Xác nhận Duyệt &amp; Đăng tin
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

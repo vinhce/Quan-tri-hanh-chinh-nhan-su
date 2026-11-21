@@ -146,3 +146,16 @@
     - **B2 (Banner dời lịch cam kẹt lại)**: Tính toán banner phụ thuộc trực tiếp vào trạng thái lịch phỏng vấn. Khi HR duyệt & xếp lại lịch (`status = 'scheduled'`), banner cam biến mất ngay lập tức và thay bằng khối "Lịch phỏng vấn mới đã cập nhật".
     - **B3 (Thẻ Kanban hiện cờ sai)**: Cờ và icon trên thẻ Kanban phản ánh đúng `interview_schedule.status`: khi ứng viên đã xác nhận hoặc lịch đã chốt, thẻ hiển thị biểu tượng Check xanh (`CheckCircle2`), gỡ bỏ hoàn toàn cờ cảnh báo `AlertTriangle` cam; khi hồ sơ chưa có lịch hiển thị badge cảnh báo "Chưa có lịch".
     - **B4 (Nút Xác nhận tham gia không bấm được / thiếu lịch)**: Chặn chuyển sang bước Phỏng vấn nếu chưa tạo lịch; tại Cổng ứng viên, nếu chưa có lịch cụ thể thì hiển thị trạng thái "Đang chờ nhân sự lên lịch" và khóa mờ 2 nút Xác nhận/Dời lịch; khi có lịch và ứng viên bấm Xác nhận, cập nhật `interview.status = 'confirmed'`, đổi badge thành "✓ Đã chốt lịch" (xanh lục), khóa nút và gửi thông báo real-time tới HR. Hồ sơ UV-2026-104 đồng bộ 100% trên cả 3 giao diện *(Hoàn thành)*.
+
+---
+
+## 4. Kết luận Phân tích Hiện trạng Màn Tuyển dụng & ATS (PHA 1)
+- **Stack:** Next.js 14.2 (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons, Runtime Store (`localStorage` + `CustomEvent`).
+- **File màn Tuyển dụng chính:** `src/components/modules/ats-view.tsx` (nhúng trong `src/app/app/page.tsx` qua `AppShell`).
+- **Bảng Đề xuất:** Lines 1330–1457 của `ats-view.tsx` (8 cột, thiếu drawer chi tiết bên phải và nhãn Gấp thay chấm đỏ).
+- **Khối Tin đang mở:** Lines 1459–1549 của `ats-view.tsx` (dạng grid card, đang dồn chung một trang với Kanban và Đề xuất).
+- **Kanban:** Lines 1551–2200 của `ats-view.tsx` (gộp 3 cột lớn thay vì 5 cột chuẩn, chưa có thanh cuộn ngang cố định và dính tiêu đề).
+- **Thanh công cụ:** Đang phân tán nhiều nút trên đầu Kanban (lọc vị trí, nguồn, thời gian, xuất file, đặt lại).
+- **Trợ lý chat:** `src/components/copilot/ai-copilot-widget.tsx` chưa hoàn thiện widget nổi thu nhỏ/kéo/ẩn không che Kanban.
+- **Bố cục & Điều hướng:** Đang lặp tiêu đề với Header chính; chưa chia 3 Tab chuyên biệt và chưa có dải số liệu KPI bấm lọc nhanh.
+

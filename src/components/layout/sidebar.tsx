@@ -540,9 +540,20 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                         >
                           <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {resolvedBadge !== null && (
-                            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white shadow-sm">
-                              {resolvedBadge > 99 ? "99+" : resolvedBadge}
-                            </span>
+                            (() => {
+                              const isActionRequired = item.id === "leaves" || item.id === "requests" || item.id === "ats";
+                              return (
+                                <span
+                                  className={cn(
+                                    "absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white shadow-sm ring-1 ring-white dark:ring-zinc-950",
+                                    isActionRequired ? "bg-rose-500" : "bg-[#5C7871] dark:bg-zinc-600"
+                                  )}
+                                  title={isActionRequired ? "Việc cần xử lý" : "Tổng số"}
+                                >
+                                  {resolvedBadge > 99 ? "99+" : resolvedBadge}
+                                </span>
+                              );
+                            })()
                           )}
                         </button>
                       </div>
@@ -687,13 +698,28 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                             }
 
                             if (resolvedBadge === null) return null;
+                            const isActionRequired = item.id === "leaves" || item.id === "requests" || item.id === "ats";
+
+                            if (isActionRequired) {
+                              return (
+                                <span
+                                  className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
+                                  title="Việc cần xử lý"
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                  <span className="font-mono text-[11px] tabular-nums">{resolvedBadge}</span>
+                                </span>
+                              );
+                            }
+
                             return (
                               <span
-                                className={`ml-2 inline-flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold leading-none tabular-nums ${
+                                className={`ml-2 inline-flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium leading-none tabular-nums ${
                                   isActive
                                     ? "bg-[#0F766E] text-[#FCFEFD] dark:bg-teal-950/70 dark:text-teal-300"
-                                    : "border border-[#C6D9D3] bg-[#FCFEFD] text-[#415A54] group-hover:bg-[#E4EEEB] group-hover:text-[#11221E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:group-hover:bg-zinc-800 dark:group-hover:text-zinc-200"
+                                    : "border border-[#C6D9D3] bg-[#F2F7F5] text-[#5C7871] group-hover:bg-[#E4EEEB] group-hover:text-[#11221E] dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 dark:group-hover:bg-zinc-700 dark:group-hover:text-zinc-200"
                                 }`}
+                                title="Tổng số bản ghi"
                               >
                                 {resolvedBadge}
                               </span>

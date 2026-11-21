@@ -11,6 +11,7 @@ import { useApp } from "@/context/app-context";
 import { Sidebar, NAV_ITEMS } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AiCopilotWidget } from "@/components/copilot/ai-copilot-widget";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -195,6 +196,8 @@ export function AppShell({ children }: AppShellProps) {
           {uiState === "ready" && children}
           </div>
         </main>
+        {/* Floating Copilot Widget (Collapsible/Minimizable) */}
+        <AiCopilotWidget />
       </div>
     </div>
   );

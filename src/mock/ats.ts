@@ -489,9 +489,9 @@ export const MOCK_CANDIDATES: Candidate[] = [
   },
   {
     id: 'cand-007',
-    candidate_code: 'UV-2026-449',
-    full_name: 'Nguyễn Văn Mẫu',
-    email: 'mau.nguyen@lacviethrm.vn',
+    candidate_code: 'UV-2026-106',
+    full_name: 'Nguyễn Minh Đức',
+    email: 'duc.nguyen@lacviethrm.vn',
     phone: '0912345678',
     job_id: 'job-005',
     job_code: 'JD-2026-FE03',

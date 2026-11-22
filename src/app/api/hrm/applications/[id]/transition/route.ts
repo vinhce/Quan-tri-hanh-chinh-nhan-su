@@ -4,7 +4,7 @@ import { transitionApplicationStage } from '@/lib/hrm/workflow';
 import type { Actor, Stage, TerminalReason } from '@/lib/hrm/types';
 
 export function generateStaticParams() {
-  return [];
+  return [{ id: '__static_placeholder__' }];
 }
 
 export async function POST(

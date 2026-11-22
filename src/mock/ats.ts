@@ -271,6 +271,42 @@ export const MOCK_JOB_POSTINGS: JobPosting[] = [
 
 export const MOCK_CANDIDATES: Candidate[] = [
   {
+    id: 'cand-demo-001',
+    candidate_code: 'UV-2026-001',
+    full_name: 'Hoàng Vũ Minh',
+    email: 'minh.hoang@gmail.com',
+    phone: '0909123456',
+    job_id: 'job-005',
+    job_code: 'JD-2026-FE03',
+    job_title: 'Senior Frontend Engineer (Next.js / TypeScript)',
+    department_name: 'Phòng Kỹ thuật Phần mềm',
+    stage: 'AI_SCREENED',
+    applied_date: '2026-11-18',
+    source: 'CareerSite',
+    expected_salary_vnd: 38000000,
+    current_company: 'FPT Software',
+    ai_evaluation: {
+      match_score: 91,
+      education_fit: 'Kỹ sư Khoa học Máy tính - ĐH Bách Khoa Hà Nội',
+      experience_years: 4.5,
+      key_skills_matched: ['Next.js', 'TypeScript', 'React', 'Tailwind CSS', 'Web Accessibility'],
+      strengths: [
+        '4.5 năm kinh nghiệm xây dựng hệ thống SaaS doanh nghiệp quy mô lớn với Next.js & TypeScript',
+        'Tối ưu hóa hiệu năng giao diện đạt chuẩn Core Web Vitals và WCAG 2.2 AA',
+      ],
+      gaps: [
+        'Cần làm quen thêm với nghiệp vụ tính lương và bảo hiểm đặc thù nhân sự Việt Nam',
+      ],
+      interview_questions: [
+        'Anh tổ chức kiến trúc state và đồng bộ dữ liệu thời gian thực giữa các phân hệ phức tạp như thế nào?',
+        'Anh áp dụng chiến lược kiểm soát re-render và ảo hóa bảng dữ liệu hàng nghìn dòng ra sao?',
+        'Chia sẻ cách anh thiết kế hệ thống biểu mẫu đa bước đảm bảo trải nghiệm truy cập bàn phím (Accessibility)?',
+      ],
+      ai_recommendation: 'STRONG_HIRE',
+      evaluated_by_model: 'gemini-2.5-pro-hr-ats',
+    },
+  },
+  {
     id: 'cand-001',
     candidate_code: 'UV-2026-101',
     full_name: 'Phan Thanh Tùng',

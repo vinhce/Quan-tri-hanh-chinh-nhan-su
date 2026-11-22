@@ -29,19 +29,40 @@ function formatTimestamp(date: Date): string {
 function inferModuleFromAction(action: string): string {
   switch (action) {
     case 'LOGIN':
+    case 'ACTIVATE_USER':
+    case 'LOCK_USER':
       return 'Xác thực & Phiên';
     case 'APPROVE_LEAVE':
     case 'CREATE_REQUEST':
-      return 'Đơn từ & Phê duyệt';
+    case 'CHECK_IN_OUT':
+    case 'BIOMETRIC_REGISTER':
+    case 'BIOMETRIC_CHECK_IN_OUT':
+    case 'WIFI_CHECK_BLOCKED':
+    case 'ATTENDANCE_IMPORT':
+      return 'TIME_ATTENDANCE';
     case 'LOCK_PAYROLL':
     case 'EXPORT_SALARY':
-      return 'Bảng lương & Thuế';
+    case 'CALCULATE_PAYROLL':
+      return 'PAYROLL_TAX_INSURANCE';
     case 'UPDATE_PERMISSION':
-      return 'Phân quyền vai trò';
+      return 'RBAC_SYSTEM_CONFIG';
     case 'AI_CV_SCREEN':
-      return 'Tuyển dụng & AI CV';
+      return 'AI_ATS_RECRUITMENT';
     case 'UPDATE_CONTRACT':
-      return 'Hồ sơ & Hợp đồng';
+    case 'PREBOARDING_SUBMIT':
+    case 'ONBOARDING_TASK':
+    case 'PROBATION_TO_OFFICIAL':
+      return 'CORE_HR_PROFILE';
+    case 'PERFORMANCE_REVIEW':
+    case 'CAREER_PROGRESSION':
+      return 'PERFORMANCE_CAREER';
+    case 'SUBMIT_RESIGNATION':
+    case 'APPROVE_RESIGNATION':
+    case 'HANDOVER_CONFIRM':
+    case 'MANAGER_REASSIGN':
+    case 'CLEARANCE_SIGNOFF':
+    case 'FINAL_SETTLEMENT':
+      return 'OFFBOARDING_SETTLEMENT';
     default:
       return 'Hệ thống';
   }
@@ -83,6 +104,13 @@ export function recordAuditLog(entry: RecordAuditLogInput): AuditLogEntry | null
     const updated = [newLog, ...existing].slice(0, MAX_AUDIT_LOGS);
     window.localStorage.setItem(STORAGE_AUDIT_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent(AUDIT_UPDATED_EVENT));
+    if (typeof fetch === 'function') {
+      fetch('/api/hrm/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: STORAGE_AUDIT_KEY, items: updated }),
+      }).catch(() => {});
+    }
   } catch {
     // Ignore storage quota / access errors
   }

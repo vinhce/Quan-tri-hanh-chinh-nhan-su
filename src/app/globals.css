@@ -25,12 +25,19 @@
   }
 
   .dark {
-    --bg-canvas: #09090B;
-    --bg-card: #121214;
-    --text-primary: #F4F4F5;
-    --text-secondary: #A1A1AA;
-    --text-muted: #71717A;
-    --border-hairline: rgba(39, 39, 42, 0.8);
+    --bg-canvas: #16171B;
+    --bg-sidebar: #191B20;
+    --bg-surface: #202329;
+    --bg-card: #202329;
+    --bg-table-head: #262A31;
+    --bg-row-alt: #1C1F24;
+    --bg-row-hover: #2B3038;
+    --text-primary: #F1F3F5;
+    --text-secondary: #C1C6CE;
+    --text-muted: #9096A1;
+    --border-subtle: #2D323B;
+    --border-strong: #3A404C;
+    --border-hairline: #323842;
     --accent-primary: #2DD4BF;
   }
 
@@ -104,18 +111,77 @@ html:not(.dark) .placeholder\:text-zinc-500::placeholder {
   color: #5C7871;
 }
 
+/* Neutral Charcoal Dark Mode System-Wide Synchronization (no green/blue tint, crisp neutral text) */
+html.dark .dark\:bg-zinc-950,
+html.dark .dark\:bg-\[\#09090B\] {
+  background-color: var(--bg-canvas);
+}
+
+html.dark .dark\:bg-zinc-900,
+html.dark .dark\:bg-\[\#121214\] {
+  background-color: var(--bg-surface);
+}
+
+html.dark .dark\:bg-zinc-900\/60,
+html.dark .dark\:bg-zinc-900\/50,
+html.dark .dark\:bg-zinc-900\/40,
+html.dark .dark\:bg-zinc-800,
+html.dark .dark\:bg-zinc-800\/70 {
+  background-color: #282C34;
+}
+
+html.dark .dark\:hover\:bg-zinc-900:hover,
+html.dark .dark\:hover\:bg-zinc-800:hover {
+  background-color: var(--bg-row-hover);
+}
+
+html.dark .dark\:text-zinc-100,
+html.dark .dark\:text-zinc-50,
+html.dark .dark\:text-zinc-200 {
+  color: var(--text-primary);
+}
+
+html.dark .dark\:text-zinc-300,
+html.dark .dark\:text-zinc-400 {
+  color: var(--text-secondary);
+}
+
+html.dark .dark\:text-zinc-500 {
+  color: var(--text-muted);
+}
+
+html.dark .dark\:border-zinc-800,
+html.dark .dark\:border-zinc-800\/80,
+html.dark .dark\:border-zinc-800\/70,
+html.dark .dark\:border-zinc-800\/60,
+html.dark .dark\:border-zinc-700 {
+  border-color: var(--border-hairline);
+}
+
+html.dark table thead {
+  background-color: var(--bg-table-head);
+}
+
+html.dark table tbody tr:nth-child(even) {
+  background-color: var(--bg-row-alt);
+}
+
+html.dark table tbody tr:hover {
+  background-color: var(--bg-row-hover);
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Thin, unobtrusive scrollbars for Soft Sage Light & Dark modes */
+/* Thin, unobtrusive scrollbars for Soft Sage Light & Neutral Charcoal Dark modes */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(92, 120, 113, 0.36) transparent;
 }
 
 .dark * {
-  scrollbar-color: rgba(161, 161, 170, 0.25) transparent;
+  scrollbar-color: rgba(144, 150, 161, 0.34) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -137,9 +203,9 @@ html:not(.dark) .placeholder\:text-zinc-500::placeholder {
 }
 
 .dark *::-webkit-scrollbar-thumb {
-  background-color: rgba(161, 161, 170, 0.25);
+  background-color: rgba(144, 150, 161, 0.34);
 }
 
 .dark *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(161, 161, 170, 0.45);
+  background-color: rgba(144, 150, 161, 0.55);
 }

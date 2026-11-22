@@ -1,15 +1,17 @@
 # TRẠNG THÁI HIỆN TẠI (STATE)
 
 ## 1. Việc vừa hoàn thành
-- Hoàn thành trọn bộ **5 bước Deliverables (11 nhóm màn hình)** của Giai đoạn 1 và đồng bộ toàn bộ 8 file tài liệu `.md`:
-  - Tách vai trò `DIRECTOR` (Giám đốc Điều hành) khỏi `SUPER_ADMIN`; mở rộng `MOCK_EMPLOYEES` lên 28 nhân sự với mặt bằng lương giảm 30%.
-  - Nâng cấp luồng phê duyệt đơn đa cấp (`DEPT_MANAGER -> HR_MANAGER -> DIRECTOR`), cấu hình `hrm_director_min_days`, và đồng bộ `public/mock/*.json` qua `mock-fetcher.ts`.
-  - Hoàn thiện App Shell cố định, Header gọn, Thẻ tài khoản cuối Sidebar (có `Đổi vai trò (demo)` & Dialog xác nhận đăng xuất), trang `/login` 2 tab + 5 pill, `audit-logger.ts` với popup chi tiết bất biến `border-l-4`, cùng bản tĩnh `web/`.
-  - `npx.cmd tsc --noEmit` → **PASS (0 lỗi)**.
-- **Nâng cấp cơ chế Model Hot-Swapping & Điều phối cuốn chiếu (Work-Stealing):**
-  - Cập nhật Multi-Key Router (`proxy.js`): Bổ sung bộ lọc tham số thông minh (tự động xóa `reasoning` khi đổi sang non-reasoning model), cơ chế Auto-Heal khi gặp HTTP 400 và duy trì phiên làm việc không bị gián đoạn; loại bỏ hoàn toàn suicide watchdog để giữ uptime 100%.
-  - Bổ sung quy tắc **Điều phối cuốn chiếu (Work-Stealing Continuous Pipelining)**: Khi có 2 subagents xong trước, Lead Agent lập tức đọc kết quả sơ bộ và giao việc tiếp theo từ Backlog cho 2 subagents rảnh, tối ưu hóa toàn bộ các slot API key.
-  - Đồng bộ quy tắc Model Hot-Swapping và Work-Stealing vào `AGENTS.md` (toàn cục và dự án).
+- Hoàn thiện khép kín **4 giai đoạn Vòng đời Nhân sự** + **Chấm công Vân tay WebAuthn cùng WiFi** + **Báo cáo Word bảo vệ đồ án** (`docs/BAO_CAO_NGHIEP_VU_VA_KICH_BAN_DEMO_HRM.docx`).
+- Hoàn tất đợt **7 hạng mục sửa lỗi đồng bộ & tinh chỉnh UI khử mùi AI** theo phản hồi trực tiếp của người dùng:
+  1. Đồng bộ tức thì `Tuyển dụng & ATS` -> `/candidate` (`updateCandidateOfferSalary`, `mergeArrayById` + bảo vệ bậc `stage` trong `/api/hrm/sync` & `doSync`, gỡ lỗi `/login` gắn nhầm `UV-2026-001` cho email ứng viên tự nộp trên `/careers`, cho phép tra cứu không mật khẩu nhưng chặn nhân sự `RESIGNED`/`LOCKED`).
+  2. Tự sinh `PreboardingInvite` trống (`PENDING`) trong `initiateCandidateOnboarding` kèm đồng bộ `grossSalaryVnd` + `preboarding_token` trên `ats-view.tsx`; chặn fallback chéo ứng viên trên `/preboarding` và bổ sung nút `Chỉnh sửa thông tin` an toàn (hạ `VERIFIED` về `PENDING`/`SUBMITTED` chờ HR duyệt lại, chặn khi đã `OFFICIAL`/`RESIGNED`).
+  3. Tách riêng nút `Đăng xuất` khỏi `Hồ sơ cá nhân` (`sidebar.tsx`, `candidate/page.tsx`) và đổi nhãn `Cổng Ứng viên` sang `Theo dõi Ứng tuyển` / `Ứng viên dự tuyển`.
+  4. Xóa sạch 100% biến kỹ thuật/SQL lộ trên UI (`is_active`, `is_final_settlement`, `penalty_amount`, `is_rehireable`, `rehire_note`, `VERIFIED`, `PROBATION_2M`).
+  5. Rút gọn thanh bộ lọc Kanban `ats-view.tsx` và gỡ lọc ẩn ngầm 30 ngày.
+  6. Làm gọn banner Pre-boarding đầu `onboarding-view.tsx`, thay checkbox khóa hồ sơ bằng 2 nút `Lưu tạm` / `Duyệt hồ sơ`, lọc bỏ hoàn toàn hồ sơ `VERIFIED`/`EXPIRED` khỏi dải chờ duyệt (duyệt xong biến mất ngay, đẩy hồ sơ tiếp theo lên).
+  7. Tự động kích hoạt tài khoản `EMPLOYEE` (`ACTIVE`, đồng bộ task IT SSO) ngay khi HR bấm `Duyệt hồ sơ` Pre-boarding (`hrQuickUpdatePreboarding` + `activateEmployeeAccountIfPreboardingVerified`); đóng form `/preboarding` và thay bằng thẻ chuyển thẳng sang `/app` với role `EMPLOYEE`; cập nhật `/login` & `/candidate` nhận cả email cá nhân/công ty vào thẳng `/app` (chặn chặt `RESIGNED`/`LOCKED`, chặn khớp chéo domain lạ).
+  8. Chuyển nền tối `globals.css` sang Neutral Charcoal (`#16171B` / `#202329`) với chữ trắng-xám trung tính (`#F1F3F5` / `#C1C6CE`), gọn cụm nút `attendance-view.tsx`, sửa client-only dynamic import `swal.ts` (tránh SSR 500), khóa mũi tên kép `select.tsx`, thêm `pb-24` ở `app-shell.tsx` và thêm `dev:3005` trong `package.json`.
+- **Kiểm định:** `npx tsc --noEmit` (0 lỗi), `npm test` **144/144 PASS** trên 5 suite, HTTP `200` trên 6 route chính (`/login`, `/app`, `/candidate`, `/preboarding`, `/careers`, `/api/hrm/sync`); toàn bộ 5 điểm bảo mật từ `subagent-5-security` đã vá sạch. Lưu ý: sub-agent trình duyệt E2E gặp lỗi `429 RESOURCE_EXHAUSTED` khi hết quota ở bước cuối (đã báo trung thực cho người dùng).
 
 ## 2. Bước tiếp theo
-- Dự án Giai đoạn 1 đã hoàn thiện toàn diện và đồng bộ tài liệu; sẵn sàng kiểm thử tổng thể hoặc triển khai Giai đoạn 2 (Backend API & CSDL) theo yêu cầu tiếp theo của người dùng.
+- Đợi người dùng trải nghiệm lại trên `http://localhost:3000` và phản hồi bước tiếp theo.

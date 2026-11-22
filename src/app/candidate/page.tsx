@@ -23,16 +23,23 @@ import {
   Moon,
   Phone,
   RotateCcw,
+  Search,
   ShieldCheck,
   Sparkles,
   Sun,
   User,
+  X,
   XCircle,
 } from 'lucide-react';
 import { useApp } from '@/context/app-context';
 import {
+  activateEmployeeAccountIfPreboardingVerified,
+  getAllRuntimeEmployees,
   getJobPostings,
   getNotificationsForActor,
+  getOnboardingRecords,
+  getPreboardingInvites,
+  getSystemUsers,
   HRM_RUNTIME_EVENT,
   markAllNotificationsRead,
   markNotificationRead,
@@ -43,7 +50,16 @@ import {
 } from '@/lib/runtime-store';
 import { MOCK_CANDIDATES } from '@/mock/ats';
 import { cn, formatDateVN, formatVND } from '@/lib/utils';
-import type { AtsStage, Candidate, HrmNotification, JobPosting } from '@/mock/types';
+import type {
+  AtsStage,
+  Candidate,
+  Employee,
+  HrmNotification,
+  JobPosting,
+  OnboardingRecord,
+  PreboardingInvite,
+  SystemUserAccount,
+} from '@/mock/types';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -272,76 +288,753 @@ function renderNotificationMessage(rawMessage: string) {
 
 export default function CandidatePortalPage() {
   const router = useRouter();
-  const { role, theme, toggleTheme, currentUserEmail, currentUserProfile, showToast, logout } = useApp();
+  const {
+    role,
+    theme,
+    toggleTheme,
+    currentUserEmail,
+    currentUserProfile,
+    setAuthenticatedUser,
+    showToast,
+    logout,
+  } = useApp();
   const [candidates, setCandidates] = useState<Candidate[]>(MOCK_CANDIDATES);
-  const [activeCandidate, setActiveCandidate] = useState<Candidate | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [appliedStorageEmail, setAppliedStorageEmail] = useState<string | null>(null);
+  const [runtimeEmployees, setRuntimeEmployees] = useState<Employee[]>([]);
+  const pendingSelectIdRef = useRef<string | null>(null);
+  const [isLookupOpen, setIsLookupOpen] = useState(false);
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const lookupInputRef = useRef<HTMLInputElement>(null);
+  const setActiveCandidate = useCallback((cand: Candidate | null) => {
+    setSelectedCandidateId(cand ? cand.id : null);
+  }, []);
   const [actionModal, setActionModal] = useState<'interview' | 'offer' | 'withdraw' | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('09:30');
   const [notifications, setNotifications] = useState<(HrmNotification & { isRead: boolean })[]>([]);
+  const [preboardingInvites, setPreboardingInvites] = useState<PreboardingInvite[]>([]);
+  const [onboardingRecords, setOnboardingRecords] = useState<OnboardingRecord[]>([]);
+  const [systemUsers, setSystemUsers] = useState<SystemUserAccount[]>([]);
   const [isNotiOpen, setIsNotiOpen] = useState(false);
   const notiRef = useRef<HTMLDivElement>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Current candidate email (from career application or login)
-  const candidateEmail = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const lastEmail = window.localStorage.getItem('lacviet_applied_candidate_email');
-      if (lastEmail) return lastEmail.toLowerCase().trim();
+  useEffect(() => {
+    if (pendingSelectIdRef.current) {
+      setSelectedCandidateId(pendingSelectIdRef.current);
+      pendingSelectIdRef.current = null;
+      return;
     }
-    if (currentUserEmail && currentUserEmail !== 'ungvien@gmail.com') {
-      return currentUserEmail.toLowerCase().trim();
-    }
-    return null;
-  }, [currentUserEmail]);
+    setSelectedCandidateId(null);
+  }, [currentUserEmail, currentUserProfile?.employee_code]);
 
-  // Only applications that belong to THIS candidate (isolated by email)
+  const sortApplicationsByProgress = useCallback((list: Candidate[]): Candidate[] => {
+    if (list.length <= 1) return list;
+    return [...list].sort((a, b) => {
+      const aRejected = a.stage === 'REJECTED' ? 1 : 0;
+      const bRejected = b.stage === 'REJECTED' ? 1 : 0;
+      if (aRejected !== bRejected) return aRejected - bRejected;
+      const stepDiff =
+        (STAGE_META[b.stage]?.stepNum ?? 0) - (STAGE_META[a.stage]?.stepNum ?? 0);
+      if (stepDiff !== 0) return stepDiff;
+      return b.applied_date.localeCompare(a.applied_date);
+    });
+  }, []);
+
+  // Priority-ordered applications for the active candidate session
   const myApplications = useMemo(() => {
     if (candidates.length === 0) return [];
-    if (!candidateEmail) {
-      // Default demo profile for direct visit
-      const defaultCand = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
-      return defaultCand ? [defaultCand] : [];
+
+    // Priority 1: Match logged-in currentUserEmail or currentUserProfile.employee_code against runtime-merged candidates
+    const loginEmail =
+      currentUserEmail && currentUserEmail.trim().toLowerCase() !== 'ungvien@gmail.com'
+        ? currentUserEmail.trim().toLowerCase()
+        : null;
+    const loginCode = currentUserProfile?.employee_code?.trim().toLowerCase() || null;
+
+    if (loginEmail) {
+      const allowCodeFallback =
+        Boolean(loginCode) &&
+        (loginEmail === 'minh.hoang@gmail.com' || loginCode !== 'uv-2026-001');
+      const matchedByLogin = candidates.filter(
+        (c) =>
+          c.email.trim().toLowerCase() === loginEmail ||
+          (allowCodeFallback &&
+            loginEmail === 'minh.hoang@gmail.com' &&
+            c.candidate_code.trim().toLowerCase() === loginCode)
+      );
+      if (matchedByLogin.length > 0) {
+        return sortApplicationsByProgress(matchedByLogin);
+      }
+      if (loginEmail !== 'minh.hoang@gmail.com') {
+        return [];
+      }
+    } else if (loginCode && loginCode !== 'uv-2026-001') {
+      const matchedByCode = candidates.filter(
+        (c) => c.candidate_code.trim().toLowerCase() === loginCode
+      );
+      if (matchedByCode.length > 0) {
+        return sortApplicationsByProgress(matchedByCode);
+      }
     }
-    const matched = candidates.filter((c) => c.email.toLowerCase().trim() === candidateEmail);
-    if (matched.length > 0) return matched;
-    const fallback = candidates.find((c) => c.candidate_code === 'UV-2026-104') ?? candidates[0];
-    return fallback ? [fallback] : [];
-  }, [candidates, candidateEmail]);
+
+    // Priority 2: Only use lacviet_applied_candidate_email when not logged in with a specific account
+    if (!loginEmail && appliedStorageEmail) {
+      const matchedByApplied = candidates.filter(
+        (c) => c.email.trim().toLowerCase() === appliedStorageEmail
+      );
+      return matchedByApplied.length > 0
+        ? sortApplicationsByProgress(matchedByApplied)
+        : [];
+    }
+
+    // Priority 3: Fallback to demo UV-2026-001 ONLY for demo account UV-2026-001 / minh.hoang@gmail.com or unauthenticated visit
+    const rawCurrentEmail = currentUserEmail?.trim().toLowerCase() || '';
+    const hasCustomAccount =
+      (Boolean(rawCurrentEmail) &&
+        rawCurrentEmail !== 'minh.hoang@gmail.com' &&
+        rawCurrentEmail !== 'ungvien@gmail.com') ||
+      (Boolean(loginCode) && loginCode !== 'uv-2026-001');
+    if (hasCustomAccount) {
+      return [];
+    }
+
+    const demoCand = candidates.find(
+      (c) =>
+        c.candidate_code.trim().toUpperCase() === 'UV-2026-001' ||
+        c.email.trim().toLowerCase() === 'minh.hoang@gmail.com'
+    );
+    return demoCand ? [demoCand] : [];
+  }, [
+    candidates,
+    currentUserEmail,
+    currentUserProfile?.employee_code,
+    appliedStorageEmail,
+    sortApplicationsByProgress,
+  ]);
 
   const currentCandidate = useMemo(() => {
     if (myApplications.length === 0) return null;
-    if (activeCandidate) {
-      const match = myApplications.find((c) => c.id === activeCandidate.id);
+    if (selectedCandidateId) {
+      const match = myApplications.find((c) => c.id === selectedCandidateId);
       if (match) return match;
     }
     return myApplications[0];
-  }, [myApplications, activeCandidate]);
+  }, [myApplications, selectedCandidateId]);
+
+  const activeCandidate = currentCandidate;
+
+  const activeCandidateMeta = useMemo(() => {
+    if (!activeCandidate) {
+      return {
+        approvedSalaryVnd: undefined as number | undefined,
+        matchedInvite: undefined as PreboardingInvite | undefined,
+        matchedEmp: undefined as Employee | undefined,
+        matchedOnboarding: undefined as OnboardingRecord | undefined,
+        matchedSystemUser: undefined as SystemUserAccount | undefined,
+        isBlockedByLifecycle: false,
+        isEmployeeAccountActivated: false,
+        employeeCompanyEmail: '',
+        employeeCode: '',
+        preboardingHref: '/preboarding',
+      };
+    }
+
+    const ext = activeCandidate as Candidate & {
+      offered_salary_vnd?: number;
+      preboarding_token?: string;
+    };
+    const emailLower = activeCandidate.email.trim().toLowerCase();
+    const candToken = ext.preboarding_token?.trim();
+
+    const matchedInvite = preboardingInvites.find(
+      (inv) =>
+        (candToken && inv.token === candToken) ||
+        inv.personal_email.trim().toLowerCase() === emailLower
+    );
+
+    const matchedEmp = runtimeEmployees.find(
+      (emp) =>
+        (candToken && emp.preboarding_token === candToken) ||
+        (matchedInvite &&
+          (emp.id === matchedInvite.employee_id ||
+            emp.employee_code === matchedInvite.employee_code)) ||
+        emp.personal_email?.trim().toLowerCase() === emailLower ||
+        emp.email.trim().toLowerCase() === emailLower
+    );
+
+    const matchedOnboarding = onboardingRecords.find(
+      (rec) =>
+        rec.candidate_id === activeCandidate.id ||
+        rec.candidate_code === activeCandidate.candidate_code ||
+        (candToken && rec.preboarding_token === candToken) ||
+        (matchedInvite &&
+          (rec.employee_id === matchedInvite.employee_id ||
+            rec.employee_code === matchedInvite.employee_code)) ||
+        (matchedEmp &&
+          (rec.employee_id === matchedEmp.id ||
+            rec.employee_code === matchedEmp.employee_code))
+    );
+
+    const matchedSystemUser = systemUsers.find(
+      (u) =>
+        (matchedInvite &&
+          (u.employee_code === matchedInvite.employee_code ||
+            (matchedInvite.email &&
+              u.email.trim().toLowerCase() === matchedInvite.email.trim().toLowerCase()))) ||
+        (matchedEmp &&
+          (u.employee_code === matchedEmp.employee_code ||
+            u.email.trim().toLowerCase() === matchedEmp.email.trim().toLowerCase())) ||
+        (matchedOnboarding &&
+          (u.employee_code === matchedOnboarding.employee_code ||
+            u.email.trim().toLowerCase() === matchedOnboarding.email.trim().toLowerCase()))
+    );
+
+    const hasLockedSystemUserByEmail = systemUsers.some(
+      (u) =>
+        u.account_status === 'LOCKED' &&
+        u.email.trim().toLowerCase() === emailLower
+    );
+
+    const isBlockedByLifecycle =
+      matchedEmp?.employment_status === 'RESIGNED' ||
+      matchedSystemUser?.account_status === 'LOCKED' ||
+      hasLockedSystemUserByEmail;
+
+    const isEmployeeAccountActivated =
+      !isBlockedByLifecycle && matchedInvite?.status === 'VERIFIED';
+
+    const employeeCompanyEmail =
+      matchedSystemUser?.email ||
+      matchedEmp?.email ||
+      matchedInvite?.email ||
+      matchedOnboarding?.email ||
+      '';
+    const employeeCode =
+      matchedSystemUser?.employee_code ||
+      matchedEmp?.employee_code ||
+      matchedInvite?.employee_code ||
+      matchedOnboarding?.employee_code ||
+      '';
+
+    const isOfferOrOnboarded =
+      activeCandidate.stage === 'OFFER' ||
+      activeCandidate.stage === 'ONBOARDED' ||
+      Boolean(
+        matchedEmp &&
+          (matchedEmp.id.startsWith('emp-rt-') || matchedEmp.id.startsWith('emp-pb-'))
+      );
+
+    const approvedSalaryVnd =
+      (typeof ext.offered_salary_vnd === 'number' && ext.offered_salary_vnd > 0
+        ? ext.offered_salary_vnd
+        : undefined) ??
+      (isOfferOrOnboarded
+        ? (matchedInvite?.official_salary_vnd && matchedInvite.official_salary_vnd > 0
+            ? matchedInvite.official_salary_vnd
+            : undefined) ??
+          (matchedEmp?.base_salary_vnd && matchedEmp.base_salary_vnd > 0
+            ? matchedEmp.base_salary_vnd
+            : undefined)
+        : undefined);
+
+    const resolvedToken = matchedInvite?.token || candToken || '';
+    const preboardingHref = resolvedToken
+      ? `/preboarding?token=${encodeURIComponent(resolvedToken)}`
+      : '/preboarding';
+
+    return {
+      approvedSalaryVnd,
+      matchedInvite,
+      matchedEmp,
+      matchedOnboarding,
+      matchedSystemUser,
+      isBlockedByLifecycle,
+      isEmployeeAccountActivated,
+      employeeCompanyEmail,
+      employeeCode,
+      preboardingHref,
+    };
+  }, [activeCandidate, preboardingInvites, runtimeEmployees, onboardingRecords, systemUsers]);
+
+  const handleEnterEmployeeWorkspace = useCallback(() => {
+    const effectiveInvite = activeCandidateMeta.matchedInvite ?? null;
+    if (
+      !activeCandidate ||
+      activeCandidateMeta.isBlockedByLifecycle ||
+      effectiveInvite?.status !== 'VERIFIED'
+    ) {
+      showToast(
+        'Không thể chuyển không gian làm việc',
+        'Hồ sơ Pre-boarding chưa được HR xác minh hoặc tài khoản nhân sự đang bị khóa/đã nghỉ việc.',
+        'error'
+      );
+      return;
+    }
+
+    const activationTarget =
+      effectiveInvite.employee_code ||
+      effectiveInvite.personal_email ||
+      activeCandidate.email;
+    const activatedUser =
+      activateEmployeeAccountIfPreboardingVerified(activationTarget) ??
+      activateEmployeeAccountIfPreboardingVerified(activeCandidate.email);
+
+    if (
+      !activatedUser ||
+      activatedUser.account_status !== 'ACTIVE' ||
+      activatedUser.is_active === false
+    ) {
+      showToast(
+        'Không thể kích hoạt tài khoản Nhân viên',
+        'Không xác thực được tài khoản Nhân viên từ hồ sơ Pre-boarding đã duyệt. Vui lòng liên hệ Phòng Nhân sự.',
+        'error'
+      );
+      return;
+    }
+
+    const effectiveEmp = activeCandidateMeta.matchedEmp ?? null;
+    const effectiveOnb = activeCandidateMeta.matchedOnboarding ?? null;
+
+    if (
+      effectiveEmp?.employment_status === 'RESIGNED' ||
+      activatedUser.account_status !== 'ACTIVE'
+    ) {
+      showToast(
+        'Không thể chuyển không gian làm việc',
+        'Tài khoản nhân sự này hiện đang bị khóa hoặc đã nghỉ việc.',
+        'error'
+      );
+      return;
+    }
+
+    const companyEmail =
+      activatedUser.email ||
+      effectiveEmp?.email ||
+      effectiveInvite.email ||
+      effectiveOnb?.email ||
+      activeCandidate.email;
+    const employeeCode =
+      activatedUser.employee_code ||
+      effectiveEmp?.employee_code ||
+      effectiveInvite.employee_code ||
+      effectiveOnb?.employee_code ||
+      '';
+    const fullName =
+      effectiveEmp?.full_name ||
+      activatedUser.full_name ||
+      effectiveInvite.full_name ||
+      activeCandidate.full_name;
+    const department =
+      effectiveEmp?.department_name ||
+      activatedUser.department_name ||
+      effectiveInvite.department_name ||
+      effectiveOnb?.department_name ||
+      'Phòng ban chuyên môn';
+    const departmentId =
+      effectiveEmp?.department_id ||
+      effectiveInvite.department_id ||
+      effectiveOnb?.department_id;
+    const title =
+      effectiveEmp?.position_name ||
+      activatedUser.position_name ||
+      effectiveInvite.position_name ||
+      effectiveOnb?.position_name ||
+      activeCandidate.job_title;
+
+    setAuthenticatedUser('EMPLOYEE', companyEmail, {
+      fullName,
+      employee_code: employeeCode,
+      email: companyEmail,
+      department,
+      department_id: departmentId,
+      title,
+    });
+    showToast(
+      'Chào mừng vào không gian làm việc Nhân viên',
+      `${fullName}${employeeCode ? ` (${employeeCode})` : ''} · ${companyEmail}`,
+      'success'
+    );
+    router.push('/app');
+  }, [activeCandidate, activeCandidateMeta, router, setAuthenticatedUser, showToast]);
+
+  const buildEnrichedCandidates = useCallback(() => {
+    const mergedList = mergeWithRuntimeCandidates(MOCK_CANDIDATES);
+    const allEmps = getAllRuntimeEmployees();
+    const onbRecords = getOnboardingRecords();
+    const invites = getPreboardingInvites();
+    const users = getSystemUsers();
+
+    const enrichedList = mergedList.map((cand) => {
+      if (
+        cand.stage === 'REJECTED' ||
+        cand.stage === 'ONBOARDED' ||
+        cand.stage === 'OFFER'
+      ) {
+        return cand;
+      }
+      const ext = cand as Candidate & {
+        offered_salary_vnd?: number;
+        preboarding_token?: string;
+      };
+      const emailLower = cand.email.trim().toLowerCase();
+      const token = ext.preboarding_token?.trim();
+
+      const hasOnboarding = onbRecords.some(
+        (rec: OnboardingRecord) =>
+          rec.candidate_id === cand.id ||
+          rec.candidate_code === cand.candidate_code ||
+          Boolean(token && rec.preboarding_token === token)
+      );
+      const hasRuntimeEmployee = allEmps.some(
+        (emp) =>
+          (emp.id.startsWith('emp-rt-') || emp.id.startsWith('emp-pb-')) &&
+          (Boolean(token && emp.preboarding_token === token) ||
+            emp.personal_email?.trim().toLowerCase() === emailLower ||
+            emp.email.trim().toLowerCase() === emailLower)
+      );
+      const hasOwnPreboardingInvite = invites.some(
+        (inv) =>
+          inv.id !== 'pb-2026-001' &&
+          (Boolean(token && inv.token === token) ||
+            inv.personal_email.trim().toLowerCase() === emailLower)
+      );
+
+      if (hasOnboarding || hasRuntimeEmployee) {
+        return { ...cand, stage: 'ONBOARDED' as AtsStage };
+      }
+      if (
+        hasOwnPreboardingInvite ||
+        (typeof ext.offered_salary_vnd === 'number' && ext.offered_salary_vnd > 0)
+      ) {
+        return { ...cand, stage: 'OFFER' as AtsStage };
+      }
+      return cand;
+    });
+
+    return { enrichedList, allEmps, invites, onbRecords, users };
+  }, []);
 
   const syncCandidateData = useCallback(() => {
-    const list = mergeWithRuntimeCandidates(MOCK_CANDIDATES);
-    setCandidates(list);
-    if (activeCandidate) {
-      const updated = list.find((c) => c.id === activeCandidate.id);
-      if (updated) setActiveCandidate(updated);
+    const { enrichedList, allEmps, invites, onbRecords, users } = buildEnrichedCandidates();
+    setCandidates(enrichedList);
+    setRuntimeEmployees(allEmps);
+    setPreboardingInvites(invites);
+    setOnboardingRecords(onbRecords);
+    setSystemUsers(users);
+
+    if (typeof window !== 'undefined') {
+      const rawApplied = window.localStorage.getItem('lacviet_applied_candidate_email');
+      setAppliedStorageEmail(rawApplied?.trim() ? rawApplied.trim().toLowerCase() : null);
     }
-    const candCode = currentCandidate?.candidate_code || '';
-    const notifs = getNotificationsForActor('CANDIDATE', candCode, undefined);
-    setNotifications(notifs);
-  }, [activeCandidate, currentCandidate?.candidate_code]);
+  }, [buildEnrichedCandidates]);
+
+  const pullLatestServerSync = useCallback(async () => {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+    try {
+      const res = await fetch('/api/hrm/sync', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        success?: boolean;
+        stores?: Record<string, unknown>;
+      };
+      const stores = data?.stores;
+      if (stores && typeof stores === 'object') {
+        const keysToHydrate = [
+          'hrm_runtime_candidates_v1',
+          'hrm_runtime_onboarding_v1',
+          'hrm_runtime_employees_v1',
+          'hrm_runtime_preboarding_v1',
+          'hrm_runtime_users_v1',
+          'hrm_runtime_notifications_v1',
+        ] as const;
+        for (const key of keysToHydrate) {
+          const val = stores[key];
+          if (Array.isArray(val)) {
+            window.localStorage.setItem(key, JSON.stringify(val));
+          }
+        }
+      }
+    } catch {
+      // Keep local runtime store if offline or sync unavailable
+    } finally {
+      syncCandidateData();
+    }
+  }, [syncCandidateData]);
+
+  const openLookupBox = useCallback(() => {
+    setIsUserMenuOpen(false);
+    setLookupError(null);
+    setIsLookupOpen(true);
+    setTimeout(() => {
+      lookupInputRef.current?.focus();
+    }, 30);
+  }, []);
+
+  const handleCandidateLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLookingUp) return;
+
+    const rawQuery = lookupQuery.trim();
+    if (!rawQuery) {
+      setLookupError('Vui lòng nhập đầy đủ địa chỉ Email (có @) hoặc Số điện thoại (từ 9 chữ số).');
+      lookupInputRef.current?.focus();
+      return;
+    }
+
+    const isEmailQuery = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawQuery);
+    const rawDigits = rawQuery.replace(/\D/g, '');
+    const normPhoneQuery =
+      rawDigits.startsWith('84') && rawDigits.length >= 10
+        ? `0${rawDigits.slice(2)}`
+        : rawDigits;
+    const isPhoneQuery =
+      !rawQuery.includes('@') &&
+      normPhoneQuery.length >= 9 &&
+      /^[\d+\s().-]+$/.test(rawQuery);
+
+    if (!isEmailQuery && !isPhoneQuery) {
+      setLookupError(
+        'Vui lòng nhập đầy đủ địa chỉ Email (có @) hoặc Số điện thoại cá nhân (tối thiểu 9 chữ số) đã dùng khi nộp đơn.'
+      );
+      lookupInputRef.current?.focus();
+      return;
+    }
+
+    setIsLookingUp(true);
+    setLookupError(null);
+
+    try {
+      await pullLatestServerSync();
+      const { enrichedList, allEmps, invites, onbRecords, users } = buildEnrichedCandidates();
+      setCandidates(enrichedList);
+      setRuntimeEmployees(allEmps);
+      setPreboardingInvites(invites);
+      setOnboardingRecords(onbRecords);
+      setSystemUsers(users);
+
+      const lowerQuery = rawQuery.toLowerCase();
+
+      const matches = enrichedList.filter((cand) => {
+        if (isEmailQuery && cand.email.trim().toLowerCase() === lowerQuery) {
+          return true;
+        }
+        if (isPhoneQuery && cand.phone) {
+          const candDigits = cand.phone.replace(/\D/g, '');
+          const normCandPhone =
+            candDigits.startsWith('84') && candDigits.length >= 10
+              ? `0${candDigits.slice(2)}`
+              : candDigits;
+          if (normCandPhone === normPhoneQuery) return true;
+        }
+        return false;
+      });
+
+      if (matches.length === 0) {
+        setLookupError(
+          'Không tìm thấy hồ sơ ứng tuyển khớp với thông tin vừa nhập. Vui lòng kiểm tra lại Email hoặc Số điện thoại đã dùng trên trang Tuyển dụng.'
+        );
+        lookupInputRef.current?.focus();
+        return;
+      }
+
+      const sortedMatches = sortApplicationsByProgress(matches);
+      const matched = sortedMatches[0];
+
+      const matchedEmailLower = matched.email.trim().toLowerCase();
+      const matchedPhoneNorm = matched.phone
+        ? (() => {
+            const d = matched.phone.replace(/\D/g, '');
+            return d.startsWith('84') && d.length >= 10 ? `0${d.slice(2)}` : d;
+          })()
+        : '';
+
+      const linkedEmp = allEmps.find((emp) => {
+        if (
+          emp.email?.trim().toLowerCase() === matchedEmailLower ||
+          emp.personal_email?.trim().toLowerCase() === matchedEmailLower
+        ) {
+          return true;
+        }
+        if (matchedPhoneNorm.length >= 9 && emp.phone) {
+          const ed = emp.phone.replace(/\D/g, '');
+          const normEd =
+            ed.startsWith('84') && ed.length >= 10 ? `0${ed.slice(2)}` : ed;
+          if (normEd === matchedPhoneNorm) return true;
+        }
+        return false;
+      });
+
+      if (linkedEmp?.employment_status === 'RESIGNED') {
+        setLookupError(
+          'Hồ sơ này thuộc nhân sự đã hoàn tất thủ tục nghỉ việc — quyền tra cứu đã được thu hồi.'
+        );
+        lookupInputRef.current?.focus();
+        return;
+      }
+
+      const lockedSysUser = getSystemUsers().find(
+        (u) =>
+          u.account_status === 'LOCKED' &&
+          (u.email.trim().toLowerCase() === matchedEmailLower ||
+            (linkedEmp && u.employee_code === linkedEmp.employee_code))
+      );
+      if (lockedSysUser) {
+        setLookupError(
+          lockedSysUser.locked_reason ||
+            'Tài khoản liên kết với hồ sơ này đang bị khóa truy cập bởi Quản trị hệ thống.'
+        );
+        lookupInputRef.current?.focus();
+        return;
+      }
+
+      pendingSelectIdRef.current = matched.id;
+      setSelectedCandidateId(matched.id);
+
+      setAuthenticatedUser('CANDIDATE', matched.email, {
+        fullName: matched.full_name,
+        department: 'Ứng viên dự tuyển',
+        employee_code: matched.candidate_code,
+        title: matched.job_title,
+      });
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('lacviet_applied_candidate_email', matched.email);
+      }
+      setAppliedStorageEmail(matched.email.trim().toLowerCase());
+      setIsLookupOpen(false);
+      setLookupQuery('');
+      setLookupError(null);
+
+      showToast(
+        'Đã tìm thấy hồ sơ ứng tuyển',
+        `Đang hiển thị tiến trình của ${matched.full_name} (${matched.candidate_code}).`,
+        'success'
+      );
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const renderLookupCard = (showCloseButton: boolean) => (
+    <div
+      className="mt-6 rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90 sm:p-6"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && showCloseButton) {
+          setIsLookupOpen(false);
+          setLookupError(null);
+        }
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#CBE8E2] text-[#0B4F4A] dark:bg-teal-950/70 dark:text-teal-300">
+            <Search className="h-4 w-4" />
+          </div>
+          <div>
+            <label
+              htmlFor="candidate-lookup-input"
+              className="block text-sm font-bold text-[#11221E] dark:text-zinc-100 cursor-pointer"
+            >
+              Tra cứu hồ sơ bằng Email / SĐT (không cần mật khẩu)
+            </label>
+            <p
+              id="candidate-lookup-hint"
+              className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400"
+            >
+              Nhập đầy đủ Email hoặc Số điện thoại cá nhân đã dùng khi nộp đơn tại trang Việc làm để xem ngay tiến trình Bước 1–5, mức lương Offer và đường dẫn Pre-boarding.
+            </p>
+          </div>
+        </div>
+
+        {showCloseButton && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsLookupOpen(false);
+              setLookupError(null);
+            }}
+            aria-label="Đóng khung tra cứu hồ sơ"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#5C7871] hover:bg-[#EFF5F3] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={(e) => void handleCandidateLookup(e)} className="mt-4 flex flex-col gap-2.5 sm:flex-row">
+        <div className="relative flex-1">
+          <input
+            id="candidate-lookup-input"
+            ref={lookupInputRef}
+            type="text"
+            autoComplete="email"
+            value={lookupQuery}
+            onChange={(e) => {
+              setLookupQuery(e.target.value);
+              if (lookupError) setLookupError(null);
+            }}
+            placeholder="Nhập Email hoặc Số điện thoại (VD: kiet@gmail.com / 0904112299)"
+            aria-invalid={Boolean(lookupError)}
+            aria-describedby={lookupError ? 'candidate-lookup-error' : 'candidate-lookup-hint'}
+            className={cn(
+              'h-10 w-full rounded-lg border bg-[#FCFEFD] px-3.5 text-xs text-[#11221E] placeholder:text-[#5C7871]/75 focus:outline-none focus:ring-2 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500',
+              lookupError
+                ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-700'
+                : 'border-[#C6D9D3] focus:border-[#0F766E] focus:ring-[#0F766E]/20 dark:border-zinc-700 dark:focus:border-teal-400'
+            )}
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          disabled={isLookingUp}
+          className="h-10 shrink-0 px-5 text-xs font-semibold"
+        >
+          <Search className="mr-1.5 h-3.5 w-3.5" />
+          <span>{isLookingUp ? 'Đang tra cứu...' : 'Tra cứu'}</span>
+        </Button>
+      </form>
+
+      {lookupError && (
+        <p
+          id="candidate-lookup-error"
+          role="alert"
+          className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400"
+        >
+          {lookupError}
+        </p>
+      )}
+    </div>
+  );
 
   useEffect(() => {
     syncCandidateData();
+    void pullLatestServerSync();
+    const handleFocusSync = () => {
+      void pullLatestServerSync();
+    };
     window.addEventListener(HRM_RUNTIME_EVENT, syncCandidateData);
     window.addEventListener('storage', syncCandidateData);
+    window.addEventListener('focus', handleFocusSync);
     return () => {
       window.removeEventListener(HRM_RUNTIME_EVENT, syncCandidateData);
       window.removeEventListener('storage', syncCandidateData);
+      window.removeEventListener('focus', handleFocusSync);
     };
-  }, [syncCandidateData]);
+  }, [syncCandidateData, pullLatestServerSync]);
+
+  useEffect(() => {
+    const candCode = currentCandidate?.candidate_code || '';
+    setNotifications(getNotificationsForActor('CANDIDATE', candCode, undefined));
+  }, [currentCandidate?.candidate_code, candidates]);
 
   // Close notification popover on outside click
   useEffect(() => {
@@ -539,6 +1232,8 @@ export default function CandidatePortalPage() {
           : `${currentCandidate.current_company} · Ứng viên từ chối Offer: ${actionReason || 'Lý do cá nhân'}`,
     };
     saveRuntimeCandidate(updated);
+    setActiveCandidate(updated);
+    setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     setActionModal(null);
     setActionReason('');
     showToast(
@@ -585,21 +1280,21 @@ export default function CandidatePortalPage() {
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 border-b border-[#C6D9D3] bg-[#FCFEFD]/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0F766E] text-white shadow-sm">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0F766E] text-white shadow-sm">
               <User className="h-5 w-5" strokeWidth={2} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
                   LẠC VIỆT
                 </span>
                 <span className="rounded bg-[#CBE8E2] px-1.5 py-0.5 text-[10px] font-semibold text-[#0B4F4A] dark:bg-teal-950 dark:text-teal-300">
-                  CANDIDATE PORTAL
+                  Theo dõi Ứng tuyển
                 </span>
               </div>
-              <p className="text-[11px] text-[#415A54] dark:text-zinc-400">
-                Cổng Theo dõi Hồ sơ Tuyển dụng & Tương tác Ứng viên
+              <p className="hidden sm:block truncate text-[11px] text-[#415A54] dark:text-zinc-400">
+                Theo dõi Hồ sơ Tuyển dụng & Tương tác Ứng viên
               </p>
             </div>
           </div>
@@ -744,12 +1439,24 @@ export default function CandidatePortalPage() {
               {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </button>
 
+            <button
+              type="button"
+              onClick={openLookupBox}
+              aria-label="Tra cứu email khác"
+              title="Tra cứu hồ sơ bằng Email / SĐT khác"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 sm:px-3 text-xs font-semibold text-[#0F766E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-300 dark:hover:bg-zinc-700 cursor-pointer"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Tra cứu email khác</span>
+            </button>
+
             <Link
               href="/careers"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 text-xs font-semibold text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+              aria-label="Xem việc làm khác"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 sm:px-3 text-xs font-semibold text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
             >
               <Briefcase className="h-3.5 w-3.5" />
-              <span>Xem việc làm khác</span>
+              <span className="hidden md:inline">Xem việc làm khác</span>
             </Link>
 
             {/* Avatar Dropdown Menu */}
@@ -770,17 +1477,26 @@ export default function CandidatePortalPage() {
                 <div className="absolute right-0 top-11 z-50 w-60 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-1.5 shadow-xl overflow-hidden dark:border-zinc-800 dark:bg-zinc-900 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="border-b border-[#D5E3DF] px-3 py-2.5 dark:border-zinc-800 bg-[#F2F7F5] dark:bg-zinc-950/50 rounded-t-lg">
                     <p className="text-xs font-bold text-[#11221E] dark:text-zinc-100 truncate">
-                      {currentCandidate?.full_name ?? 'Ứng viên Lạc Việt'}
+                      {currentCandidate?.full_name ?? currentUserProfile?.fullName ?? 'Ứng viên Lạc Việt'}
                     </p>
                     <p className="mt-0.5 text-[11px] text-[#5C7871] dark:text-zinc-400 truncate">
-                      {currentCandidate?.email ?? 'ungvien@gmail.com'}
+                      {currentCandidate?.email ?? currentUserEmail ?? 'minh.hoang@gmail.com'}
                     </p>
                     <span className="mt-1.5 inline-flex items-center rounded bg-[#CBE8E2] px-2 py-0.5 text-[10px] font-semibold text-[#0B4F4A] dark:bg-teal-950 dark:text-teal-300">
-                      Cổng Ứng viên
+                      Ứng viên
                     </span>
                   </div>
 
-                  <div className="py-1">
+                  <div className="pt-1 space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={openLookupBox}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#415A54] hover:bg-[#EFF5F3] hover:text-[#0F766E] dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-teal-400 transition-colors cursor-pointer"
+                    >
+                      <Search className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
+                      <span>Tra cứu email khác</span>
+                    </button>
+
                     <Link
                       href="/login"
                       onClick={() => setIsUserMenuOpen(false)}
@@ -790,18 +1506,20 @@ export default function CandidatePortalPage() {
                       <span>Đổi tài khoản</span>
                     </Link>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        logout();
-                        router.push('/login');
-                      }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      <span>Đăng xuất</span>
-                    </button>
+                    <div className="mt-1.5 pt-1.5 border-t border-[#D5E3DF] dark:border-zinc-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          logout();
+                          router.push('/login');
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -824,7 +1542,7 @@ export default function CandidatePortalPage() {
                 Xin chào, {currentCandidate?.full_name ?? 'Ứng viên'}!
               </h1>
               <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                Email: <strong>{currentCandidate?.email ?? 'ungvien@gmail.com'}</strong> · SĐT: {currentCandidate?.phone ?? 'Chưa cập nhật'}
+                Email: <strong>{currentCandidate?.email ?? currentUserEmail ?? 'Chưa xác định'}</strong> · SĐT: {currentCandidate?.phone ?? 'Chưa cập nhật'}
               </p>
             </div>
 
@@ -854,6 +1572,9 @@ export default function CandidatePortalPage() {
             )}
           </div>
         </div>
+
+        {/* Inline Candidate Lookup Panel when toggled while viewing an existing profile */}
+        {currentCandidate && isLookupOpen && renderLookupCard(true)}
 
         {/* Current Active Application Card */}
         {currentCandidate ? (
@@ -888,14 +1609,27 @@ export default function CandidatePortalPage() {
                       {currentCandidate.department_name} · Mã vị trí: {currentCandidate.job_code}
                     </p>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-3 pt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                      <span className="inline-flex items-center gap-1">
-                        <span>Lương kỳ vọng:</span>
-                        <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
-                          {formatVND(currentCandidate.expected_salary_vnd)}
-                        </strong>
-                      </span>
-                      <span className="text-[#C6D9D3] dark:text-zinc-700">·</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                      {activeCandidateMeta.approvedSalaryVnd ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-[#0F766E]/30 bg-[#E8F3EF] px-2 py-0.5 text-[#0B4F4A] dark:border-teal-500/30 dark:bg-teal-950/50 dark:text-teal-300">
+                          <span>
+                            {currentCandidate.stage === 'ONBOARDED'
+                              ? 'Mức lương chính thức duyệt:'
+                              : 'Mức lương Offer:'}
+                          </span>
+                          <strong className="font-bold">
+                            {formatVND(activeCandidateMeta.approvedSalaryVnd)}
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <span>Lương kỳ vọng:</span>
+                          <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
+                            {formatVND(currentCandidate.expected_salary_vnd)}
+                          </strong>
+                        </span>
+                      )}
+                      <span className="hidden sm:inline text-[#C6D9D3] dark:text-zinc-700">·</span>
                       <span className="inline-flex items-center gap-1">
                         <span>Nguồn nộp:</span>
                         <strong className="font-semibold text-[#11221E] dark:text-zinc-200">
@@ -945,6 +1679,16 @@ export default function CandidatePortalPage() {
                           Khôi phục hồ sơ
                         </button>
                       </div>
+                    ) : activeCandidateMeta.isEmployeeAccountActivated ? (
+                      <button
+                        type="button"
+                        onClick={handleEnterEmployeeWorkspace}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800/70 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-all cursor-pointer"
+                        title="Tài khoản nhân viên đã kích hoạt. Nhấp để vào không gian làm việc Nhân viên."
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        Đã kích hoạt tài khoản Nhân viên
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -1062,6 +1806,8 @@ export default function CandidatePortalPage() {
                           <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                             currentCandidate.stage === 'REJECTED'
                               ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300'
+                              : activeCandidateMeta.isEmployeeAccountActivated
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
                               : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300'
                               : currentCandidate.stage === 'INTERVIEW' && currentCandidate.reschedule_request?.status === 'PENDING'
@@ -1072,6 +1818,8 @@ export default function CandidatePortalPage() {
                           }`}>
                             {currentCandidate.stage === 'REJECTED'
                               ? 'Đã dừng'
+                              : activeCandidateMeta.isEmployeeAccountActivated
+                              ? 'Đã kích hoạt tài khoản Nhân viên'
                               : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.status === 'confirmed'
                               ? '✓ Đã chốt lịch'
                               : currentCandidate.stage === 'INTERVIEW' && currentCandidate.reschedule_request?.status === 'PENDING'
@@ -1084,12 +1832,24 @@ export default function CandidatePortalPage() {
                         <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-300 leading-relaxed">
                           {currentCandidate.stage === 'REJECTED'
                             ? 'Hồ sơ đã được rút theo nguyện vọng của bạn. Bạn hiện có thể truy cập Cổng việc làm Lạc Việt để ứng tuyển vị trí mới bất kỳ lúc nào.'
+                            : activeCandidateMeta.isEmployeeAccountActivated
+                            ? 'Hồ sơ nhận việc của bạn đã được Phòng Nhân sự xác minh và kích hoạt tài khoản Nhân viên chính thức. Bạn có thể truy cập ngay vào không gian làm việc nội bộ.'
                             : currentCandidate.stage === 'INTERVIEW' && !currentCandidate.interview_schedule?.date
                             ? 'Bộ phận Tuyển dụng đang sắp xếp hội đồng phỏng vấn chuyên môn. Khi có lịch chính xác, bạn sẽ nhận được thông báo để xác nhận tham gia.'
                             : currentCandidate.stage === 'INTERVIEW' && currentCandidate.interview_schedule?.date
                             ? `Lịch phỏng vấn: ${currentCandidate.interview_schedule.time || '09:30'} ngày ${formatDateVN(currentCandidate.interview_schedule.date)} (${currentCandidate.interview_schedule.format || 'Online'}) - ${currentCandidate.interview_schedule.location_or_link || 'Đường dẫn sẽ gửi qua email'}.`
                             : STAGE_META[currentCandidate.stage]?.desc}
                         </p>
+                        {(currentCandidate.stage === 'OFFER' ||
+                          currentCandidate.stage === 'ONBOARDED') &&
+                          activeCandidateMeta.approvedSalaryVnd && (
+                            <p className="mt-1.5 text-xs font-medium text-[#0B4F4A] dark:text-teal-300">
+                              Chế độ đãi ngộ được phê duyệt:{' '}
+                              <strong>
+                                {formatVND(activeCandidateMeta.approvedSalaryVnd)}/tháng
+                              </strong>
+                            </p>
+                          )}
                         {currentCandidate.reschedule_request?.status === 'PENDING' && (
                           <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400 font-medium">
                             Đã gửi yêu cầu dời sang: <strong>{currentCandidate.reschedule_request.proposed_time}</strong> · Lý do: {currentCandidate.reschedule_request.reason}
@@ -1228,25 +1988,138 @@ export default function CandidatePortalPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Activated Employee Workspace CTA or Pre-boarding Portal Banner */}
+                  {(activeCandidateMeta.isEmployeeAccountActivated ||
+                    currentCandidate.stage === 'OFFER' ||
+                    currentCandidate.stage === 'ONBOARDED') && (() => {
+                    if (activeCandidateMeta.isEmployeeAccountActivated) {
+                      return (
+                        <div className="mt-4 flex flex-col gap-4 rounded-xl border border-emerald-500/40 bg-emerald-50/70 p-4 dark:border-emerald-700/60 dark:bg-emerald-950/25 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm dark:bg-emerald-500">
+                              <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold text-[#11221E] dark:text-zinc-100">
+                                  Tài khoản Nhân viên chính thức đã sẵn sàng
+                                </span>
+                                <Badge variant="success">
+                                  Đã kích hoạt tài khoản Nhân viên
+                                </Badge>
+                              </div>
+                              <p className="mt-1 text-xs text-[#315048] dark:text-zinc-300 leading-relaxed">
+                                Hồ sơ Pre-boarding đã hoàn tất xác minh. Sử dụng thông tin tài khoản nội bộ dưới đây để làm việc trên hệ thống Lạc Việt HRM.
+                              </p>
+                              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                                {activeCandidateMeta.employeeCompanyEmail && (
+                                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-emerald-200 bg-white/90 px-2.5 py-1 text-[#11221E] dark:border-emerald-800/70 dark:bg-zinc-900/90 dark:text-zinc-100">
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                                    <span className="text-[#415A54] dark:text-zinc-400">Email công ty:</span>
+                                    <strong className="break-all font-semibold">
+                                      {activeCandidateMeta.employeeCompanyEmail}
+                                    </strong>
+                                  </span>
+                                )}
+                                {activeCandidateMeta.employeeCode && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white/90 px-2.5 py-1 text-[#11221E] dark:border-emerald-800/70 dark:bg-zinc-900/90 dark:text-zinc-100">
+                                    <Briefcase className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                                    <span className="text-[#415A54] dark:text-zinc-400">Mã nhân viên:</span>
+                                    <strong className="font-semibold">
+                                      {activeCandidateMeta.employeeCode}
+                                    </strong>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={handleEnterEmployeeWorkspace}
+                            className="w-full shrink-0 text-xs font-semibold shadow-sm sm:w-auto"
+                          >
+                            <span>Vào không gian làm việc Nhân viên</span>
+                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.75} />
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    const matchedInvite = activeCandidateMeta.matchedInvite;
+                    const inviteStatus = matchedInvite?.status ?? 'PENDING';
+
+                    return (
+                      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[#0F766E]/35 bg-[#FCFEFD] p-4 dark:border-teal-400/25 dark:bg-[#121214] sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#CBE8E2] text-[#0B4F4A] dark:bg-teal-950/60 dark:text-teal-300">
+                            <FileCheck2 className="h-4 w-4" strokeWidth={1.5} />
+                          </div>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
+                                Thủ tục Khai báo Hồ sơ Nhận việc trực tuyến (Pre-boarding)
+                              </span>
+                              <Badge
+                                variant={
+                                  inviteStatus === 'VERIFIED'
+                                    ? 'success'
+                                    : inviteStatus === 'SUBMITTED'
+                                      ? 'teal'
+                                      : 'warning'
+                                }
+                              >
+                                {inviteStatus === 'VERIFIED'
+                                  ? 'HR đã xác minh'
+                                  : inviteStatus === 'SUBMITTED'
+                                    ? 'Đã nộp · Chờ xác minh'
+                                    : 'Chờ khai báo'}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                              Hoàn thiện trước thông tin CCCD, Mã số thuế TNCN, BHXH, Tài khoản ngân hàng nhận lương và Liên hệ khẩn cấp để chuẩn bị Hợp đồng thử việc.
+                            </p>
+                          </div>
+                        </div>
+
+                        <Link
+                          href={activeCandidateMeta.preboardingHref}
+                          className="shrink-0"
+                        >
+                          <Button variant="primary" size="sm" className="text-xs font-semibold">
+                            <span>Khai báo Pre-boarding</span>
+                            <ArrowRight className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+                          </Button>
+                        </Link>
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
           </div>
         ) : (
-          <div className="mt-8 rounded-2xl border border-dashed border-[#C6D9D3] bg-[#FCFEFD] p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
-            <FileText className="mx-auto h-12 w-12 text-[#5C7871] opacity-60" />
-            <h3 className="mt-4 text-base font-semibold text-[#11221E] dark:text-zinc-100">
-              Chưa có hồ sơ ứng tuyển nào được ghi nhận
-            </h3>
-            <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-              Hãy truy cập Cổng việc làm Lạc Việt Careers để chọn vị trí phù hợp và gửi CV trực tuyến.
-            </p>
-            <Link href="/careers">
-              <Button variant="primary" size="sm" className="mt-4 text-xs font-semibold">
-                Khám phá việc làm ngay
-              </Button>
-            </Link>
-          </div>
+          <>
+            {renderLookupCard(false)}
+
+            <div className="mt-6 rounded-2xl border border-dashed border-[#C6D9D3] bg-[#FCFEFD] p-10 text-center dark:border-zinc-800 dark:bg-zinc-900">
+              <FileText className="mx-auto h-11 w-11 text-[#5C7871] opacity-60" />
+              <h3 className="mt-3 text-base font-semibold text-[#11221E] dark:text-zinc-100">
+                Chưa tìm thấy hồ sơ ứng tuyển gắn với phiên hiện tại
+              </h3>
+              <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                Nhập Email / SĐT ở ô tra cứu phía trên nếu bạn đã nộp CV, hoặc truy cập trang Tuyển dụng để ứng tuyển vị trí mới.
+              </p>
+              <Link href="/careers">
+                <Button variant="primary" size="sm" className="mt-4 text-xs font-semibold">
+                  Khám phá việc làm ngay
+                </Button>
+              </Link>
+            </div>
+          </>
         )}
       </main>
 

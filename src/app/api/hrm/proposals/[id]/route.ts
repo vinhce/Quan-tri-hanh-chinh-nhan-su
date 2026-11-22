@@ -4,13 +4,16 @@ import { transitionProposal } from '@/lib/hrm/workflow';
 import type { Actor, ProposalStatus } from '@/lib/hrm/types';
 
 export function generateStaticParams() {
-  return [];
+  return [{ id: '__static_placeholder__' }];
 }
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
+  if (params.id === '__static_placeholder__') {
+    return NextResponse.json({ success: true, data: null });
+  }
   try {
     const proposal = await hrmRepo.getProposalById(params.id);
     if (!proposal) {

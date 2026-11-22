@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   AlertTriangle,
-  Archive,
   ArrowRight,
   Briefcase,
   Building,
@@ -39,6 +38,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
+  Search,
   Send,
   Sparkles,
   Star,
@@ -68,6 +68,7 @@ import {
   saveDepartmentRecruitmentRequest,
   saveRuntimeCandidate,
   saveRuntimeJob,
+  updateCandidateOfferSalary,
 } from '@/lib/runtime-store';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import { formatDateTimeVN, sanitizeText } from '@/lib/hrm/format';
@@ -99,7 +100,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const JOB_STATUS_BADGE: Record<JobPosting['status'], { label: string; variant: BadgeVariant }> = {
@@ -342,6 +342,37 @@ function suggestCorporateEmail(fullName: string, existingEmployees: Employee[]):
   return candidateEmail;
 }
 
+function parseOfferSalaryVnd(rawInput: string): number {
+  const normalized = rawInput
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .trim();
+  if (!normalized) return 0;
+
+  const trSplitMatch = normalized.match(/^(\d+)\s*(?:tr|trieu)\s*(\d+)$/);
+  if (trSplitMatch) {
+    const millions = Number(trSplitMatch[1]);
+    const fracStr = trSplitMatch[2];
+    const fracValue = Number(fracStr) / Math.pow(10, fracStr.length);
+    return Math.round((millions + fracValue) * 1_000_000);
+  }
+
+  const millionMatch = normalized.match(/^(\d+(?:[.,]\d+)?)\s*(?:tr|trieu|m)\b/);
+  if (millionMatch) {
+    const val = Number(millionMatch[1].replace(',', '.'));
+    if (!Number.isNaN(val) && val > 0) {
+      return Math.round(val * 1_000_000);
+    }
+  }
+
+  const digitsOnly = normalized.replace(/[^\d]/g, '');
+  if (!digitsOnly) return 0;
+  const parsed = Number(digitsOnly);
+  return Number.isNaN(parsed) || parsed <= 0 ? 0 : parsed;
+}
+
 export function AtsView() {
   const { role, currentUserProfile, showToast, navigateWithIntent, navIntent, clearNavIntent } = useApp();
   const hideSalary = role === 'DEPT_MANAGER';
@@ -377,9 +408,9 @@ export function AtsView() {
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({ 'col-rejected': true });
   const [collapsedSubgroups, setCollapsedSubgroups] = useState<Record<string, boolean>>({});
   const [expandedLimits, setExpandedLimits] = useState<Record<string, boolean>>({});
-  const [timeFilter, setTimeFilter] = useState<'30_DAYS' | 'CURRENT_MONTH' | 'ALL'>('30_DAYS');
-  const [showArchived, setShowArchived] = useState<boolean>(false);
-  const [showRejected, setShowRejected] = useState<boolean>(false);
+  const [candidateSearch, setCandidateSearch] = useState<string>('');
+  const [selectedStageFilter, setSelectedStageFilter] = useState<AtsStage | 'ALL'>('ALL');
+  const [timeFilter, setTimeFilter] = useState<'30_DAYS' | 'CURRENT_MONTH' | 'ALL'>('ALL');
   const [isCompactMode, setIsCompactMode] = useState<boolean>(true);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState<boolean>(false);
   const [dragOverColStage, setDragOverColStage] = useState<AtsStage | null>(null);
@@ -499,9 +530,10 @@ export function AtsView() {
     setCandidates(baseCandidatesRef.current);
     setSelectedJobId('ALL');
     setSelectedSource('ALL');
-    setTimeFilter('30_DAYS');
-    setShowArchived(false);
-    setIsCompactMode(false);
+    setCandidateSearch('');
+    setSelectedStageFilter('ALL');
+    setTimeFilter('ALL');
+    setIsCompactMode(true);
     setCollapsedSubgroups({});
     setExpandedLimits({});
     showToast('Đã đặt lại dữ liệu ứng viên', 'Bảng Kanban đã được đồng bộ về dữ liệu ban đầu.', 'success');
@@ -586,25 +618,13 @@ export function AtsView() {
 
   const stageOrder = useMemo(() => kanbanStages.map((s) => s.stage), [kanbanStages]);
 
-  const isCandidateArchived = useCallback((c: Candidate) => {
-    if (c.stage !== 'ONBOARDED') return false;
-    const onbRecords = getOnboardingRecords();
-    const hasOnb = onbRecords.some(
-      (rec) =>
-        rec.full_name === c.full_name ||
-        rec.candidate_code === c.candidate_code ||
-        rec.id.toLowerCase().includes(c.id.toLowerCase())
-    );
-    if (hasOnb) return true;
-    const appliedTime = new Date(c.applied_date).getTime();
-    const diffDays = (Date.now() - appliedTime) / (1000 * 60 * 60 * 24);
-    return diffDays >= 3;
-  }, []);
-
   const filteredCandidates = useMemo(() => {
     let list = candidates;
     if (selectedJobId !== 'ALL') {
       list = list.filter((c) => c.job_id === selectedJobId);
+    }
+    if (selectedStageFilter !== 'ALL') {
+      list = list.filter((c) => c.stage === selectedStageFilter);
     }
     if (selectedSource !== 'ALL') {
       list = list.filter((c) => c.source === selectedSource);
@@ -614,29 +634,39 @@ export function AtsView() {
     if (timeFilter === '30_DAYS') {
       const now = Date.now();
       list = list.filter((c) => {
-        if (showArchived && isCandidateArchived(c)) return true;
         const time = new Date(c.applied_date).getTime();
         const diffDays = (now - time) / (1000 * 60 * 60 * 24);
         return diffDays >= 0 && diffDays <= 30;
       });
     } else if (timeFilter === 'CURRENT_MONTH') {
+      list = list.filter((c) => c.applied_date.startsWith('2026-11'));
+    }
+
+    const rawQuery = candidateSearch.trim();
+    if (rawQuery) {
+      const normQuery = rawQuery
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .toLowerCase();
+      const compactDigits = rawQuery.replace(/\s+/g, '').toLowerCase();
+
       list = list.filter((c) => {
-        if (showArchived && isCandidateArchived(c)) return true;
-        return c.applied_date.startsWith('2026-11');
+        const searchableText = `${c.full_name} ${c.email} ${c.phone} ${c.job_title} ${c.candidate_code} ${c.department_name}`
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .toLowerCase();
+        if (searchableText.includes(normQuery)) return true;
+        if (compactDigits && c.phone.replace(/\s+/g, '').toLowerCase().includes(compactDigits)) {
+          return true;
+        }
+        return false;
       });
     }
 
-    // Auto-Archive: hide archived ONBOARDED candidates unless showArchived is checked
-    if (!showArchived) {
-      list = list.filter((c) => !isCandidateArchived(c));
-    }
-
     return list;
-  }, [candidates, selectedJobId, selectedSource, timeFilter, showArchived, isCandidateArchived]);
-
-  const archivedCount = useMemo(() => {
-    return candidates.filter((c) => isCandidateArchived(c)).length;
-  }, [candidates, isCandidateArchived]);
+  }, [candidates, selectedJobId, selectedStageFilter, selectedSource, timeFilter, candidateSearch]);
 
   const openOnboardingInitDialog = (candidate: Candidate) => {
     const currentMergedEmployees = mergeWithRuntimeEmployees(
@@ -656,6 +686,10 @@ export function AtsView() {
     const suggestedEmail = suggestCorporateEmail(candidate.full_name, currentMergedEmployees);
     const suggestedProbationSalary =
       Math.round((candidate.expected_salary_vnd * 0.85) / 100000) * 100000;
+    const defaultInitSalary =
+      candidate.offered_salary_vnd && candidate.offered_salary_vnd > 0
+        ? candidate.offered_salary_vnd
+        : suggestedProbationSalary || 22000000;
 
     const currentAvailableAssets = getCompanyAssets().filter((a) => a.status === 'AVAILABLE');
     const preselectedLaptop = currentAvailableAssets.find((a) => a.category === 'LAPTOP');
@@ -669,7 +703,7 @@ export function AtsView() {
       matchedJob?.hiring_manager_name || matchedDept?.manager_name || 'Lê Hoàng Nam'
     );
     setOnbStartDate('2026-11-23');
-    setOnbSalary(String(suggestedProbationSalary || 22000000));
+    setOnbSalary(String(defaultInitSalary));
     setAvailableAssets(currentAvailableAssets);
     setSelectedAssetIds(preselectedLaptop ? [preselectedLaptop.id] : []);
   };
@@ -711,6 +745,12 @@ export function AtsView() {
         manager_name: 'Lê Hoàng Nam',
       };
 
+    const salaryNum =
+      parseOfferSalaryVnd(onbSalary) ||
+      Number(onbSalary) ||
+      onboardingCandidate.offered_salary_vnd ||
+      onboardingCandidate.expected_salary_vnd;
+
     const result = initiateCandidateOnboarding({
       candidate: onboardingCandidate,
       employeeCode: trimmedCode,
@@ -720,7 +760,8 @@ export function AtsView() {
       positionName: onbPosition.trim() || onboardingCandidate.job_title,
       managerName: onbManagerName.trim() || targetDept.manager_name,
       startDate: onbStartDate || '2026-11-23',
-      baseSalaryVnd: Number(onbSalary) || onboardingCandidate.expected_salary_vnd,
+      baseSalaryVnd: salaryNum,
+      grossSalaryVnd: salaryNum,
       assetIds: selectedAssetIds,
       actorName,
     });
@@ -738,10 +779,28 @@ export function AtsView() {
 
     setCandidates((prev) =>
       prev.map((c) =>
-        c.id === onboardingCandidate.id ? { ...c, stage: 'ONBOARDED' } : c
+        c.id === onboardingCandidate.id
+          ? {
+              ...c,
+              stage: 'ONBOARDED',
+              offered_salary_vnd:
+                result.onboarding.official_salary_vnd ?? salaryNum ?? c.offered_salary_vnd,
+              preboarding_token: result.invite.token,
+            }
+          : c
       )
     );
-    setSelectedCandidate(null);
+    setSelectedCandidate((prev) =>
+      prev && prev.id === onboardingCandidate.id
+        ? {
+            ...prev,
+            stage: 'ONBOARDED',
+            offered_salary_vnd:
+              result.onboarding.official_salary_vnd ?? salaryNum ?? prev.offered_salary_vnd,
+            preboarding_token: result.invite.token,
+          }
+        : prev
+    );
     setOnboardingCandidate(null);
     setLastCreatedOnboarding({
       onboardingId: result.onboarding.id,
@@ -1048,10 +1107,26 @@ export function AtsView() {
     setLastMovedAction(null);
   };
 
+  useEffect(() => {
+    if (offerDialogCandidate) {
+      const prefill =
+        offerDialogCandidate.offered_salary_vnd && offerDialogCandidate.offered_salary_vnd > 0
+          ? String(offerDialogCandidate.offered_salary_vnd)
+          : offerDialogCandidate.expected_salary_vnd > 0
+            ? String(offerDialogCandidate.expected_salary_vnd)
+            : '';
+      setOfferSalaryInput(prefill);
+      setOfferNotesInput('');
+    }
+  }, [offerDialogCandidate]);
+
   const handleConfirmOfferDialog = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!offerDialogCandidate) return;
-    const noteContent = `Đề xuất mức lương: ${offerSalaryInput.trim()} đ. Ngày bắt đầu: ${formatDateVN(offerStartDateInput)}. Ghi chú: ${offerNotesInput.trim()}`;
+    const parsedVnd = parseOfferSalaryVnd(offerSalaryInput);
+    const formattedSalary =
+      parsedVnd > 0 ? formatVND(parsedVnd) : `${offerSalaryInput.trim()} đ`;
+    const noteContent = `Đề xuất mức lương: ${formattedSalary}. Ngày bắt đầu: ${formatDateVN(offerStartDateInput)}. Ghi chú: ${offerNotesInput.trim()}`;
     const newNote = {
       id: `note-offer-${Date.now()}`,
       author: actorName,
@@ -1060,9 +1135,23 @@ export function AtsView() {
     };
     const candWithNote: Candidate = {
       ...offerDialogCandidate,
+      ...(parsedVnd > 0 ? { offered_salary_vnd: parsedVnd } : {}),
       notes: [newNote, ...(offerDialogCandidate.notes || [])],
     };
     handleMoveStage(candWithNote, 'OFFER');
+    if (parsedVnd > 0) {
+      updateCandidateOfferSalary(candWithNote.id, parsedVnd);
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candWithNote.id ? { ...c, offered_salary_vnd: parsedVnd } : c
+        )
+      );
+      setSelectedCandidate((prev) =>
+        prev && prev.id === candWithNote.id
+          ? { ...prev, offered_salary_vnd: parsedVnd }
+          : prev
+      );
+    }
     setOfferDialogCandidate(null);
   };
 
@@ -1129,6 +1218,14 @@ export function AtsView() {
   const handleQuickStageChange = (newStage: AtsStage) => {
     if (!selectedCandidate) return;
     if (newStage === selectedCandidate.stage) return;
+    if (newStage === 'OFFER') {
+      setOfferDialogCandidate(selectedCandidate);
+      return;
+    }
+    if (newStage === 'REJECTED') {
+      setRejectDialogCandidate(selectedCandidate);
+      return;
+    }
     handleMoveStage(selectedCandidate, newStage);
   };
 
@@ -1857,73 +1954,69 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
         {/* TAB 1: ỨNG VIÊN (KANBAN 5 CỘT + 1 CỘT TRUNG TÍNH) */}
         <TabsContent value="candidates" className="space-y-3 mt-0">
           {/* Kanban Toolbar */}
-          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
-            {/* Filters on Left */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="w-32">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+            {/* Search & Stage Filter */}
+            <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:max-w-xs md:max-w-sm flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#5C7871] dark:text-zinc-400"
+                  strokeWidth={1.5}
+                />
+                <Input
+                  value={candidateSearch}
+                  onChange={(e) => setCandidateSearch(e.target.value)}
+                  placeholder="Tìm tên, email, SĐT, vị trí..."
+                  aria-label="Tìm kiếm ứng viên theo tên, email, số điện thoại hoặc vị trí"
+                  className="h-9 w-full pl-9 pr-8 text-xs"
+                />
+                {candidateSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCandidateSearch('')}
+                    aria-label="Xóa từ khóa tìm kiếm"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#5C7871] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="w-full sm:w-48 shrink-0">
                 <Select
-                  value={selectedSource}
-                  onValueChange={setSelectedSource}
+                  value={selectedStageFilter}
+                  onValueChange={(val) => setSelectedStageFilter(val as AtsStage | 'ALL')}
+                  aria-label="Lọc theo giai đoạn tuyển dụng"
+                  className="h-9 text-xs"
                   options={[
-                    { label: 'Mọi nguồn', value: 'ALL' },
-                    { label: 'CareerSite', value: 'CareerSite' },
-                    { label: 'LinkedIn', value: 'LinkedIn' },
-                    { label: 'TopCV', value: 'TopCV' },
-                    { label: 'Referral', value: 'Referral' },
-                    { label: 'ITviec', value: 'ITviec' },
+                    { label: 'Tất cả giai đoạn', value: 'ALL' },
+                    ...KANBAN_5_COLUMNS.map((col) => ({
+                      label: col.label,
+                      value: col.stage,
+                    })),
                   ]}
                 />
               </div>
 
-              <div className="w-44">
-                <Select
-                  value={timeFilter}
-                  onValueChange={(val) => setTimeFilter(val as '30_DAYS' | 'CURRENT_MONTH' | 'ALL')}
-                  options={[
-                    { label: '30 ngày gần nhất', value: '30_DAYS' },
-                    { label: 'Kỳ Tháng 11/2026', value: 'CURRENT_MONTH' },
-                    { label: 'Tất cả thời gian', value: 'ALL' },
-                  ]}
-                />
-              </div>
-
-              <div className="flex items-center gap-2 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
-                <Switch
-                  id="toggle-archive"
-                  checked={showArchived}
-                  onCheckedChange={setShowArchived}
-                />
-                <label
-                  htmlFor="toggle-archive"
-                  className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-[#415A54] select-none dark:text-zinc-300"
+              {(candidateSearch.trim() !== '' || selectedStageFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCandidateSearch('');
+                    setSelectedStageFilter('ALL');
+                  }}
+                  className="inline-flex items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#0F766E] hover:bg-[#E8F3EF] dark:text-teal-400 dark:hover:bg-zinc-800 shrink-0 min-h-[36px]"
                 >
-                  <Archive className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" />
-                  <span>Hiện đã lưu trữ</span>
-                </label>
-              </div>
-
-              <div className="text-xs font-medium text-[#5C7871] dark:text-zinc-400 px-1 py-1">
-                {filteredCandidates.length} hiển thị · {archivedCount} đã ẩn
-              </div>
+                  <X className="h-3.5 w-3.5" />
+                  <span>Xóa lọc</span>
+                </button>
+              )}
             </div>
 
-            {/* View controls on Right */}
-            <div className="flex items-center gap-2 self-end lg:self-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCompactMode((prev) => !prev)}
-                className={cn(
-                  'text-xs transition-colors min-h-[36px]',
-                  isCompactMode
-                    ? 'border-[#0F766E] bg-[#CBE8E2] text-[#0B4F4A] font-semibold dark:border-teal-400 dark:bg-teal-950/60 dark:text-teal-200'
-                    : 'text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                )}
-                title={isCompactMode ? 'Chuyển sang thẻ chi tiết' : 'Chuyển sang thẻ rút gọn'}
-              >
-                <Layers className="h-3.5 w-3.5 mr-1" />
-                {isCompactMode ? 'Thẻ rút gọn' : 'Thẻ chi tiết'}
-              </Button>
+            {/* Count & Secondary Actions */}
+            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+              <span className="font-mono text-xs font-medium tabular-nums text-[#5C7871] dark:text-zinc-400 px-1">
+                {filteredCandidates.length} ứng viên
+              </span>
 
               <div className="relative">
                 <Button
@@ -1962,12 +2055,38 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             </div>
           </div>
 
+          {candidates.length > 0 &&
+            filteredCandidates.length === 0 &&
+            (candidateSearch.trim() !== '' ||
+              selectedStageFilter !== 'ALL' ||
+              selectedJobId !== 'ALL') && (
+              <div className="flex flex-col items-center justify-between gap-2 rounded-xl border border-dashed border-[#C6D9D3] bg-[#FCFEFD] px-4 py-3 text-xs text-[#415A54] sm:flex-row dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+                <span>Không tìm thấy ứng viên phù hợp với điều kiện lọc hiện tại.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCandidateSearch('');
+                    setSelectedStageFilter('ALL');
+                    setSelectedJobId('ALL');
+                  }}
+                >
+                  Hiển thị tất cả ứng viên
+                </Button>
+              </div>
+            )}
+
           {/* Kanban Board Container - Horizontally scrollable */}
           <div className="overflow-x-auto pb-4 max-w-full">
             <div className="flex flex-row gap-3 items-stretch min-h-[520px] w-max">
-              {KANBAN_5_COLUMNS.map((col) => {
+              {(selectedStageFilter === 'ALL'
+                ? KANBAN_5_COLUMNS
+                : KANBAN_5_COLUMNS.filter((c) => c.stage === selectedStageFilter)
+              ).map((col) => {
                 const colCandidates = filteredCandidates.filter((c) => c.stage === col.stage);
-                const isColCollapsed = Boolean(collapsedCols[col.id]);
+                const isColCollapsed =
+                  selectedStageFilter === 'ALL' && Boolean(collapsedCols[col.id]);
 
                 const renderCandidateCard = (cand: Candidate, forceCompact = false) => {
                   const isCompact = forceCompact || isCompactMode;

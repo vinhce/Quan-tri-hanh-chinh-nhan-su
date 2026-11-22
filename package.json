@@ -9,6 +9,7 @@
     "css:web:watch": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css --watch",
     "predev": "node scripts/export-mock-json.mjs",
     "dev": "next dev",
+    "dev:3005": "next dev -p 3005",
     "dev:web": "node scripts/serve-web.mjs",
     "prebuild": "node scripts/export-mock-json.mjs",
     "build": "next build",
@@ -18,7 +19,9 @@
     "test:unit": "node scripts/test-hrm.mjs",
     "test:recruitment": "node scripts/test-recruitment-workflows.mjs",
     "test:all-workflows": "node scripts/test-all-system-workflows.mjs",
-    "test": "node scripts/test-hrm.mjs && node scripts/test-recruitment-workflows.mjs && node scripts/test-all-system-workflows.mjs"
+    "test:lifecycle": "node scripts/test-employee-lifecycle.mjs",
+    "test:biometric": "node scripts/test-biometric-wifi.mjs",
+    "test": "node scripts/test-hrm.mjs && node scripts/test-recruitment-workflows.mjs && node scripts/test-all-system-workflows.mjs && node scripts/test-employee-lifecycle.mjs && node scripts/test-biometric-wifi.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -27,6 +30,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",
+    "sweetalert2": "^11.26.25",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

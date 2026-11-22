@@ -19,8 +19,19 @@ import {
   Briefcase,
 } from "lucide-react";
 import { useApp, type RoleCode } from "@/context/app-context";
-import type { Department } from "@/mock/types";
+import { MOCK_CANDIDATES } from "@/mock/ats";
+import { MOCK_EMPLOYEES } from "@/mock/employees";
+import type { Candidate, Department, PreboardingInvite } from "@/mock/types";
+import { recordAuditLog } from "@/lib/audit-logger";
 import { fetchEmployeesMock } from "@/lib/mock-fetcher";
+import {
+  activateEmployeeAccountIfPreboardingVerified,
+  findSystemUserForLogin,
+  getPreboardingInvites,
+  getSystemUsers,
+  mergeWithRuntimeCandidates,
+  mergeWithRuntimeEmployees,
+} from "@/lib/runtime-store";
 import { formatVND } from "@/lib/utils";
 
 interface DemoAccount {
@@ -92,7 +103,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     empCode: "UV-2026-001",
     fullName: "Hoàng Vũ Minh",
     email: "minh.hoang@gmail.com",
-    department: "Cổng Ứng viên Tuyển dụng",
+    department: "Ứng viên dự tuyển",
     shiftCode: "N/A",
   },
 ];
@@ -161,9 +172,38 @@ const DEPT_HEADCOUNT_SHARES = [
 
 function resolveRoleFromEmail(email: string, fallbackRole: RoleCode): RoleCode {
   const normalized = email.trim().toLowerCase();
+  const isCorporateEmail =
+    normalized.endsWith("@lacviethrm.vn") || normalized.endsWith("@hrm-enterprise.vn");
   const matchedDemo = DEMO_ACCOUNTS.find((a) => a.email.toLowerCase() === normalized);
-  if (matchedDemo) return matchedDemo.role;
-  if (normalized.includes("candidate") || normalized.includes("ungvien") || normalized.includes("minh.hoang")) return "CANDIDATE";
+  if (matchedDemo) {
+    if (matchedDemo.role === "CANDIDATE") {
+      const existingAuth = findSystemUserForLogin(normalized);
+      if (
+        existingAuth.user?.account_status === "ACTIVE" &&
+        existingAuth.user?.is_active === true &&
+        existingAuth.user.role_code !== "CANDIDATE"
+      ) {
+        return existingAuth.user.role_code;
+      }
+    }
+    return matchedDemo.role;
+  }
+  if (!isCorporateEmail) {
+    if (normalized === "minh.hoang@gmail.com") {
+      const existingAuth = findSystemUserForLogin(normalized);
+      if (
+        existingAuth.user?.account_status === "ACTIVE" &&
+        existingAuth.user?.is_active === true &&
+        existingAuth.user.role_code !== "CANDIDATE"
+      ) {
+        return existingAuth.user.role_code;
+      }
+      return "CANDIDATE";
+    }
+    if (normalized.includes("candidate") || normalized.includes("ungvien")) {
+      return "CANDIDATE";
+    }
+  }
   if (normalized.includes("admin")) return "SUPER_ADMIN";
   if (
     normalized.includes("viet.tran") ||
@@ -174,7 +214,145 @@ function resolveRoleFromEmail(email: string, fallbackRole: RoleCode): RoleCode {
   }
   if (normalized.includes("hr") || normalized.includes("nhansu")) return "HR_MANAGER";
   if (normalized.includes("manager") || normalized.includes("truongphong")) return "DEPT_MANAGER";
+  if (isCorporateEmail && fallbackRole === "CANDIDATE") {
+    return "EMPLOYEE";
+  }
   return fallbackRole;
+}
+
+function normalizePhoneForLookup(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("84") && digits.length >= 10) {
+    return `0${digits.slice(2)}`;
+  }
+  return digits;
+}
+
+function findMatchingCandidate(rawInput: string): Candidate | null {
+  const trimmed = rawInput.trim();
+  if (!trimmed) return null;
+  const targetEmail = trimmed.toLowerCase();
+  const targetPhone = normalizePhoneForLookup(trimmed);
+  const canMatchPhone = targetPhone.length >= 9 && !trimmed.includes("@");
+
+  const allCandidates = mergeWithRuntimeCandidates(MOCK_CANDIDATES);
+  const matched = allCandidates.filter((cand) => {
+    if (cand.email.trim().toLowerCase() === targetEmail) return true;
+    if (canMatchPhone && normalizePhoneForLookup(cand.phone) === targetPhone) {
+      return true;
+    }
+    return false;
+  });
+
+  if (matched.length === 0) return null;
+  const sorted = [...matched].sort((a, b) => {
+    const aRej = a.stage === "REJECTED" ? 1 : 0;
+    const bRej = b.stage === "REJECTED" ? 1 : 0;
+    if (aRej !== bRej) return aRej - bRej;
+    return b.applied_date.localeCompare(a.applied_date);
+  });
+  return sorted[0];
+}
+
+function isCandidateBlockedByLifecycle(
+  candEmail: string,
+  candPhone?: string
+): string | null {
+  const normEmail = candEmail.trim().toLowerCase();
+  const normPhone = candPhone ? normalizePhoneForLookup(candPhone) : "";
+  const allEmployees = mergeWithRuntimeEmployees(MOCK_EMPLOYEES);
+  const matchedInvite = getPreboardingInvites().find((inv) => {
+    const invPersonal = inv.personal_email?.trim().toLowerCase() || "";
+    const invEmail = inv.email?.trim().toLowerCase() || "";
+    if (normEmail && (invPersonal === normEmail || invEmail === normEmail)) {
+      return true;
+    }
+    if (
+      normPhone.length >= 9 &&
+      inv.phone &&
+      normalizePhoneForLookup(inv.phone) === normPhone
+    ) {
+      return true;
+    }
+    return false;
+  });
+
+  const matchedEmp = allEmployees.find((emp) => {
+    if (
+      normEmail &&
+      (emp.email?.trim().toLowerCase() === normEmail ||
+        emp.personal_email?.trim().toLowerCase() === normEmail)
+    ) {
+      return true;
+    }
+    if (
+      normPhone.length >= 9 &&
+      emp.phone &&
+      normalizePhoneForLookup(emp.phone) === normPhone
+    ) {
+      return true;
+    }
+    if (
+      matchedInvite &&
+      (emp.employee_code === matchedInvite.employee_code ||
+        emp.id === matchedInvite.employee_id)
+    ) {
+      return true;
+    }
+    return false;
+  });
+
+  if (matchedEmp?.employment_status === "RESIGNED") {
+    return "Nhân sự đã hoàn tất thủ tục nghỉ việc — quyền truy cập hồ sơ và tài khoản đã được thu hồi.";
+  }
+
+  const authByCandEmail = normEmail ? findSystemUserForLogin(normEmail) : null;
+  const authByEmpEmail =
+    matchedEmp?.email && matchedEmp.email.trim().toLowerCase() !== normEmail
+      ? findSystemUserForLogin(matchedEmp.email)
+      : null;
+  const authByEmpCode = matchedEmp?.employee_code
+    ? findSystemUserForLogin(matchedEmp.employee_code)
+    : null;
+  const authByInviteEmpCode =
+    matchedInvite?.employee_code &&
+    matchedInvite.employee_code !== matchedEmp?.employee_code
+      ? findSystemUserForLogin(matchedInvite.employee_code)
+      : null;
+  const authByInviteEmail =
+    matchedInvite?.email &&
+    matchedInvite.email.trim().toLowerCase() !== normEmail
+      ? findSystemUserForLogin(matchedInvite.email)
+      : null;
+
+  const lockedUser =
+    [
+      authByCandEmail?.user,
+      authByEmpEmail?.user,
+      authByEmpCode?.user,
+      authByInviteEmpCode?.user,
+      authByInviteEmail?.user,
+    ].find((u) => u?.account_status === "LOCKED") ??
+    getSystemUsers().find(
+      (u) =>
+        u.account_status === "LOCKED" &&
+        ((normEmail && u.email.trim().toLowerCase() === normEmail) ||
+          (matchedEmp && u.employee_code === matchedEmp.employee_code) ||
+          (matchedInvite &&
+            (u.employee_code === matchedInvite.employee_code ||
+              (matchedInvite.email &&
+                u.email.trim().toLowerCase() ===
+                  matchedInvite.email.trim().toLowerCase()))))
+    );
+
+  if (lockedUser) {
+    return (
+      lockedUser.locked_reason ||
+      "Tài khoản đang bị khóa truy cập bởi Quản trị hệ thống. Vui lòng liên hệ Phòng Nhân sự."
+    );
+  }
+
+  return null;
 }
 
 function LoginForm() {
@@ -186,6 +364,7 @@ function LoginForm() {
 
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [selectedRole, setSelectedRole] = useState<RoleCode>(initialDemo.role);
+  const [isCandidateLookup, setIsCandidateLookup] = useState<boolean>(false);
 
   // Login form state
   const [email, setEmail] = useState<string>(initialDemo.email);
@@ -193,6 +372,7 @@ function LoginForm() {
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Register form state
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -226,9 +406,221 @@ function LoginForm() {
 
   const handleSelectDemo = (account: DemoAccount) => {
     setAuthTab("login");
+    setIsCandidateLookup(false);
+    setLoginError(null);
     setSelectedRole(account.role);
     setEmail(account.email);
     setPassword("LacVietHRM@2026");
+  };
+
+  const loginAsCandidateRecord = (cand: Candidate) => {
+    setIsSubmitting(true);
+    recordAuditLog({
+      actor_name: cand.full_name,
+      actor_code: cand.candidate_code,
+      actor_role: "CANDIDATE",
+      action: "LOGIN",
+      target: cand.email,
+      detail: "Tra cứu hồ sơ ứng tuyển nhanh theo thông tin ứng viên.",
+      status: "SUCCESS",
+    });
+    setAuthenticatedUser("CANDIDATE", cand.email, {
+      fullName: cand.full_name,
+      department: "Ứng viên dự tuyển",
+      employee_code: cand.candidate_code,
+      title: cand.job_title,
+    });
+    setActiveNav("dashboard");
+    showToast(
+      "Đã mở hồ sơ ứng tuyển",
+      `${cand.full_name} (${cand.candidate_code}) · ${cand.job_title}`,
+      "success"
+    );
+    router.push("/candidate");
+  };
+
+  const findVerifiedPreboardingInvite = (
+    rawIdentifier: string,
+    cand?: Candidate | null
+  ): PreboardingInvite | null => {
+    const normInput = rawIdentifier.trim().toLowerCase();
+    const candEmail = cand?.email?.trim().toLowerCase() || "";
+    const candCode = cand?.candidate_code?.trim().toLowerCase() || "";
+    const candToken = (
+      cand as (Candidate & { preboarding_token?: string }) | null | undefined
+    )?.preboarding_token
+      ?.trim()
+      .toLowerCase();
+
+    return (
+      getPreboardingInvites().find((inv) => {
+        if (inv.status !== "VERIFIED") return false;
+        const invPersonal = inv.personal_email?.trim().toLowerCase() || "";
+        const invCompany = inv.email?.trim().toLowerCase() || "";
+        const invCandCode = inv.candidate_code?.trim().toLowerCase() || "";
+        const invEmpCode = inv.employee_code?.trim().toLowerCase() || "";
+        const invToken = inv.token?.trim().toLowerCase() || "";
+        return (
+          (Boolean(normInput) &&
+            (invPersonal === normInput ||
+              invCompany === normInput ||
+              invEmpCode === normInput)) ||
+          (Boolean(candEmail) &&
+            (invPersonal === candEmail || invCompany === candEmail)) ||
+          (Boolean(candCode) && invCandCode === candCode) ||
+          (Boolean(candToken) && invToken === candToken)
+        );
+      }) ?? null
+    );
+  };
+
+  const tryLoginAsActivatedEmployee = (
+    identifier: string,
+    matchedCand?: Candidate | null
+  ): boolean => {
+    const checkEmail = matchedCand?.email || identifier;
+    const lifecycleBlock = isCandidateBlockedByLifecycle(
+      checkEmail,
+      matchedCand?.phone
+    );
+    if (lifecycleBlock) return false;
+
+    const normInput = identifier.trim().toLowerCase();
+    const normCandEmail = matchedCand?.email?.trim().toLowerCase() || "";
+    const allEmployees = mergeWithRuntimeEmployees(MOCK_EMPLOYEES);
+    const linkedEmp = allEmployees.find((emp) => {
+      const empEmail = emp.email?.trim().toLowerCase() || "";
+      const empPersonal = emp.personal_email?.trim().toLowerCase() || "";
+      return (
+        (Boolean(normInput) &&
+          (empEmail === normInput || empPersonal === normInput)) ||
+        (Boolean(normCandEmail) &&
+          (empEmail === normCandEmail || empPersonal === normCandEmail))
+      );
+    });
+    if (linkedEmp?.employment_status === "RESIGNED") return false;
+
+    let authResult = findSystemUserForLogin(identifier);
+    if (!authResult.user && matchedCand?.email && normCandEmail !== normInput) {
+      authResult = findSystemUserForLogin(matchedCand.email);
+    }
+    if (!authResult.user && linkedEmp?.employee_code) {
+      authResult = findSystemUserForLogin(linkedEmp.employee_code);
+    }
+
+    if (
+      authResult.employee?.employment_status === "RESIGNED" ||
+      authResult.user?.account_status === "LOCKED"
+    ) {
+      return false;
+    }
+
+    const verifiedInvite = findVerifiedPreboardingInvite(identifier, matchedCand);
+
+    let activeUser =
+      authResult.user?.account_status === "ACTIVE" &&
+      authResult.user?.is_active === true &&
+      authResult.user.role_code !== "CANDIDATE"
+        ? authResult.user
+        : null;
+
+    if (!activeUser && verifiedInvite) {
+      const activationKey =
+        verifiedInvite.employee_code ||
+        verifiedInvite.personal_email ||
+        checkEmail;
+      const activated =
+        activateEmployeeAccountIfPreboardingVerified(identifier) ??
+        activateEmployeeAccountIfPreboardingVerified(activationKey);
+      if (
+        activated &&
+        activated.account_status === "ACTIVE" &&
+        activated.is_active === true &&
+        activated.role_code !== "CANDIDATE"
+      ) {
+        activeUser = activated;
+        authResult = findSystemUserForLogin(
+          activated.email || activated.employee_code
+        );
+      } else {
+        const refreshed = findSystemUserForLogin(activationKey);
+        if (
+          refreshed.user?.account_status === "ACTIVE" &&
+          refreshed.user?.is_active === true &&
+          refreshed.user.role_code !== "CANDIDATE"
+        ) {
+          activeUser = refreshed.user;
+          authResult = refreshed;
+        }
+      }
+    }
+
+    if (!activeUser) return false;
+
+    if (
+      authResult.employee?.employment_status === "RESIGNED" ||
+      authResult.user?.account_status === "LOCKED"
+    ) {
+      return false;
+    }
+
+    const employee = authResult.employee ?? linkedEmp ?? null;
+    const nextRole: RoleCode =
+      activeUser.role_code && activeUser.role_code !== "CANDIDATE"
+        ? activeUser.role_code
+        : "EMPLOYEE";
+    const companyEmail =
+      activeUser.email || employee?.email || verifiedInvite?.email || identifier;
+    const fullName =
+      employee?.full_name ||
+      activeUser.full_name ||
+      matchedCand?.full_name ||
+      companyEmail;
+    const employeeCode =
+      activeUser.employee_code ||
+      employee?.employee_code ||
+      verifiedInvite?.employee_code ||
+      "";
+    const department =
+      employee?.department_name ||
+      activeUser.department_name ||
+      verifiedInvite?.department_name ||
+      "Phòng ban chuyên môn";
+    const departmentId =
+      employee?.department_id || verifiedInvite?.department_id;
+    const title =
+      employee?.position_name ||
+      activeUser.position_name ||
+      verifiedInvite?.position_name ||
+      "Nhân viên chính thức";
+
+    setIsSubmitting(true);
+    recordAuditLog({
+      actor_name: fullName,
+      actor_code: employeeCode || "EMP-ACTIVE",
+      actor_role: nextRole,
+      action: "LOGIN",
+      target: companyEmail,
+      detail: `Đăng nhập trực tiếp vào không gian Nhân viên (${nextRole}) sau khi tài khoản đã kích hoạt.`,
+      status: "SUCCESS",
+    });
+
+    setAuthenticatedUser(nextRole, companyEmail, {
+      fullName,
+      employee_code: employeeCode,
+      email: companyEmail,
+      department,
+      department_id: departmentId,
+      title,
+    });
+    setActiveNav("dashboard");
+    showToast(
+      "Đã vào không gian làm việc Nhân viên",
+      `${fullName}${employeeCode ? ` (${employeeCode})` : ""} · ${companyEmail}`,
+      "success"
+    );
+    router.push("/app");
+    return true;
   };
 
   const handleForgotPassword = () => {
@@ -239,9 +631,71 @@ function LoginForm() {
     );
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
+    setLoginError(null);
+    const trimmedEmail = email.trim();
+
+    if (isCandidateLookup) {
+      if (!trimmedEmail) {
+        showToast(
+          "Thiếu thông tin tra cứu",
+          "Vui lòng nhập Email hoặc Số điện thoại đã nộp hồ sơ ứng tuyển.",
+          "error"
+        );
+        return;
+      }
+      const matchedCand = findMatchingCandidate(trimmedEmail);
+      if (!matchedCand) {
+        showToast(
+          "Không tìm thấy hồ sơ ứng tuyển",
+          "Chưa ghi nhận hồ sơ khớp với Email hoặc Số điện thoại vừa nhập. Vui lòng kiểm tra lại hoặc nộp CV mới tại Cổng việc làm.",
+          "error"
+        );
+        return;
+      }
+      const candBlockReason = isCandidateBlockedByLifecycle(
+        matchedCand.email,
+        matchedCand.phone
+      );
+      if (candBlockReason) {
+        recordAuditLog({
+          actor_name: matchedCand.full_name,
+          actor_code: matchedCand.candidate_code || "AUTH-LOCK",
+          actor_role: "CANDIDATE",
+          action: "LOGIN",
+          target: matchedCand.email,
+          detail: candBlockReason,
+          status: "BLOCKED",
+        });
+        setLoginError(candBlockReason);
+        showToast("Tài khoản đã bị khóa", candBlockReason, "error");
+        return;
+      }
+      const verifiedInviteForLookup = findVerifiedPreboardingInvite(
+        trimmedEmail,
+        matchedCand
+      );
+      if (verifiedInviteForLookup) {
+        const preservedEmail = trimmedEmail.includes("@")
+          ? trimmedEmail
+          : verifiedInviteForLookup.email || matchedCand.email;
+        setIsCandidateLookup(false);
+        setSelectedRole("EMPLOYEE");
+        setEmail(preservedEmail);
+        setPassword("");
+        showToast(
+          "Tài khoản Nhân viên đã được kích hoạt",
+          "Hồ sơ đã được HR duyệt & kích hoạt tài khoản Nhân viên! Vui lòng nhập mật khẩu để vào không gian làm việc Nhân viên (/app).",
+          "info"
+        );
+        return;
+      }
+      loginAsCandidateRecord(matchedCand);
+      return;
+    }
+
+    if (!trimmedEmail) {
       showToast(
         "Thiếu thông tin đăng nhập",
         "Vui lòng nhập đầy đủ email doanh nghiệp và mật khẩu",
@@ -250,18 +704,178 @@ function LoginForm() {
       return;
     }
 
-    setIsSubmitting(true);
-    const resolvedRole = resolveRoleFromEmail(email, selectedRole);
-    const matchedDemo = DEMO_ACCOUNTS.find((a) => a.role === resolvedRole) ?? DEMO_ACCOUNTS[3];
+    const matchedCand = findMatchingCandidate(trimmedEmail);
+    const authCheck = findSystemUserForLogin(trimmedEmail);
+    const candLifecycleBlock = matchedCand
+      ? isCandidateBlockedByLifecycle(matchedCand.email, matchedCand.phone)
+      : isCandidateBlockedByLifecycle(trimmedEmail);
+    const isResignedOrLocked =
+      Boolean(candLifecycleBlock) ||
+      authCheck.employee?.employment_status === "RESIGNED" ||
+      authCheck.user?.account_status === "LOCKED";
+    const hasActiveEmployeeAccount =
+      Boolean(authCheck.user?.is_active) &&
+      authCheck.user?.account_status === "ACTIVE" &&
+      authCheck.user?.role_code !== "CANDIDATE";
+    const isPendingOnboardAccount =
+      !hasActiveEmployeeAccount &&
+      (authCheck.user?.account_status === "INACTIVE" ||
+        authCheck.employee?.employment_status === "PENDING_ONBOARD");
+    const verifiedPreboardingInvite = findVerifiedPreboardingInvite(
+      trimmedEmail,
+      matchedCand
+    );
 
-    setAuthenticatedUser(resolvedRole, email.trim(), {
-      fullName: matchedDemo.fullName,
-      department: matchedDemo.department,
+    if (
+      matchedCand &&
+      candLifecycleBlock &&
+      (selectedRole === "CANDIDATE" || !authCheck.user || !password)
+    ) {
+      recordAuditLog({
+        actor_name: matchedCand.full_name,
+        actor_code: matchedCand.candidate_code || "AUTH-LOCK",
+        actor_role: "CANDIDATE",
+        action: "LOGIN",
+        target: matchedCand.email,
+        detail: candLifecycleBlock,
+        status: "BLOCKED",
+      });
+      setLoginError(candLifecycleBlock);
+      showToast("Tài khoản đã bị khóa", candLifecycleBlock, "error");
+      return;
+    }
+
+    if (
+      !isResignedOrLocked &&
+      (matchedCand || verifiedPreboardingInvite) &&
+      (verifiedPreboardingInvite || hasActiveEmployeeAccount)
+    ) {
+      if (!password.trim()) {
+        showToast(
+          "Yêu cầu nhập mật khẩu",
+          "Hồ sơ đã được HR duyệt & kích hoạt tài khoản Nhân viên! Vui lòng nhập mật khẩu để vào không gian làm việc Nhân viên (/app).",
+          "error"
+        );
+        return;
+      }
+      if (tryLoginAsActivatedEmployee(trimmedEmail, matchedCand)) {
+        return;
+      }
+    }
+
+    if (
+      !isResignedOrLocked &&
+      matchedCand &&
+      (selectedRole === "CANDIDATE" ||
+        !authCheck.user ||
+        isPendingOnboardAccount)
+    ) {
+      loginAsCandidateRecord(matchedCand);
+      return;
+    }
+
+    if (!password.trim()) {
+      showToast(
+        "Thiếu thông tin đăng nhập",
+        "Vui lòng nhập đầy đủ email doanh nghiệp và mật khẩu",
+        "error"
+      );
+      return;
+    }
+
+    if (isResignedOrLocked || !authCheck.canLogin) {
+      setIsSubmitting(false);
+      const blockReason =
+        candLifecycleBlock ||
+        authCheck.blockReason ||
+        "Tài khoản của bạn hiện ở trạng thái không hoạt động. Vui lòng liên hệ Phòng Nhân sự hoặc Bộ phận CNTT.";
+      recordAuditLog({
+        actor_name:
+          authCheck.user?.full_name ||
+          authCheck.employee?.full_name ||
+          matchedCand?.full_name ||
+          trimmedEmail,
+        actor_code:
+          authCheck.user?.employee_code ||
+          authCheck.employee?.employee_code ||
+          matchedCand?.candidate_code ||
+          "AUTH-LOCK",
+        actor_role:
+          authCheck.user?.role_code ||
+          authCheck.employee?.role_code ||
+          selectedRole,
+        action: "LOGIN",
+        target: trimmedEmail,
+        detail: blockReason,
+        status: "BLOCKED",
+      });
+      setLoginError(blockReason);
+      showToast("Tài khoản đã bị khóa", blockReason, "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const resolvedRole =
+      authCheck.user?.role_code ??
+      authCheck.employee?.role_code ??
+      resolveRoleFromEmail(trimmedEmail, selectedRole);
+    const matchedDemo =
+      DEMO_ACCOUNTS.find((a) => a.role === resolvedRole) ?? DEMO_ACCOUNTS[3];
+
+    const isCustomCandidateEmail =
+      resolvedRole === "CANDIDATE" &&
+      trimmedEmail.toLowerCase() !== "minh.hoang@gmail.com";
+
+    const effectiveFullName =
+      authCheck.employee?.full_name ||
+      authCheck.user?.full_name ||
+      matchedCand?.full_name ||
+      (isCustomCandidateEmail
+        ? trimmedEmail.split("@")[0] || "Ứng viên"
+        : matchedDemo.fullName);
+    const effectiveDept = isCustomCandidateEmail
+      ? "Ứng viên dự tuyển"
+      : authCheck.employee?.department_name ||
+        authCheck.user?.department_name ||
+        matchedDemo.department;
+    const effectiveEmpCode = isCustomCandidateEmail
+      ? authCheck.employee?.employee_code ||
+        authCheck.user?.employee_code ||
+        matchedCand?.candidate_code ||
+        ""
+      : authCheck.employee?.employee_code ||
+        authCheck.user?.employee_code ||
+        matchedDemo.empCode;
+    const resolvedLoginEmail =
+      resolvedRole !== "CANDIDATE"
+        ? authCheck.user?.email || authCheck.employee?.email || trimmedEmail
+        : trimmedEmail;
+
+    recordAuditLog({
+      actor_name: effectiveFullName,
+      actor_code: effectiveEmpCode,
+      actor_role: resolvedRole,
+      action: "LOGIN",
+      target: resolvedLoginEmail,
+      detail: `Đăng nhập thành công vào hệ thống với vai trò ${resolvedRole}.`,
+      status: "SUCCESS",
+    });
+
+    setAuthenticatedUser(resolvedRole, resolvedLoginEmail, {
+      fullName: effectiveFullName,
+      department: effectiveDept,
+      department_id: authCheck.employee?.department_id,
+      employee_code: effectiveEmpCode,
+      email: resolvedLoginEmail,
+      title:
+        authCheck.employee?.position_name ||
+        authCheck.user?.position_name ||
+        matchedDemo.roleTitle,
     });
     setActiveNav("dashboard");
     showToast(
       `Đã đăng nhập với vai trò ${matchedDemo.roleTitle}`,
-      `${matchedDemo.fullName} (${matchedDemo.empCode}) · ${rememberMe ? "Ghi nhớ phiên" : "Phiên tạm thời"}`,
+      `${effectiveFullName} (${effectiveEmpCode}) · ${rememberMe ? "Ghi nhớ phiên" : "Phiên tạm thời"}`,
       "success"
     );
     const redirectParam = searchParams.get("redirect");
@@ -437,13 +1051,94 @@ function LoginForm() {
 
             {/* TAB 1: LOGIN FORM */}
             {authTab === "login" && (
-              <form onSubmit={handleLoginSubmit} className="mt-5 space-y-4">
+              <form
+                onSubmit={(e) => void handleLoginSubmit(e)}
+                noValidate
+                className="mt-5 space-y-4"
+              >
+                {searchParams.get("locked") === "1" && !loginError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-300"
+                  >
+                    Phiên làm việc trước đó đã bị thu hồi do tài khoản bị khóa hoặc nhân sự đã hoàn tất thủ tục nghỉ việc.
+                  </div>
+                )}
+                {loginError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700 dark:border-rose-800/70 dark:bg-rose-950/40 dark:text-rose-300"
+                  >
+                    {loginError}
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/80 p-2.5 dark:border-zinc-800 dark:bg-zinc-950/70">
+                  <button
+                    type="button"
+                    aria-pressed={isCandidateLookup}
+                    onClick={() => {
+                      setIsCandidateLookup((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          setSelectedRole("CANDIDATE");
+                          const isInternalDefault = DEMO_ACCOUNTS.some(
+                            (a) =>
+                              a.role !== "CANDIDATE" &&
+                              a.email.toLowerCase() === email.trim().toLowerCase()
+                          );
+                          if (isInternalDefault) {
+                            setEmail("");
+                          }
+                          setPassword("");
+                        } else {
+                          if (!email.trim()) {
+                            setEmail(initialDemo.email);
+                          }
+                          if (!password) {
+                            setPassword("LacVietHRM@2026");
+                          }
+                        }
+                        return next;
+                      });
+                    }}
+                    className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 ${
+                      isCandidateLookup
+                        ? "border-[#0F766E] bg-[#0F766E] text-[#FCFEFD] dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950"
+                        : "border-[#0F766E]/40 bg-[#FCFEFD] text-[#0B4F4A] hover:bg-[#E8F3EF] dark:border-teal-500/40 dark:bg-zinc-900 dark:text-teal-300 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    <Briefcase className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                    <span>Tra cứu Ứng viên (Không cần mật khẩu)</span>
+                  </button>
+                  {isCandidateLookup && (
+                    <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[11px] text-[#415A54] dark:text-zinc-400">
+                      <span>
+                        Chỉ cần nhập Email hoặc SĐT đã nộp hồ sơ trên trang Tuyển dụng.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCandidateLookup(false);
+                          if (!email.trim()) setEmail(initialDemo.email);
+                          if (!password) setPassword("LacVietHRM@2026");
+                        }}
+                        className="shrink-0 font-semibold text-[#0F766E] hover:underline dark:text-teal-400"
+                      >
+                        Đăng nhập NV
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label
                     htmlFor="login-email"
                     className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
                   >
-                    Email doanh nghiệp
+                    {isCandidateLookup
+                      ? "Email hoặc Số điện thoại đã nộp hồ sơ"
+                      : "Email doanh nghiệp / Email ứng viên"}
                   </label>
                   <div className="relative mt-1.5">
                     <Mail
@@ -453,10 +1148,14 @@ function LoginForm() {
                     <input
                       id="login-email"
                       name="email"
-                      type="email"
+                      type={isCandidateLookup ? "text" : "email"}
                       autoComplete="username"
                       required
-                      placeholder="ten.nhanvien@lacviethrm.vn"
+                      placeholder={
+                        isCandidateLookup
+                          ? "vd: minh.hoang@gmail.com hoặc 0909123456"
+                          : "ten.nhanvien@lacviethrm.vn"
+                      }
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-3 text-sm text-[#11221E] placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
@@ -464,66 +1163,70 @@ function LoginForm() {
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="login-password"
-                      className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                    >
-                      Mật khẩu
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="text-xs font-medium text-[#0F766E] hover:underline dark:text-teal-400"
-                    >
-                      Quên mật khẩu
-                    </button>
-                  </div>
-                  <div className="relative mt-1.5">
-                    <Lock
-                      className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
-                      strokeWidth={1.5}
-                    />
-                    <input
-                      id="login-password"
-                      name="password"
-                      type={showLoginPassword ? "text" : "password"}
-                      autoComplete="current-password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-10 font-mono text-sm text-[#11221E] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowLoginPassword((prev) => !prev)}
-                      aria-label={showLoginPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
-                    >
-                      {showLoginPassword ? (
-                        <EyeOff className="h-4 w-4" strokeWidth={1.5} />
-                      ) : (
-                        <Eye className="h-4 w-4" strokeWidth={1.5} />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                {!isCandidateLookup && (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="login-password"
+                          className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                        >
+                          Mật khẩu
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleForgotPassword}
+                          className="text-xs font-medium text-[#0F766E] hover:underline dark:text-teal-400"
+                        >
+                          Quên mật khẩu
+                        </button>
+                      </div>
+                      <div className="relative mt-1.5">
+                        <Lock
+                          className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
+                          strokeWidth={1.5}
+                        />
+                        <input
+                          id="login-password"
+                          name="password"
+                          type={showLoginPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          placeholder="Ứng viên chỉ nộp CV có thể để trống"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="h-9 w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] pl-9 pr-10 font-mono text-sm text-[#11221E] placeholder:font-sans placeholder:text-xs placeholder:text-[#5C7871] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-teal-400 dark:focus:ring-teal-400/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword((prev) => !prev)}
+                          aria-label={showLoginPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                          className="absolute right-2 top-1.5 flex h-6 w-6 items-center justify-center rounded text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400 dark:hover:text-zinc-200"
+                        >
+                          {showLoginPassword ? (
+                            <EyeOff className="h-4 w-4" strokeWidth={1.5} />
+                          ) : (
+                            <Eye className="h-4 w-4" strokeWidth={1.5} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex cursor-pointer items-center gap-2 text-xs text-[#415A54] dark:text-zinc-400">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E] focus:ring-[#0F766E] dark:border-zinc-700 dark:bg-zinc-950 dark:text-teal-400"
-                    />
-                    <span>Ghi nhớ đăng nhập</span>
-                  </label>
-                  <span className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
-                    Phiên 8 giờ
-                  </span>
-                </div>
+                    <div className="flex items-center justify-between">
+                      <label className="flex cursor-pointer items-center gap-2 text-xs text-[#415A54] dark:text-zinc-400">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E] focus:ring-[#0F766E] dark:border-zinc-700 dark:bg-zinc-950 dark:text-teal-400"
+                        />
+                        <span>Ghi nhớ đăng nhập</span>
+                      </label>
+                      <span className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+                        Phiên 8 giờ
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 <button
                   type="submit"
@@ -533,7 +1236,9 @@ function LoginForm() {
                   <span>
                     {isSubmitting
                       ? "Đang khởi tạo không gian làm việc..."
-                      : "Đăng nhập vào hệ thống"}
+                      : isCandidateLookup
+                        ? "Tra cứu hồ sơ ứng tuyển"
+                        : "Đăng nhập vào hệ thống"}
                   </span>
                   <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
                 </button>
@@ -753,7 +1458,7 @@ function LoginForm() {
             <div className="mt-6 border-t border-[#C6D9D3] pt-5 dark:border-zinc-800/80">
               <div className="mb-2.5 flex items-center justify-between text-xs text-[#5C7871] dark:text-zinc-400">
                 <span>Trải nghiệm nhanh theo vai trò</span>
-                <span className="font-mono tabular-nums">5 tài khoản mẫu</span>
+                <span className="font-mono tabular-nums">6 tài khoản mẫu</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {DEMO_ACCOUNTS.map((acc) => {

@@ -84,8 +84,9 @@ export function Select({
             handleValueChange(e.target.value);
           }}
           className={cn(
-            'block h-9 w-full truncate whitespace-nowrap appearance-none rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] [background-image:none] py-1.5 pl-3 pr-8 text-sm text-[#11221E] transition-colors focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
-            className
+            'block h-9 w-full truncate whitespace-nowrap appearance-none rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] [background-image:none] py-1.5 pl-3 pr-9 text-sm text-[#11221E] transition-colors focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20',
+            className,
+            '[appearance:none] [-webkit-appearance:none] [-moz-appearance:none] [&::-ms-expand]:hidden pr-9'
           )}
           style={{
             WebkitAppearance: 'none',

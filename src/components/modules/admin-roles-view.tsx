@@ -14,6 +14,12 @@ import {
 import { useApp, type RoleCode } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchAdminMock } from '@/lib/mock-fetcher';
+import {
+  HRM_RUNTIME_EVENT,
+  getSystemUsers,
+  setUserActiveByEmployee,
+} from '@/lib/runtime-store';
+import { confirmSwal } from '@/lib/swal';
 import type {
   PermissionMatrixRow,
   RoleDefinition,
@@ -98,7 +104,7 @@ export function AdminRolesView() {
           },
         }))
       );
-      setUsers([...data.MOCK_SYSTEM_USERS]);
+      setUsers(getSystemUsers(data.MOCK_SYSTEM_USERS));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Không thể tải dữ liệu phân quyền.');
     } finally {
@@ -109,6 +115,18 @@ export function AdminRolesView() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const handleSyncUsers = () => {
+      setUsers(getSystemUsers());
+    };
+    window.addEventListener(HRM_RUNTIME_EVENT, handleSyncUsers);
+    window.addEventListener('storage', handleSyncUsers);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, handleSyncUsers);
+      window.removeEventListener('storage', handleSyncUsers);
+    };
+  }, []);
 
   const activeRoleInfo = useMemo(
     () => roles.find((r) => r.role_code === selectedRole) ?? roles[0],
@@ -130,7 +148,10 @@ export function AdminRolesView() {
   }, [users, userSearch, roleFilter]);
 
   const activeUsersCount = useMemo(
-    () => users.filter((u) => u.account_status === 'ACTIVE').length,
+    () =>
+      users.filter(
+        (u) => u.is_active !== false && u.account_status === 'ACTIVE'
+      ).length,
     [users]
   );
   const mfaUsersCount = useMemo(() => users.filter((u) => u.mfa_enabled).length, [users]);
@@ -177,7 +198,7 @@ export function AdminRolesView() {
     );
   };
 
-  const handleToggleLockUser = (userId: string) => {
+  const handleToggleLockUser = async (userId: string) => {
     const target = users.find((u) => u.id === userId);
     if (!target) return;
     const isSelf =
@@ -187,25 +208,46 @@ export function AdminRolesView() {
       (Boolean(currentUserProfile?.employee_code) &&
         target.employee_code === currentUserProfile?.employee_code);
     if (isSelf) return;
-    const nextStatus = target.account_status === 'LOCKED' ? 'ACTIVE' : 'LOCKED';
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, account_status: nextStatus } : u))
-    );
-    recordAuditLog({
-      actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
-      actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
-      actor_role: role,
-      action: 'UPDATE_RECORD',
-      target: `${target.employee_code} (${target.full_name})`,
-      detail: `${nextStatus === 'LOCKED' ? 'Khóa' : 'Mở khóa'} tài khoản truy cập hệ thống.`,
-      status: nextStatus === 'LOCKED' ? 'WARNING' : 'SUCCESS',
+
+    const isCurrentlyActive =
+      target.is_active !== false && target.account_status === 'ACTIVE';
+    const nextIsActive = !isCurrentlyActive;
+
+    const confirmed = await confirmSwal({
+      title: nextIsActive
+        ? `Kích hoạt / Mở khóa tài khoản ${target.employee_code}?`
+        : `Khóa tài khoản truy cập ${target.employee_code}?`,
+      html: nextIsActive
+        ? `Mở lại quyền đăng nhập cho <b>${target.full_name} (${target.email})</b>?`
+        : `Thu hồi phiên làm việc và khóa đăng nhập của <b>${target.full_name} (${target.email})</b> ngay lập tức?`,
+      confirmText: nextIsActive ? 'Mở khóa tài khoản' : 'Khóa tài khoản',
+      variant: nextIsActive ? 'primary' : 'danger',
     });
+    if (!confirmed) return;
+
+    setUserActiveByEmployee({
+      employeeId: target.employee_id,
+      employeeCode: target.employee_code,
+      email: target.email,
+      fullName: target.full_name,
+      departmentName: target.department_name,
+      positionName: target.position_name,
+      roleCode: target.role_code,
+      isActive: nextIsActive,
+      targetStatus: nextIsActive ? 'ACTIVE' : 'LOCKED',
+      reason: nextIsActive
+        ? undefined
+        : 'Tạm khóa bởi Quản trị viên hệ thống tại phân hệ RBAC',
+      actorName: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+    });
+
+    setUsers(getSystemUsers());
     showToast(
-      nextStatus === 'LOCKED' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản',
+      nextIsActive ? 'Đã mở khóa tài khoản' : 'Đã khóa tài khoản truy cập',
       `${target.full_name} (${target.employee_code}) hiện ở trạng thái ${
-        nextStatus === 'LOCKED' ? 'Tạm khóa' : 'Hoạt động'
+        nextIsActive ? 'Đang hoạt động' : 'Đã khóa'
       }.`,
-      nextStatus === 'LOCKED' ? 'warning' : 'success'
+      nextIsActive ? 'success' : 'warning'
     );
   };
 
@@ -495,7 +537,11 @@ export function AdminRolesView() {
                   <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                     {filteredUsers.map((account) => {
                       const roleMeta = ROLE_BADGE_MAP[account.role_code];
-                      const isLocked = account.account_status === 'LOCKED';
+                      const isAccountActive =
+                        account.is_active !== false &&
+                        account.account_status === 'ACTIVE';
+                      const isPendingIt = account.account_status === 'INACTIVE';
+                      const isLocked = !isAccountActive;
                       const isSelfAccount =
                         account.employee_code === 'NV-2024-001' ||
                         (Boolean(currentUserEmail) &&
@@ -536,9 +582,26 @@ export function AdminRolesView() {
                             {account.last_login_ip}
                           </td>
                           <td className="px-4 py-3.5">
-                            <Badge variant={isLocked ? 'destructive' : 'success'}>
-                              {isLocked ? 'Đã khóa' : 'Hoạt động'}
+                            <Badge
+                              variant={
+                                isAccountActive
+                                  ? 'success'
+                                  : isPendingIt
+                                    ? 'warning'
+                                    : 'destructive'
+                              }
+                            >
+                              {isAccountActive
+                                ? 'Đang hoạt động'
+                                : isPendingIt
+                                  ? 'Chờ IT kích hoạt'
+                                  : 'Đã khóa'}
                             </Badge>
+                            {account.locked_reason && !isAccountActive && (
+                              <p className="mt-1 max-w-[200px] truncate text-[11px] text-[#5C7871] dark:text-zinc-400">
+                                {account.locked_reason}
+                              </p>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 text-right">
                             {isSelfAccount ? (
@@ -549,12 +612,12 @@ export function AdminRolesView() {
                               <Button
                                 variant={isLocked ? 'outline' : 'secondary'}
                                 size="sm"
-                                onClick={() => handleToggleLockUser(account.id)}
+                                onClick={() => void handleToggleLockUser(account.id)}
                               >
                                 {isLocked ? (
                                   <>
                                     <Unlock className="h-4 w-4" strokeWidth={1.5} />
-                                    Mở khóa
+                                    {isPendingIt ? 'Kích hoạt' : 'Mở khóa'}
                                   </>
                                 ) : (
                                   <>

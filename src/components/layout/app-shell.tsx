@@ -50,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenMobileMenu={() => setMobileMenuOpen(true)} />
 
-        <main className="flex-1 overflow-y-auto overscroll-contain bg-[#EFF5F3] p-4 dark:bg-zinc-950 lg:p-6">
+        <main className="flex-1 overflow-y-auto overscroll-contain bg-[#EFF5F3] p-4 pb-24 dark:bg-zinc-950 lg:p-6 lg:pb-24">
           <div className="mx-auto w-full max-w-[1520px]">
           {/* 1. LOADING SKELETON STATE */}
           {uiState === "loading" && (

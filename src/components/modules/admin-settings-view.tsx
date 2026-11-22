@@ -2,22 +2,46 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Activity,
   Building2,
   Calendar,
   Clock,
+  Cpu,
+  Fingerprint,
+  Globe,
   Landmark,
+  Lock,
   Plus,
+  Radio,
+  RefreshCw,
   Save,
+  Server,
   Trash2,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { useApp } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
+import {
+  fetchSameWifiStatus,
+  syncWifiPolicyEverywhere,
+} from '@/lib/biometric-attendance';
 import {
   fetchAdminMock,
   fetchPayrollMock,
   type PitTaxBracketItem,
 } from '@/lib/mock-fetcher';
-import type { SystemConfiguration } from '@/mock/types';
+import {
+  getWifiAttendancePolicy,
+  HRM_RUNTIME_EVENT,
+} from '@/lib/runtime-store';
+import type {
+  HostWifiHardwareInfo,
+  SystemConfiguration,
+  WifiAttendancePolicy,
+  WifiVerificationResult,
+} from '@/mock/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -28,6 +52,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 
 function formatVnd(amount: number): string {
   return `${new Intl.NumberFormat('vi-VN').format(amount)} đ`;
@@ -44,6 +69,30 @@ export function AdminSettingsView() {
   const [newHolidayStart, setNewHolidayStart] = useState('2026-12-25');
   const [newHolidayEnd, setNewHolidayEnd] = useState('2026-12-25');
   const [newHolidayDays, setNewHolidayDays] = useState('1');
+
+  const [wifiPolicy, setWifiPolicy] = useState<WifiAttendancePolicy>(() =>
+    getWifiAttendancePolicy()
+  );
+  const [serverPublicIp, setServerPublicIp] = useState<string | null>(null);
+  const [hostWifiDetails, setHostWifiDetails] =
+    useState<HostWifiHardwareInfo | null>(null);
+  const [clientWifiCheck, setClientWifiCheck] =
+    useState<WifiVerificationResult | null>(null);
+  const [isProbingWifi, setIsProbingWifi] = useState(false);
+
+  const probeServerNetwork = useCallback(async (force = false) => {
+    setIsProbingWifi(true);
+    try {
+      const info = await fetchSameWifiStatus({ forceRefreshIp: force });
+      setServerPublicIp(info.hostPublicIpv4);
+      setHostWifiDetails(info.hostWifiDetails);
+      setClientWifiCheck(info.wifi);
+    } catch {
+      // ignore offline probe error
+    } finally {
+      setIsProbingWifi(false);
+    }
+  }, []);
 
   const loadData = useCallback(async (bypassCache = false) => {
     setIsLoading(true);
@@ -77,13 +126,22 @@ export function AdminSettingsView() {
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+    void probeServerNetwork(false);
+    const onSync = () => setWifiPolicy(getWifiAttendancePolicy());
+    window.addEventListener(HRM_RUNTIME_EVENT, onSync);
+    return () => window.removeEventListener(HRM_RUNTIME_EVENT, onSync);
+  }, [loadData, probeServerNetwork]);
 
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
     const minDays = Math.max(1, Number(config?.director_approval_min_days) || 3);
     if (config && typeof window !== 'undefined') {
       window.localStorage.setItem('hrm_director_min_days', String(minDays));
     }
+    await syncWifiPolicyEverywhere({
+      patch: wifiPolicy,
+      actorName: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+      actorRole: role,
+    });
     recordAuditLog({
       actor_name: currentUserProfile?.fullName ?? 'Nguyễn Văn An',
       actor_code: currentUserProfile?.employee_code ?? 'NV-2024-001',
@@ -387,6 +445,421 @@ export function AdminSettingsView() {
               <p className="text-xs text-[#5C7871] dark:text-zinc-400">
                 Đơn nghỉ phép có số ngày vượt ngưỡng này (hoặc nghỉ không lương, công tác nước ngoài) sẽ tự động chuyển thêm tới Giám đốc (DIRECTOR) phê duyệt.
               </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Block 1.5: Biometric & Same-WiFi Attendance Policy */}
+      <Card className="border-l-4 border-l-[#0F766E] dark:border-l-teal-400">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Wifi className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                Chính sách Chấm công Vân tay &amp; Chung mạng WiFi
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Kiểm soát bắt buộc quét đầu đọc vân tay Laptop / Sinh trắc học Điện thoại và khóa chặn ngoài mạng WiFi văn phòng.
+              </CardDescription>
+            </div>
+            <Badge variant={wifiPolicy.enforce_same_wifi ? 'success' : 'warning'}>
+              {wifiPolicy.enforce_same_wifi ? 'Đang khóa chung WiFi' : 'Đang mở mạng ngoài'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <div>
+                <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                  Bắt buộc chung mạng WiFi văn phòng
+                </p>
+                <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
+                  Chặn 4G/5G và mạng WiFi khác bên ngoài; chỉ cho phép cùng LAN Subnet hoặc trùng Public WiFi IPv4 với máy chủ.
+                </p>
+              </div>
+              <Switch
+                checked={wifiPolicy.enforce_same_wifi}
+                onCheckedChange={(checked) =>
+                  setWifiPolicy((prev) => ({ ...prev, enforce_same_wifi: checked }))
+                }
+                aria-label="Bật tắt bắt buộc chung mạng WiFi"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <div>
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                  <Fingerprint className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  Bắt buộc vân tay khi Check-in / Check-out
+                </p>
+                <p className="mt-0.5 text-xs text-[#5C7871] dark:text-zinc-400">
+                  Yêu cầu cảm biến vân tay Laptop (Windows Hello / Touch ID) hoặc sinh trắc học Điện thoại trước khi ghi công.
+                </p>
+              </div>
+              <Switch
+                checked={wifiPolicy.require_biometric_for_punch}
+                onCheckedChange={(checked) =>
+                  setWifiPolicy((prev) => ({ ...prev, require_biometric_for_punch: checked }))
+                }
+                aria-label="Bật tắt bắt buộc vân tay khi chấm công"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Tên hiển thị mạng WiFi văn phòng
+              </label>
+              <Input
+                value={wifiPolicy.wifi_ssid_label}
+                onChange={(e) =>
+                  setWifiPolicy((prev) => ({ ...prev, wifi_ssid_label: e.target.value }))
+                }
+                placeholder="VD: LacViet-Office-5G"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#415A54] dark:text-zinc-300">
+                Danh sách Public IPv4 WiFi cố định (cách nhau dấu phẩy)
+              </label>
+              <Input
+                value={wifiPolicy.allowed_public_ips.join(', ')}
+                onChange={(e) =>
+                  setWifiPolicy((prev) => ({
+                    ...prev,
+                    allowed_public_ips: e.target.value
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                placeholder="Để trống để tự động khớp Public IP hiện tại của máy chủ"
+                className="font-mono tabular-nums"
+              />
+            </div>
+          </div>
+
+          {/* Live Server WiFi & Hardware Telemetry */}
+          <div className="space-y-4 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800 dark:bg-zinc-900/35">
+            {/* Top Status Bar & Quick Actions */}
+            <div className="flex flex-col gap-3 border-b border-[#C6D9D3]/70 pb-3 dark:border-zinc-800/80 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                {hostWifiDetails?.ssid ? (
+                  <Badge variant="success" className="gap-1.5">
+                    <Wifi className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    <span>Đang kết nối WiFi</span>
+                  </Badge>
+                ) : hostWifiDetails?.connected ? (
+                  <Badge variant="teal" className="gap-1.5">
+                    <Server className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    <span>Kết nối LAN có dây</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="danger" className="gap-1.5">
+                    <WifiOff className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    <span>Chưa kết nối WiFi</span>
+                  </Badge>
+                )}
+
+                <span className="font-mono text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                  {hostWifiDetails?.ssid
+                    ? `SSID: ${hostWifiDetails.ssid}`
+                    : isProbingWifi
+                      ? 'Đang quét thông số WiFi...'
+                      : 'Chưa phát hiện SSID WiFi'}
+                </span>
+
+                {hostWifiDetails?.signalPercent != null && (
+                  <Badge
+                    variant={
+                      hostWifiDetails.signalPercent >= 70
+                        ? 'success'
+                        : hostWifiDetails.signalPercent >= 40
+                          ? 'warning'
+                          : 'danger'
+                    }
+                    className="font-mono tabular-nums"
+                  >
+                    Sóng {hostWifiDetails.signalPercent}%
+                  </Badge>
+                )}
+
+                {(hostWifiDetails?.band || hostWifiDetails?.channel != null) && (
+                  <Badge variant="outline" className="font-mono tabular-nums">
+                    {hostWifiDetails.band || 'WiFi'}
+                    {hostWifiDetails.channel != null
+                      ? ` · Kênh ${hostWifiDetails.channel}`
+                      : ''}
+                  </Badge>
+                )}
+
+                {hostWifiDetails?.probedAt && (
+                  <span className="text-[11px] font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
+                    Quét lúc{' '}
+                    {new Date(hostWifiDetails.probedAt).toLocaleTimeString(
+                      'vi-VN'
+                    )}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isProbingWifi}
+                  onClick={() => void probeServerNetwork(true)}
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${isProbingWifi ? 'animate-spin' : ''}`}
+                    strokeWidth={1.5}
+                  />
+                  Quét lại WiFi
+                </Button>
+
+                {hostWifiDetails?.ssid &&
+                  wifiPolicy.wifi_ssid_label !== hostWifiDetails.ssid && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const realSsid = hostWifiDetails.ssid!;
+                        const saved = await syncWifiPolicyEverywhere({
+                          patch: { ...wifiPolicy, wifi_ssid_label: realSsid },
+                          actorName:
+                            currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+                          actorRole: role,
+                        });
+                        setWifiPolicy(saved);
+                        showToast(
+                          'Đã đồng bộ tên WiFi thật',
+                          `Tên hiển thị WiFi văn phòng đã cập nhật thành "${realSsid}".`,
+                          'success'
+                        );
+                      }}
+                    >
+                      <Wifi className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Lấy SSID thật ({hostWifiDetails.ssid})
+                    </Button>
+                  )}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!serverPublicIp}
+                  onClick={async () => {
+                    if (!serverPublicIp) return;
+                    const nextIps = Array.from(
+                      new Set([...wifiPolicy.allowed_public_ips, serverPublicIp])
+                    );
+                    const saved = await syncWifiPolicyEverywhere({
+                      patch: { ...wifiPolicy, allowed_public_ips: nextIps },
+                      actorName:
+                        currentUserProfile?.fullName ?? 'Nguyễn Văn An',
+                      actorRole: role,
+                    });
+                    setWifiPolicy(saved);
+                    showToast(
+                      'Đã chốt IP WiFi văn phòng',
+                      `Public IPv4 ${serverPublicIp} đã được lưu vào chính sách chung WiFi.`,
+                      'success'
+                    );
+                  }}
+                >
+                  <Wifi className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Chốt IP WiFi hiện tại
+                </Button>
+              </div>
+            </div>
+
+            {/* 8-Card Telemetry Grid */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* 1. SSID & BSSID */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Wifi className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>Tên WiFi (SSID) &amp; BSSID</span>
+                </div>
+                <p
+                  className="mt-1.5 truncate font-mono text-sm font-semibold text-[#11221E] dark:text-zinc-100"
+                  title={hostWifiDetails?.ssid || '--'}
+                >
+                  {hostWifiDetails?.ssid || '--'}
+                </p>
+                <p
+                  className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400"
+                  title={hostWifiDetails?.bssid || '--'}
+                >
+                  BSSID: {hostWifiDetails?.bssid || 'Chưa xác định'}
+                </p>
+              </div>
+
+              {/* 2. Signal % & Link Rate */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Activity className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>Cường độ sóng &amp; Tốc độ</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className="font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
+                    {hostWifiDetails?.signalPercent != null
+                      ? `${hostWifiDetails.signalPercent}%`
+                      : '--'}
+                  </span>
+                  {hostWifiDetails?.signalPercent != null && (
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#C6D9D3] dark:bg-zinc-800">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          hostWifiDetails.signalPercent >= 70
+                            ? 'bg-emerald-500'
+                            : hostWifiDetails.signalPercent >= 40
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${hostWifiDetails.signalPercent}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+                  ↓ {hostWifiDetails?.rxRateMbps ?? '--'} Mbps · ↑{' '}
+                  {hostWifiDetails?.txRateMbps ?? '--'} Mbps
+                </p>
+              </div>
+
+              {/* 3. Band, Radio & Channel */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Radio className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>Băng tần &amp; Chuẩn phát</span>
+                </div>
+                <p className="mt-1.5 truncate font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
+                  {hostWifiDetails?.band || '--'}
+                  {hostWifiDetails?.radioType
+                    ? ` · ${hostWifiDetails.radioType}`
+                    : ''}
+                </p>
+                <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+                  Kênh {hostWifiDetails?.channel ?? '--'} ·{' '}
+                  {hostWifiDetails?.networkType || 'Infrastructure'}
+                </p>
+              </div>
+
+              {/* 4. Authentication & Cipher */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Lock className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>Bảo mật &amp; Mã hóa</span>
+                </div>
+                <p
+                  className="mt-1.5 truncate font-mono text-sm font-semibold text-[#11221E] dark:text-zinc-100"
+                  title={hostWifiDetails?.authentication || '--'}
+                >
+                  {hostWifiDetails?.authentication || '--'}
+                </p>
+                <p className="mt-0.5 truncate font-mono text-[11px] text-[#5C7871] dark:text-zinc-400">
+                  Cipher: {hostWifiDetails?.cipher || '--'}
+                </p>
+              </div>
+
+              {/* 5. Adapter & MAC Address */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Cpu className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>Card mạng &amp; MAC</span>
+                </div>
+                <p
+                  className="mt-1.5 truncate text-xs font-semibold text-[#11221E] dark:text-zinc-100"
+                  title={
+                    hostWifiDetails?.adapterDescription ||
+                    hostWifiDetails?.interfaceName ||
+                    '--'
+                  }
+                >
+                  {hostWifiDetails?.adapterDescription ||
+                    hostWifiDetails?.interfaceName ||
+                    '--'}
+                </p>
+                <p className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+                  {hostWifiDetails?.interfaceName || '--'} ·{' '}
+                  {hostWifiDetails?.macAddress || '--'}
+                </p>
+              </div>
+
+              {/* 6. Local IPv4 & Subnet */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Server className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>IPv4 Nội bộ &amp; Subnet</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="truncate font-mono text-sm font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                    {hostWifiDetails?.ipv4Address || '--'}
+                  </span>
+                  {hostWifiDetails?.dhcpEnabled != null && (
+                    <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                      {hostWifiDetails.dhcpEnabled ? 'DHCP' : 'IP Tĩnh'}
+                    </Badge>
+                  )}
+                </div>
+                <p
+                  className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400"
+                  title={`${hostWifiDetails?.cidr || '--'} (${hostWifiDetails?.subnetMask || '--'})`}
+                >
+                  {hostWifiDetails?.cidr || '--'}
+                  {hostWifiDetails?.subnetMask
+                    ? ` (${hostWifiDetails.subnetMask})`
+                    : ''}
+                </p>
+              </div>
+
+              {/* 7. Gateway & DNS */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Globe className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                  <span>Gateway &amp; Máy chủ DNS</span>
+                </div>
+                <p className="mt-1.5 truncate font-mono text-sm font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
+                  {hostWifiDetails?.defaultGateway || '--'}
+                </p>
+                <p
+                  className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400"
+                  title={hostWifiDetails?.dnsServers?.join(', ') || '--'}
+                >
+                  DNS:{' '}
+                  {hostWifiDetails?.dnsServers?.length
+                    ? hostWifiDetails.dnsServers.join(', ')
+                    : '--'}
+                </p>
+              </div>
+
+              {/* 8. Public WAN IP & Same-WiFi Gate */}
+              <div className="min-w-0 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                  <Globe className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+                  <span>Public WAN &amp; Đối chiếu</span>
+                </div>
+                <p className="mt-1.5 truncate font-mono text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  {hostWifiDetails?.publicIpv4 ||
+                    serverPublicIp ||
+                    'Chưa xác định'}
+                </p>
+                <p
+                  className="mt-0.5 truncate font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400"
+                  title={`IPv6 /64: ${hostWifiDetails?.publicIpv6Prefix64 || 'Không dùng'} · Mode: ${clientWifiCheck?.mode || '--'}`}
+                >
+                  Gate: {clientWifiCheck?.mode || '--'}
+                  {hostWifiDetails?.publicIpv6Prefix64
+                    ? ` · v6 ${hostWifiDetails.publicIpv6Prefix64}`
+                    : ''}
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>

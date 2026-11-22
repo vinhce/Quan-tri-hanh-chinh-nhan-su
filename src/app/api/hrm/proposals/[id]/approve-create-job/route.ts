@@ -4,7 +4,7 @@ import { hrmRepo } from '@/lib/hrm/repo.mysql';
 import type { Actor, JobPostingEntity } from '@/lib/hrm/types';
 
 export function generateStaticParams() {
-  return [];
+  return [{ id: '__static_placeholder__' }];
 }
 
 export async function POST(

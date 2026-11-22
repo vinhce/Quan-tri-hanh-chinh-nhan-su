@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid,
@@ -8,6 +8,7 @@ import {
   FileText,
   UserCheck,
   ClipboardCheck,
+  UserMinus,
   Clock,
   CalendarCheck,
   Wallet,
@@ -32,8 +33,21 @@ import {
   ROLE_DEFAULT_PROFILES,
   type RoleCode,
 } from "@/context/app-context";
-import { HRM_RUNTIME_EVENT, getOnboardingRecords } from "@/lib/runtime-store";
-import type { OnboardingRecord } from "@/mock/types";
+import {
+  HRM_RUNTIME_EVENT,
+  findSystemUserForLogin,
+  getAllRuntimeEmployees,
+  getHandoverItems,
+  getOnboardingRecords,
+  getResignations,
+} from "@/lib/runtime-store";
+import { alertSwal } from "@/lib/swal";
+import type {
+  Employee,
+  HandoverItem,
+  OnboardingRecord,
+  ResignationRequest,
+} from "@/mock/types";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +119,15 @@ export const NAV_ITEMS: NavItem[] = [
     summary: "Theo dõi lộ trình hội nhập nhân sự mới và quản lý cấp phát tài sản công ty",
   },
   {
+    id: "offboarding",
+    label: "Nghỉ việc & Tất toán",
+    section: "Quản trị cốt lõi",
+    icon: UserMinus,
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    deliverableStep: "Bước 4",
+    summary: "Đơn thôi việc, kiểm tra hạn báo trước, bàn giao 3 bên, thu hồi tài sản và quyết toán kỳ cuối",
+  },
+  {
     id: "attendance",
     label: "Chấm công & Ca làm",
     section: "Vận hành",
@@ -143,13 +166,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "kpi",
-    label: "Đánh giá & Cảnh báo AI",
+    label: "Đánh giá & Thăng tiến",
     section: "Vận hành",
     icon: Activity,
-    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
     badgeCount: 3,
     deliverableStep: "Bước 2",
-    summary: "Theo dõi hiệu suất OKR/KPI và dự báo nguy cơ nghỉ việc",
+    summary: "Đánh giá hiệu suất đa chu kỳ, lộ trình thăng tiến, điều chuyển và cảnh báo AI",
   },
   {
     id: "rbac",
@@ -246,10 +269,10 @@ export const ROLE_META: Record<
   CANDIDATE: {
     label: "Ứng viên tìm việc",
     shortLabel: "Candidate",
-    empCode: "UV-DEMO-001",
+    empCode: "UV-2026-001",
     empName: "Hoàng Vũ Minh",
     position: "Ứng viên",
-    department: "Cổng Ứng viên Tuyển dụng",
+    department: "Ứng viên dự tuyển",
     shiftCode: "FLEX-09:00",
     scopeNote: "Theo dõi trạng thái hồ sơ ứng tuyển, phỏng vấn & thư mời nhận việc",
   },
@@ -279,6 +302,10 @@ function getRoleBadgeMeta(
   empCode: string,
   department: string
 ): { text: string; className: string } {
+  const normalizedDept = department?.includes("Cổng Ứng viên")
+    ? "Ứng viên dự tuyển"
+    : department;
+
   switch (role) {
     case "SUPER_ADMIN":
       return {
@@ -300,14 +327,20 @@ function getRoleBadgeMeta(
       };
     case "DEPT_MANAGER":
       return {
-        text: `${ROLE_META.DEPT_MANAGER.label} · ${department}`,
+        text: `${ROLE_META.DEPT_MANAGER.label} · ${normalizedDept}`,
         className:
           "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-400",
+      };
+    case "CANDIDATE":
+      return {
+        text: empCode ? `${empCode} · Ứng viên dự tuyển` : "Ứng viên dự tuyển",
+        className:
+          "border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
       };
     case "EMPLOYEE":
     default:
       return {
-        text: `${empCode} · ${department}`,
+        text: `${empCode} · ${normalizedDept}`,
         className:
           "border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
       };
@@ -328,6 +361,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const router = useRouter();
   const {
     role,
+    currentUserEmail,
     currentUserProfile,
     setAuthenticatedUser,
     logout,
@@ -336,8 +370,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     showToast,
   } = useApp();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const collapsedFooterRef = useRef<HTMLDivElement | null>(null);
+  const expandedFooterRef = useRef<HTMLDivElement | null>(null);
+  const mobileFooterRef = useRef<HTMLDivElement | null>(null);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [onboardingRecords, setOnboardingRecords] = useState<OnboardingRecord[]>([]);
+  const [resignationRecords, setResignationRecords] = useState<ResignationRequest[]>([]);
+  const [handoverRecords, setHandoverRecords] = useState<HandoverItem[]>([]);
+  const [activeRuntimeEmployees, setActiveRuntimeEmployees] = useState<Employee[]>([]);
+  const [runtimeHeadcount, setRuntimeHeadcount] = useState<number>(28);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -359,6 +400,22 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
   const syncOnboardingRecords = useCallback(() => {
     setOnboardingRecords(getOnboardingRecords());
+    setResignationRecords(getResignations());
+    setHandoverRecords(getHandoverItems());
+    const allRuntimeEmps = getAllRuntimeEmployees();
+    const activeEmps = allRuntimeEmps.filter(
+      (e) => e.employment_status !== "RESIGNED"
+    );
+    if (activeEmps.length > 0) {
+      setRuntimeHeadcount(activeEmps.length);
+    }
+    setActiveRuntimeEmployees(
+      allRuntimeEmps.filter(
+        (e) =>
+          e.employment_status !== "RESIGNED" &&
+          e.employment_status !== "PENDING_ONBOARD"
+      )
+    );
   }, []);
 
   useEffect(() => {
@@ -370,6 +427,12 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       window.removeEventListener("storage", syncOnboardingRecords);
     };
   }, [syncOnboardingRecords]);
+
+  useEffect(() => {
+    if (roleMenuOpen) {
+      syncOnboardingRecords();
+    }
+  }, [roleMenuOpen, syncOnboardingRecords]);
 
   useEffect(() => {
     if (!roleMenuOpen && !(mobileOpen && !logoutDialogOpen)) return;
@@ -384,6 +447,24 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [roleMenuOpen, mobileOpen, logoutDialogOpen, onMobileClose]);
+
+  useEffect(() => {
+    if (!roleMenuOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (
+        collapsedFooterRef.current?.contains(target) ||
+        expandedFooterRef.current?.contains(target) ||
+        mobileFooterRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setRoleMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [roleMenuOpen]);
 
   const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
   const currentMeta = ROLE_META[role];
@@ -426,6 +507,52 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     ).length;
   }, [onboardingRecords, role, displayDeptId, displayDept, displayEmpCode]);
 
+  const offboardingBadgeCount = useMemo(() => {
+    const activeResignations = resignationRecords.filter(
+      (r) =>
+        r.status !== "COMPLETED" &&
+        r.status !== "REJECTED" &&
+        r.status !== "CANCELLED"
+    );
+    if (
+      role === "SUPER_ADMIN" ||
+      role === "HR_MANAGER" ||
+      role === "DIRECTOR"
+    ) {
+      return activeResignations.length;
+    }
+    if (role === "DEPT_MANAGER") {
+      const actorDeptKey = (displayDeptId || displayDept || "dept-tech").trim();
+      const isTechScope = TECH_DEPT_SCOPE.has(actorDeptKey);
+      return activeResignations.filter((rec) => {
+        if (isTechScope) {
+          return (
+            TECH_DEPT_SCOPE.has(rec.department_id) ||
+            TECH_DEPT_SCOPE.has(rec.department_name)
+          );
+        }
+        return (
+          rec.department_id === actorDeptKey ||
+          rec.department_name === displayDept
+        );
+      }).length;
+    }
+    const ownActive = activeResignations.filter(
+      (r) => r.employee_code === displayEmpCode
+    ).length;
+    const receiverPending = handoverRecords.filter(
+      (h) => !h.receiver_confirmed && h.receiver_employee_code === displayEmpCode
+    ).length;
+    return ownActive + receiverPending;
+  }, [
+    resignationRecords,
+    handoverRecords,
+    role,
+    displayDeptId,
+    displayDept,
+    displayEmpCode,
+  ]);
+
   const initials =
     displayName
       .trim()
@@ -453,12 +580,66 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const handleSwitchDemoRole = (nextRole: RoleCode) => {
     const nextProfile = ROLE_DEFAULT_PROFILES[nextRole];
     const nextMeta = ROLE_META[nextRole];
-    setAuthenticatedUser(nextRole, nextProfile.email, {
-      fullName: nextProfile.fullName || nextMeta.empName,
-      department: nextProfile.department || nextMeta.department,
-      employee_code: nextProfile.employee_code || nextMeta.empCode,
+    const loginCheck = findSystemUserForLogin(nextProfile.email);
+    if (!loginCheck.canLogin) {
+      setRoleMenuOpen(false);
+      void alertSwal({
+        title: "Tài khoản đang bị khóa",
+        text:
+          loginCheck.blockReason ||
+          "Tài khoản này đã bị khóa truy cập.",
+        icon: "error",
+      });
+      return;
+    }
+    const effectiveRole = loginCheck.user?.role_code ?? nextRole;
+    setAuthenticatedUser(effectiveRole, nextProfile.email, {
+      fullName:
+        loginCheck.employee?.full_name ||
+        nextProfile.fullName ||
+        nextMeta.empName,
+      department:
+        loginCheck.employee?.department_name ||
+        nextProfile.department ||
+        nextMeta.department,
+      department_id: loginCheck.employee?.department_id,
+      employee_code:
+        loginCheck.employee?.employee_code ||
+        nextProfile.employee_code ||
+        nextMeta.empCode,
+      title: loginCheck.employee?.position_name || nextProfile.title,
     });
     setActiveNav("dashboard");
+    setRoleMenuOpen(false);
+    onMobileClose?.();
+  };
+
+  const selectedQuickEmployeeId = useMemo(() => {
+    const matched = activeRuntimeEmployees.find(
+      (e) =>
+        (displayEmpCode &&
+          e.employee_code.toLowerCase() === displayEmpCode.toLowerCase()) ||
+        (currentUserEmail &&
+          e.email.toLowerCase() === currentUserEmail.toLowerCase())
+    );
+    return matched?.id ?? "";
+  }, [activeRuntimeEmployees, displayEmpCode, currentUserEmail]);
+
+  const handleQuickSwitchEmployee = (empIdOrCode: string) => {
+    if (!empIdOrCode) return;
+    const emp = activeRuntimeEmployees.find(
+      (e) => e.id === empIdOrCode || e.employee_code === empIdOrCode
+    );
+    if (!emp) return;
+    const keepNav = activeNav;
+    setAuthenticatedUser(emp.role_code || "EMPLOYEE", emp.email, {
+      fullName: emp.full_name,
+      department: emp.department_name,
+      department_id: emp.department_id,
+      employee_code: emp.employee_code,
+      title: emp.position_name,
+    });
+    setActiveNav(keepNav);
     setRoleMenuOpen(false);
     onMobileClose?.();
   };
@@ -481,6 +662,75 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     onMobileClose?.();
     router.push("/login");
   };
+
+  const renderRoleMenu = (selectId: string, containerClassName: string) => (
+    <div
+      role="menu"
+      aria-label="Danh sách vai trò demo"
+      className={cn(
+        "max-h-[45dvh] overflow-y-auto rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-1.5 shadow-[0_4px_12px_rgba(17,34,30,0.08)] dark:border-zinc-800 dark:bg-zinc-900",
+        containerClassName
+      )}
+    >
+      <div className="px-2 py-1 text-[11px] font-medium text-[#5C7871] dark:text-zinc-400">
+        Chỉ dùng để demo phân quyền
+      </div>
+      <div className="space-y-0.5">
+        {ROLE_SWITCH_ORDER.map((r) => {
+          const meta = ROLE_META[r];
+          const profile = ROLE_DEFAULT_PROFILES[r];
+          const isSelected = r === role;
+          return (
+            <button
+              key={r}
+              type="button"
+              role="menuitem"
+              onClick={() => handleSwitchDemoRole(r)}
+              className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
+                isSelected
+                  ? "bg-[#CBE8E2] font-semibold text-[#0B4F4A] dark:bg-teal-950/40 dark:text-teal-400"
+                  : "text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <span className="min-w-0 flex-1 pr-2">
+                <span className="block truncate">{meta.label}</span>
+                <span className="block truncate font-mono text-[10px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+                  {profile.fullName} · {meta.empCode}
+                </span>
+              </span>
+              {isSelected && (
+                <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 border-t border-[#C6D9D3] pt-2 dark:border-zinc-800">
+        <label
+          htmlFor={selectId}
+          className="mb-1 block px-1 text-[11px] font-medium text-[#5C7871] dark:text-zinc-400"
+        >
+          Đổi nhanh theo nhân sự
+        </label>
+        <select
+          id={selectId}
+          aria-label="Đổi nhanh nhân sự đang hoạt động"
+          value={selectedQuickEmployeeId}
+          onChange={(e) => handleQuickSwitchEmployee(e.target.value)}
+          className="h-8 w-full truncate rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-2 text-xs font-medium text-[#11221E] transition-colors hover:border-[#0F766E]/60 focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-teal-500/60 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/30"
+        >
+          <option value="">
+            -- Chọn nhân sự ({activeRuntimeEmployees.length}) --
+          </option>
+          {activeRuntimeEmployees.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.employee_code} · {emp.full_name} ({emp.role_code || "EMPLOYEE"})
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
 
   const renderSidebarContent = (isMobile = false) => {
     const collapsed = !isMobile && isCollapsed;
@@ -516,10 +766,12 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                     let resolvedBadge: number | null = null;
                     if (item.id === "onboarding") {
                       resolvedBadge = onboardingInProgressCount > 0 ? onboardingInProgressCount : null;
+                    } else if (item.id === "offboarding") {
+                      resolvedBadge = offboardingBadgeCount > 0 ? offboardingBadgeCount : null;
                     } else if (item.id === "leaves" && role === "EMPLOYEE") {
                       resolvedBadge = null;
                     } else if (item.id === "core-hr") {
-                      resolvedBadge = role === "DEPT_MANAGER" ? 6 : 28;
+                      resolvedBadge = role === "DEPT_MANAGER" ? 6 : runtimeHeadcount;
                     } else if (typeof item.badgeCount === "number" && item.badgeCount > 0) {
                       resolvedBadge = item.badgeCount;
                     }
@@ -541,7 +793,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                           <Icon className="h-4 w-4" strokeWidth={1.5} />
                           {resolvedBadge !== null && (
                             (() => {
-                              const isActionRequired = item.id === "leaves" || item.id === "requests" || item.id === "ats";
+                              const isActionRequired =
+                                item.id === "leaves" ||
+                                item.id === "requests" ||
+                                item.id === "ats" ||
+                                (item.id === "offboarding" && role !== "EMPLOYEE");
                               return (
                                 <span
                                   className={cn(
@@ -565,26 +821,39 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </nav>
 
           {/* Collapsed Account Footer */}
-          <div className="relative shrink-0 border-t border-[#C6D9D3] p-2 dark:border-zinc-800/80 flex flex-col items-center gap-2">
+          <div
+            ref={collapsedFooterRef}
+            className="relative shrink-0 border-t border-[#C6D9D3] p-2 dark:border-zinc-800/80 flex flex-col items-center"
+          >
+            {roleMenuOpen &&
+              renderRoleMenu(
+                "sidebar-quick-employee-select-collapsed",
+                "absolute bottom-2 left-full z-50 ml-2 w-64 shadow-[0_12px_28px_rgba(17,34,30,0.16)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.5)]"
+              )}
+
             <button
               type="button"
               onClick={() => setRoleMenuOpen((prev) => !prev)}
               title={`Tài khoản: ${displayName} (${displayEmpCode}) - Nhấn để đổi vai trò`}
               aria-label="Menu tài khoản"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C6D9D3] bg-[#FCFEFD] font-mono text-xs font-bold text-[#0B4F4A] transition-colors hover:bg-[#D8E6E2] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400"
+              aria-haspopup="menu"
+              aria-expanded={roleMenuOpen}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C6D9D3] bg-[#FCFEFD] font-mono text-xs font-bold text-[#0B4F4A] transition-colors hover:bg-[#D8E6E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 dark:focus-visible:ring-teal-400/30"
             >
               {initials}
             </button>
 
-            <button
-              type="button"
-              onClick={handleOpenLogoutDialog}
-              title="Đăng xuất"
-              aria-label="Đăng xuất"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
-            >
-              <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </button>
+            <div className="mt-3 flex w-full justify-center border-t border-zinc-200/80 pt-3 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={handleOpenLogoutDialog}
+                title="Đăng xuất"
+                aria-label="Đăng xuất"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#415A54] transition-colors hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600/30 dark:text-zinc-400 dark:hover:bg-rose-950/35 dark:hover:text-rose-400 dark:focus-visible:ring-rose-400/30"
+              >
+                <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -682,6 +951,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                                 onboardingInProgressCount > 0
                                   ? onboardingInProgressCount
                                   : null;
+                            } else if (item.id === "offboarding") {
+                              resolvedBadge =
+                                offboardingBadgeCount > 0
+                                  ? offboardingBadgeCount
+                                  : null;
                             } else if (
                               item.id === "leaves" &&
                               role === "EMPLOYEE"
@@ -689,7 +963,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                               resolvedBadge = null;
                             } else if (item.id === "core-hr") {
                               resolvedBadge =
-                                role === "DEPT_MANAGER" ? 6 : 28;
+                                role === "DEPT_MANAGER" ? 6 : runtimeHeadcount;
                             } else if (
                               typeof item.badgeCount === "number" &&
                               item.badgeCount > 0
@@ -698,7 +972,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                             }
 
                             if (resolvedBadge === null) return null;
-                            const isActionRequired = item.id === "leaves" || item.id === "requests" || item.id === "ats";
+                            const isActionRequired =
+                              item.id === "leaves" ||
+                              item.id === "requests" ||
+                              item.id === "ats" ||
+                              (item.id === "offboarding" && role !== "EMPLOYEE");
 
                             if (isActionRequired) {
                               return (
@@ -735,48 +1013,17 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           })}
         </nav>
       {/* Account card footer */}
-      <div className="relative shrink-0 border-t border-[#C6D9D3] p-2.5 dark:border-zinc-800/80">
-        {roleMenuOpen && (
-          <div
-            role="menu"
-            aria-label="Danh sách vai trò demo"
-            className="mb-2 max-h-[45dvh] overflow-y-auto rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-1.5 shadow-[0_4px_12px_rgba(17,34,30,0.08)] dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <div className="px-2 py-1 text-[11px] font-medium text-[#5C7871] dark:text-zinc-400">
-              Chỉ dùng để demo phân quyền
-            </div>
-            <div className="space-y-0.5">
-              {ROLE_SWITCH_ORDER.map((r) => {
-                const meta = ROLE_META[r];
-                const profile = ROLE_DEFAULT_PROFILES[r];
-                const isSelected = r === role;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => handleSwitchDemoRole(r)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:focus-visible:ring-teal-400/30 ${
-                      isSelected
-                        ? "bg-[#CBE8E2] font-semibold text-[#0B4F4A] dark:bg-teal-950/40 dark:text-teal-400"
-                        : "text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#11221E] dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    <span className="min-w-0 flex-1 pr-2">
-                      <span className="block truncate">{meta.label}</span>
-                      <span className="block truncate font-mono text-[10px] tabular-nums text-[#5C7871] dark:text-zinc-400">
-                        {profile.fullName} · {meta.empCode}
-                      </span>
-                    </span>
-                    {isSelected && (
-                      <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <div
+        ref={isMobile ? mobileFooterRef : expandedFooterRef}
+        className="relative shrink-0 border-t border-[#C6D9D3] p-2.5 dark:border-zinc-800/80"
+      >
+        {roleMenuOpen &&
+          renderRoleMenu(
+            isMobile
+              ? "sidebar-quick-employee-select-mobile"
+              : "sidebar-quick-employee-select",
+            "mb-2"
+          )}
 
         <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-2.5 shadow-[0_1px_2px_rgba(17,34,30,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900">
           <div className="flex items-center gap-2">
@@ -802,22 +1049,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             </div>
           </div>
 
-          <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+          <div className="mt-2.5">
             <button
               type="button"
               onClick={handleOpenProfile}
-              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-2 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30"
+              className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] px-3 text-xs font-medium text-[#11221E] transition-colors hover:bg-[#E8F3EF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:focus-visible:ring-teal-400/30"
             >
               <User className="h-3.5 w-3.5 shrink-0 text-[#415A54] dark:text-zinc-300" strokeWidth={1.5} />
-              <span>Hồ sơ</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenLogoutDialog}
-              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-rose-200/80 bg-rose-50/70 px-2 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600/30 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-950/60 dark:focus-visible:ring-rose-400/30"
-            >
-              <LogOut className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-              <span>Đăng xuất</span>
+              <span>Hồ sơ cá nhân</span>
             </button>
           </div>
 
@@ -836,6 +1075,17 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               strokeWidth={1.5}
             />
           </button>
+
+          <div className="mt-2 border-t border-zinc-200/80 pt-2 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={handleOpenLogoutDialog}
+              className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-medium text-[#415A54] transition-colors hover:bg-rose-50/90 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600/30 dark:text-zinc-400 dark:hover:bg-rose-950/35 dark:hover:text-rose-400 dark:focus-visible:ring-rose-400/30"
+            >
+              <LogOut className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              <span>Đăng xuất</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

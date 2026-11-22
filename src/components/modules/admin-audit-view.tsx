@@ -61,16 +61,20 @@ const ROLE_LABELS: Record<string, string> = {
   HR_MANAGER: 'Trưởng phòng Nhân sự',
   DEPT_MANAGER: 'Trưởng bộ phận',
   EMPLOYEE: 'Nhân viên chính thức',
+  CANDIDATE: 'Ứng viên',
 };
 
 const ACTION_LABELS: Record<string, string> = {
   LOGIN: 'Đăng nhập hệ thống',
   FAILED_LOGIN: 'Đăng nhập thất bại',
+  ACTIVATE_USER: 'Mở khóa tài khoản',
+  LOCK_USER: 'Khóa tài khoản đăng nhập',
   APPROVE: 'Phê duyệt đơn từ',
   APPROVE_LEAVE: 'Phê duyệt đơn từ',
   REJECT: 'Từ chối đơn từ',
   CANCEL: 'Hủy đơn từ',
   LOCK_PAYROLL: 'Chốt bảng lương',
+  CALCULATE_PAYROLL: 'Tính bảng lương động',
   EXPORT_SALARY: 'Xuất bảng lương',
   EXPORT_PAYROLL: 'Xuất bảng lương',
   UPDATE_PERMISSION: 'Cập nhật phân quyền',
@@ -81,6 +85,22 @@ const ACTION_LABELS: Record<string, string> = {
   AI_CV_SCREEN: 'AI chấm điểm CV',
   UPDATE_CONTRACT: 'Cập nhật hợp đồng',
   CREATE_REQUEST: 'Tạo đơn từ mới',
+  PREBOARDING_SUBMIT: 'Ứng viên nộp Pre-boarding',
+  ONBOARDING_TASK: 'Hoàn thành tác vụ Onboarding',
+  PROBATION_TO_OFFICIAL: 'Chuyển chính thức sau thử việc',
+  CHECK_IN_OUT: 'Chấm công Web (Check-in/out)',
+  BIOMETRIC_REGISTER: 'Đăng ký vân tay / sinh trắc học',
+  BIOMETRIC_CHECK_IN_OUT: 'Chấm công vân tay + chung WiFi',
+  WIFI_CHECK_BLOCKED: 'Chặn chấm công do khác mạng WiFi',
+  ATTENDANCE_IMPORT: 'Import dữ liệu máy chấm công',
+  PERFORMANCE_REVIEW: 'Đánh giá hiệu suất (KPI/OKR)',
+  CAREER_PROGRESSION: 'Quyết định Bổ nhiệm / Điều chuyển',
+  SUBMIT_RESIGNATION: 'Nộp đơn xin thôi việc',
+  APPROVE_RESIGNATION: 'Phê duyệt đơn thôi việc',
+  HANDOVER_CONFIRM: 'Xác nhận bàn giao 3 bên',
+  MANAGER_REASSIGN: 'Chuyển giao Quản lý kế nhiệm',
+  CLEARANCE_SIGNOFF: 'Đối soát thu hồi & Thanh lý',
+  FINAL_SETTLEMENT: 'Quyết toán kỳ cuối & Khóa TK',
 };
 
 function formatTimestamp(iso: string): string {
@@ -146,7 +166,25 @@ export function AdminAuditView() {
         matchAction =
           log.action === 'EXPORT_SALARY' ||
           log.action === 'LOCK_PAYROLL' ||
+          log.action === 'CALCULATE_PAYROLL' ||
           (log.action as string) === 'EXPORT_PAYROLL';
+      } else if (actionFilter === 'PROBATION_TO_OFFICIAL') {
+        matchAction =
+          log.action === 'PREBOARDING_SUBMIT' ||
+          log.action === 'ONBOARDING_TASK' ||
+          log.action === 'PROBATION_TO_OFFICIAL';
+      } else if (actionFilter === 'CAREER_PROGRESSION') {
+        matchAction =
+          log.action === 'PERFORMANCE_REVIEW' ||
+          log.action === 'CAREER_PROGRESSION';
+      } else if (actionFilter === 'APPROVE_RESIGNATION') {
+        matchAction =
+          log.action === 'SUBMIT_RESIGNATION' ||
+          log.action === 'APPROVE_RESIGNATION';
+      } else if (actionFilter === 'HANDOVER_CONFIRM') {
+        matchAction =
+          log.action === 'HANDOVER_CONFIRM' ||
+          log.action === 'MANAGER_REASSIGN';
       } else if (actionFilter === 'FAILED_LOGIN') {
         matchAction = log.status === 'BLOCKED' || log.status === 'WARNING';
       } else if (actionFilter !== 'ALL') {
@@ -330,16 +368,19 @@ export function AdminAuditView() {
                 options={[
                   { label: 'Tất cả hành động', value: 'ALL' },
                   { label: 'Đăng nhập hệ thống', value: 'LOGIN' },
+                  { label: 'Mở khóa tài khoản', value: 'ACTIVATE_USER' },
+                  { label: 'Khóa tài khoản đăng nhập', value: 'LOCK_USER' },
+                  { label: 'Onboarding & Thử việc -> Chính thức', value: 'PROBATION_TO_OFFICIAL' },
+                  { label: 'Quyết định Bổ nhiệm / Điều chuyển', value: 'CAREER_PROGRESSION' },
+                  { label: 'Nộp / Duyệt đơn thôi việc', value: 'APPROVE_RESIGNATION' },
+                  { label: 'Bàn giao 3 bên & Kế nhiệm', value: 'HANDOVER_CONFIRM' },
+                  { label: 'Đối soát thu hồi & Thanh lý', value: 'CLEARANCE_SIGNOFF' },
+                  { label: 'Quyết toán kỳ cuối & Khóa TK', value: 'FINAL_SETTLEMENT' },
                   { label: 'Phê duyệt đơn từ', value: 'APPROVE' },
                   { label: 'Từ chối đơn từ', value: 'REJECT' },
-                  { label: 'Hủy đơn từ', value: 'CANCEL' },
                   { label: 'Tạo đơn mới', value: 'CREATE_REQUEST' },
-                  { label: 'Tạo dữ liệu mới', value: 'CREATE_RECORD' },
-                  { label: 'Cập nhật dữ liệu', value: 'UPDATE_RECORD' },
-                  { label: 'Xóa dữ liệu', value: 'DELETE_RECORD' },
+                  { label: 'Tính / Xuất bảng lương', value: 'EXPORT_PAYROLL' },
                   { label: 'Cập nhật phân quyền', value: 'UPDATE_PERMISSION' },
-                  { label: 'Cập nhật cấu hình', value: 'UPDATE_SETTINGS' },
-                  { label: 'Xuất bảng lương', value: 'EXPORT_PAYROLL' },
                   { label: 'AI chấm điểm CV', value: 'AI_CV_SCREEN' },
                   { label: 'Đăng nhập thất bại / Bị chặn', value: 'FAILED_LOGIN' },
                 ]}

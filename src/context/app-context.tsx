@@ -1,7 +1,11 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { initRuntimeSync } from '@/lib/runtime-store';
+import {
+  HRM_RUNTIME_EVENT,
+  findSystemUserForLogin,
+  initRuntimeSync,
+} from '@/lib/runtime-store';
 
 export type RoleCode =
   | 'SUPER_ADMIN'
@@ -58,10 +62,10 @@ export const ROLE_DEFAULT_PROFILES: Record<
   },
   CANDIDATE: {
     fullName: 'Hoàng Vũ Minh',
-    employee_code: 'UV-DEMO-001',
+    employee_code: 'UV-2026-001',
     title: 'Ứng viên tìm việc',
-    department: 'Cổng Ứng viên Tuyển dụng',
-    email: 'minh.hoang.candidate@gmail.com',
+    department: 'Ứng viên dự tuyển',
+    email: 'minh.hoang@gmail.com',
   },
 };
 
@@ -139,23 +143,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const savedEmail = window.localStorage.getItem(STORAGE_EMAIL_KEY);
-      if (savedEmail) {
-        setCurrentUserEmail(savedEmail);
-      }
+      const savedProfileRaw = window.localStorage.getItem(STORAGE_PROFILE_KEY);
+      const parsedProfile = savedProfileRaw
+        ? (JSON.parse(savedProfileRaw) as UserProfileOverride)
+        : null;
       const savedRole = window.localStorage.getItem(STORAGE_ROLE_KEY) as RoleCode | null;
-      if (savedRole && VALID_ROLES.includes(savedRole)) {
+
+      if (savedEmail) {
+        const authCheck = findSystemUserForLogin(
+          parsedProfile?.employee_code || savedEmail
+        );
+        if (!authCheck.canLogin) {
+          window.localStorage.removeItem(STORAGE_EMAIL_KEY);
+          window.localStorage.removeItem(STORAGE_PROFILE_KEY);
+          if (typeof document !== 'undefined') {
+            document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
+            document.cookie = 'hrm_token=; path=/; max-age=0; SameSite=Lax';
+            document.cookie = 'hrm_active=0; path=/; max-age=60; SameSite=Lax';
+          }
+        } else {
+          setCurrentUserEmail(savedEmail);
+          if (parsedProfile) {
+            const normalizedProfile: UserProfileOverride =
+              parsedProfile.department &&
+              parsedProfile.department.includes('Cổng Ứng viên')
+                ? { ...parsedProfile, department: 'Ứng viên dự tuyển' }
+                : parsedProfile;
+            setCurrentUserProfile(normalizedProfile);
+          }
+          const resolvedSavedRole =
+            authCheck.user?.role_code && VALID_ROLES.includes(authCheck.user.role_code)
+              ? authCheck.user.role_code
+              : savedRole && VALID_ROLES.includes(savedRole)
+                ? savedRole
+                : 'HR_MANAGER';
+          setRoleState(resolvedSavedRole);
+          if (typeof document !== 'undefined') {
+            document.cookie = `hrm_role=${resolvedSavedRole}; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = `hrm_token=demo-token-${resolvedSavedRole}; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = 'hrm_active=1; path=/; max-age=86400; SameSite=Lax';
+          }
+        }
+      } else if (savedRole && VALID_ROLES.includes(savedRole)) {
         setRoleState(savedRole);
         if (typeof document !== 'undefined') {
           document.cookie = `hrm_role=${savedRole}; path=/; max-age=86400; SameSite=Lax`;
-          if (savedEmail) {
-            document.cookie = `hrm_token=demo-token-${savedRole}; path=/; max-age=86400; SameSite=Lax`;
-          }
         }
       }
-      const savedProfile = window.localStorage.getItem(STORAGE_PROFILE_KEY);
-      if (savedProfile) {
-        setCurrentUserProfile(JSON.parse(savedProfile) as UserProfileOverride);
-      }
+
       const rawTheme = window.localStorage.getItem(STORAGE_THEME_KEY);
       const savedTheme: 'light' | 'dark' = rawTheme === 'dark' ? 'dark' : 'light';
       setThemeState(savedTheme);
@@ -218,8 +253,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ) => {
       setRoleState(nextRole);
       const normalizedEmail = email?.trim() ? email.trim() : null;
+      const sanitizedProfile: UserProfileOverride | null = profile
+        ? profile.department?.includes('Cổng Ứng viên')
+          ? { ...profile, department: 'Ứng viên dự tuyển' }
+          : profile
+        : null;
       setCurrentUserEmail(normalizedEmail);
-      setCurrentUserProfile(profile ?? null);
+      setCurrentUserProfile(sanitizedProfile);
       setActiveNavState('dashboard');
       setNavIntent(null);
 
@@ -227,18 +267,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (typeof document !== 'undefined') {
           document.cookie = `hrm_role=${nextRole}; path=/; max-age=86400; SameSite=Lax`;
           document.cookie = `hrm_token=demo-token-${nextRole}; path=/; max-age=86400; SameSite=Lax`;
+          document.cookie = 'hrm_active=1; path=/; max-age=86400; SameSite=Lax';
         }
-        window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
-        window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
-        if (normalizedEmail) {
-          window.localStorage.setItem(STORAGE_EMAIL_KEY, normalizedEmail);
-        } else {
-          window.localStorage.removeItem(STORAGE_EMAIL_KEY);
-        }
-        if (profile && (profile.fullName || profile.department)) {
-          window.localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(profile));
-        } else {
-          window.localStorage.removeItem(STORAGE_PROFILE_KEY);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('lacviet_applied_candidate_email');
+          window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
+          window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
+          if (normalizedEmail) {
+            window.localStorage.setItem(STORAGE_EMAIL_KEY, normalizedEmail);
+          } else {
+            window.localStorage.removeItem(STORAGE_EMAIL_KEY);
+          }
+          if (sanitizedProfile && (sanitizedProfile.fullName || sanitizedProfile.department)) {
+            window.localStorage.setItem(
+              STORAGE_PROFILE_KEY,
+              JSON.stringify(sanitizedProfile)
+            );
+          } else {
+            window.localStorage.removeItem(STORAGE_PROFILE_KEY);
+          }
         }
       } catch {
         // Ignore storage errors
@@ -256,10 +303,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (typeof document !== 'undefined') {
         document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
         document.cookie = 'hrm_token=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'hrm_active=; path=/; max-age=0; SameSite=Lax';
       }
-      window.localStorage.removeItem(STORAGE_EMAIL_KEY);
-      window.localStorage.removeItem(STORAGE_PROFILE_KEY);
-      window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('lacviet_applied_candidate_email');
+        window.localStorage.removeItem(STORAGE_EMAIL_KEY);
+        window.localStorage.removeItem(STORAGE_PROFILE_KEY);
+        window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
+      }
     } catch {
       // Ignore storage errors
     }
@@ -301,6 +352,89 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // Live runtime listener: auto-logout if current user is locked (is_active === false),
+  // or live-upgrade role & profile if promoted (e.g. EMPLOYEE -> DEPT_MANAGER)
+  useEffect(() => {
+    if (!currentUserEmail) return;
+
+    const handleRuntimeAuthSync = () => {
+      const lookupKey = currentUserProfile?.employee_code || currentUserEmail;
+      if (!lookupKey) return;
+
+      const check = findSystemUserForLogin(lookupKey);
+      if (!check.canLogin) {
+        logout();
+        if (typeof document !== 'undefined') {
+          document.cookie = 'hrm_active=0; path=/; max-age=30; SameSite=Lax';
+        }
+        showToast(
+          'Phiên làm việc đã bị khóa',
+          check.blockReason || 'Tài khoản của bạn đã bị thu hồi quyền truy cập.',
+          'error'
+        );
+        if (
+          typeof window !== 'undefined' &&
+          (window.location.pathname.startsWith('/app') ||
+            window.location.pathname.startsWith('/candidate'))
+        ) {
+          window.location.assign('/login?locked=1');
+        }
+        return;
+      }
+
+      const nextRole = check.user?.role_code ?? check.employee?.role_code;
+      if (nextRole && VALID_ROLES.includes(nextRole) && nextRole !== role) {
+        setRoleState(nextRole);
+        try {
+          window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
+          if (typeof document !== 'undefined') {
+            document.cookie = `hrm_role=${nextRole}; path=/; max-age=86400; SameSite=Lax`;
+            document.cookie = `hrm_token=demo-token-${nextRole}; path=/; max-age=86400; SameSite=Lax`;
+          }
+        } catch {
+          // Ignore storage errors
+        }
+      }
+
+      if (check.employee) {
+        const emp = check.employee;
+        const nextProfile: UserProfileOverride = {
+          ...currentUserProfile,
+          fullName: emp.full_name,
+          department: emp.department_name,
+          department_id: emp.department_id,
+          employee_code: emp.employee_code,
+          title: emp.position_name,
+          email: currentUserEmail,
+        };
+        const changed =
+          currentUserProfile?.fullName !== nextProfile.fullName ||
+          currentUserProfile?.department !== nextProfile.department ||
+          currentUserProfile?.department_id !== nextProfile.department_id ||
+          currentUserProfile?.employee_code !== nextProfile.employee_code ||
+          currentUserProfile?.title !== nextProfile.title;
+        if (changed) {
+          setCurrentUserProfile(nextProfile);
+          try {
+            window.localStorage.setItem(
+              STORAGE_PROFILE_KEY,
+              JSON.stringify(nextProfile)
+            );
+          } catch {
+            // Ignore storage errors
+          }
+        }
+      }
+    };
+
+    window.addEventListener(HRM_RUNTIME_EVENT, handleRuntimeAuthSync);
+    window.addEventListener('storage', handleRuntimeAuthSync);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, handleRuntimeAuthSync);
+      window.removeEventListener('storage', handleRuntimeAuthSync);
+    };
+  }, [currentUserEmail, currentUserProfile, role, logout, showToast]);
 
   return (
     <AppContext.Provider

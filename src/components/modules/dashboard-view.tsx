@@ -13,6 +13,7 @@ import {
   Send,
   ShieldAlert,
   TrendingUp,
+  UserMinus,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -25,7 +26,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useApp } from '@/context/app-context';
+import { ROLE_DEFAULT_PROFILES, useApp } from '@/context/app-context';
 import {
   fetchAtsMock,
   fetchAttendanceMock,
@@ -33,6 +34,17 @@ import {
   fetchPayrollMock,
   HeadcountTrendItem,
 } from '@/lib/mock-fetcher';
+import {
+  HRM_RUNTIME_EVENT,
+  getContracts,
+  getExpiringProbationContracts,
+  getLeaveBalances,
+  getPayrollRecords,
+  getResignations,
+  mergeWithRuntimeCandidates,
+  mergeWithRuntimeEmployees,
+  mergeWithRuntimeRequests,
+} from '@/lib/runtime-store';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import type {
   AnnualLeaveBalance,
@@ -43,6 +55,7 @@ import type {
   EmploymentContract,
   LeaveOvertimeRequest,
   PayrollRecord,
+  ResignationRequest,
   RiskLevel,
 } from '@/mock/types';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
@@ -74,8 +87,20 @@ const ROLE_SUBTITLE: Record<string, string> = {
 };
 
 export function DashboardView() {
-  const { role, theme, setActiveNav, showToast } = useApp();
+  const {
+    role,
+    theme,
+    setActiveNav,
+    showToast,
+    currentUserEmail,
+    currentUserProfile,
+  } = useApp();
   const [isLoading, setIsLoading] = useState(true);
+  const [baseEmployees, setBaseEmployees] = useState<Employee[]>([]);
+  const [baseContracts, setBaseContracts] = useState<EmploymentContract[]>([]);
+  const [baseRequests, setBaseRequests] = useState<LeaveOvertimeRequest[]>([]);
+  const [basePayrolls, setBasePayrolls] = useState<PayrollRecord[]>([]);
+  const [baseCandidates, setBaseCandidates] = useState<Candidate[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [contracts, setContracts] = useState<EmploymentContract[]>([]);
   const [burnoutAlerts, setBurnoutAlerts] = useState<BurnoutTurnoverAlert[]>([]);
@@ -85,6 +110,8 @@ export function DashboardView() {
   const [annualLeaveBalances, setAnnualLeaveBalances] = useState<AnnualLeaveBalance[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [resignations, setResignations] = useState<ResignationRequest[]>([]);
+  const [expiringProbationCount, setExpiringProbationCount] = useState<number>(0);
   const [sentAlertIds, setSentAlertIds] = useState<Record<string, boolean>>({});
   const [selectedAlert, setSelectedAlert] = useState<BurnoutTurnoverAlert | null>(null);
 
@@ -98,15 +125,31 @@ export function DashboardView() {
     ])
       .then(([empData, attData, payData, atsData]) => {
         if (!active) return;
-        setEmployees(empData.MOCK_EMPLOYEES);
-        setContracts(empData.MOCK_CONTRACTS);
+        setBaseEmployees(empData.MOCK_EMPLOYEES);
+        setBaseContracts(empData.MOCK_CONTRACTS);
+        setBaseRequests(attData.MOCK_LEAVE_OVERTIME_REQUESTS);
+        setBasePayrolls(payData.MOCK_PAYROLL_RECORDS);
+        setBaseCandidates(atsData.MOCK_CANDIDATES);
+
+        setEmployees(mergeWithRuntimeEmployees(empData.MOCK_EMPLOYEES));
+        setContracts(getContracts(empData.MOCK_CONTRACTS));
         setBurnoutAlerts(empData.MOCK_BURNOUT_ALERTS);
         setKpiRecords(empData.MOCK_KPI_RECORDS);
         setHeadcountTrend(empData.MOCK_HEADCOUNT_TREND);
-        setLeaveRequests(attData.MOCK_LEAVE_OVERTIME_REQUESTS);
-        setAnnualLeaveBalances(attData.MOCK_ANNUAL_LEAVE_BALANCES);
-        setPayrollRecords(payData.MOCK_PAYROLL_RECORDS);
-        setCandidates(atsData.MOCK_CANDIDATES);
+        setLeaveRequests(
+          mergeWithRuntimeRequests(attData.MOCK_LEAVE_OVERTIME_REQUESTS)
+        );
+        const rtBalances = getLeaveBalances(2026);
+        setAnnualLeaveBalances(
+          rtBalances.length > 0 ? rtBalances : attData.MOCK_ANNUAL_LEAVE_BALANCES
+        );
+        const rtPayrolls = getPayrollRecords('2026-11');
+        setPayrollRecords(
+          rtPayrolls.length > 0 ? rtPayrolls : payData.MOCK_PAYROLL_RECORDS
+        );
+        setCandidates(mergeWithRuntimeCandidates(atsData.MOCK_CANDIDATES));
+        setResignations(getResignations());
+        setExpiringProbationCount(getExpiringProbationContracts(30).length);
       })
       .catch(() => {
         if (!active) return;
@@ -120,13 +163,72 @@ export function DashboardView() {
     };
   }, [showToast]);
 
+  useEffect(() => {
+    if (baseEmployees.length === 0) return;
+    const syncDashboardRuntime = () => {
+      setEmployees(mergeWithRuntimeEmployees(baseEmployees));
+      setContracts(getContracts(baseContracts));
+      setLeaveRequests(mergeWithRuntimeRequests(baseRequests));
+      const rtBalances = getLeaveBalances(2026);
+      if (rtBalances.length > 0) setAnnualLeaveBalances(rtBalances);
+      const rtPayrolls = getPayrollRecords('2026-11');
+      setPayrollRecords(rtPayrolls.length > 0 ? rtPayrolls : basePayrolls);
+      setCandidates(mergeWithRuntimeCandidates(baseCandidates));
+      setResignations(getResignations());
+      setExpiringProbationCount(getExpiringProbationContracts(30).length);
+    };
+    window.addEventListener(HRM_RUNTIME_EVENT, syncDashboardRuntime);
+    window.addEventListener('storage', syncDashboardRuntime);
+    return () => {
+      window.removeEventListener(HRM_RUNTIME_EVENT, syncDashboardRuntime);
+      window.removeEventListener('storage', syncDashboardRuntime);
+    };
+  }, [
+    baseEmployees,
+    baseContracts,
+    baseRequests,
+    basePayrolls,
+    baseCandidates,
+  ]);
+
   const totalEmployees = employees.length;
   const activeEmployees = useMemo(
     () => employees.filter((e) => e.employment_status !== 'RESIGNED').length,
     [employees]
   );
+  const probationEmployeesCount = useMemo(
+    () =>
+      employees.filter(
+        (e) =>
+          e.employment_status === 'PROBATION' ||
+          e.employment_status === 'PENDING_ONBOARD'
+      ).length,
+    [employees]
+  );
+  const noticePeriodEmployeesCount = useMemo(
+    () => employees.filter((e) => e.employment_status === 'NOTICE_PERIOD').length,
+    [employees]
+  );
+  const resignedEmployeesCount = useMemo(
+    () => employees.filter((e) => e.employment_status === 'RESIGNED').length,
+    [employees]
+  );
+  const activeOffboardingsCount = useMemo(
+    () =>
+      resignations.filter(
+        (r) =>
+          r.status !== 'COMPLETED' &&
+          r.status !== 'REJECTED' &&
+          r.status !== 'CANCELLED'
+      ).length,
+    [resignations]
+  );
   const pendingRequests = useMemo(
-    () => leaveRequests.filter((r) => r.approval_status === 'PENDING'),
+    () =>
+      leaveRequests.filter((r) => {
+        const st = r.status ?? r.approval_status;
+        return st === 'PENDING' || st === 'IN_PROGRESS';
+      }),
     [leaveRequests]
   );
   const totalGrossPayroll = useMemo(
@@ -170,8 +272,16 @@ export function DashboardView() {
     return burnoutAlerts;
   }, [role, deptAlerts, burnoutAlerts]);
 
-  const personalLeave = annualLeaveBalances[0];
-  const personalKpi = kpiRecords[0];
+  const currentEmployeeCode =
+    currentUserProfile?.employee_code ||
+    ROLE_DEFAULT_PROFILES[role]?.employee_code ||
+    'NV-2024-004';
+  const personalLeave =
+    annualLeaveBalances.find((b) => b.employee_code === currentEmployeeCode) ??
+    annualLeaveBalances[0];
+  const personalKpi =
+    kpiRecords.find((k) => k.employee_code === currentEmployeeCode) ??
+    kpiRecords[0];
 
   const handleSendToHr = (alert: BurnoutTurnoverAlert) => {
     if (sentAlertIds[alert.id]) return;
@@ -265,11 +375,11 @@ export function DashboardView() {
                   {activeEmployees}/{totalEmployees}
                 </span>
                 <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
-                  +2 tháng 11
+                  {probationEmployeesCount} thử việc
                 </span>
               </div>
-              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Tổng định biên toàn công ty: 104 nhân sự
+              <p className="mt-1 font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
+                Báo trước nghỉ: {noticePeriodEmployeesCount} · Đã nghỉ: {resignedEmployeesCount}
               </p>
             </CardContent>
           </Card>
@@ -666,26 +776,50 @@ export function DashboardView() {
             </div>
 
             {role !== 'EMPLOYEE' && (
-              <div
-                onClick={() => setActiveNav('contracts')}
-                className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
-                    Hợp đồng sắp hết hạn (&lt;= 30 ngày)
+              <>
+                <div
+                  onClick={() => setActiveNav('onboarding')}
+                  className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
+                      Thử việc sắp đến hạn đánh giá (&lt;= 30 ngày)
+                    </span>
+                    <Badge variant="warning" className="font-mono tabular-nums">
+                      {expiringProbationCount}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                    Đánh giá kết quả 60 ngày & chuyển ký HĐ chính thức 100% lương.
+                  </p>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] dark:text-teal-400">
+                    Mở phân hệ Onboarding
+                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </span>
-                  <Badge variant="danger" className="font-mono tabular-nums">
-                    {expiringContractsCount}
-                  </Badge>
                 </div>
-                <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                  Cần rà soát tái ký trước khi hết hiệu lực.
-                </p>
-                <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] dark:text-teal-400">
-                  Kiểm tra hợp đồng
-                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </span>
-              </div>
+
+                <div
+                  onClick={() => setActiveNav('offboarding')}
+                  className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-[#11221E] dark:text-zinc-100">
+                      <UserMinus className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                      Đơn thôi việc & Bàn giao Offboarding
+                    </span>
+                    <Badge variant="danger" className="font-mono tabular-nums">
+                      {activeOffboardingsCount}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                    Đối soát hạn báo trước, bàn giao 3 bên, thu hồi tài sản & quyết toán.
+                  </p>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0F766E] dark:text-teal-400">
+                    Mở Nghỉ việc & Tất toán
+                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </span>
+                </div>
+              </>
             )}
 
             <div

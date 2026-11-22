@@ -5,7 +5,19 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hrmRole = request.cookies.get('hrm_role')?.value;
   const hrmToken = request.cookies.get('hrm_token')?.value;
+  const hrmActive = request.cookies.get('hrm_active')?.value;
   const isAuthenticated = Boolean(hrmRole && hrmToken);
+
+  // Immediately revoke session if account was marked inactive/locked (hrm_active === '0')
+  if (hrmActive === '0') {
+    const lockedLoginUrl = new URL('/login', request.url);
+    lockedLoginUrl.searchParams.set('locked', '1');
+    const response = NextResponse.redirect(lockedLoginUrl);
+    response.cookies.delete('hrm_role');
+    response.cookies.delete('hrm_token');
+    response.cookies.delete('hrm_active');
+    return response;
+  }
 
   // Protected /app route (internal management portal)
   if (pathname.startsWith('/app')) {

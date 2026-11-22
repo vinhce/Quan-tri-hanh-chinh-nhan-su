@@ -1,19 +1,21 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   Ban,
   Calendar,
   Check,
   CheckCircle2,
   Clock,
+  FileCheck2,
   FileText,
   MinusCircle,
   Pencil,
   Plus,
   Search,
-  Trash2,
+  Timer,
   UserCheck,
   X,
   XCircle,
@@ -32,25 +34,56 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useApp, type RoleCode } from '@/context/app-context';
+import {
+  useApp,
+  type RoleCode,
+  type UserProfileOverride,
+} from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchAttendanceMock } from '@/lib/mock-fetcher';
 import {
   HRM_RUNTIME_EVENT,
+  applyApprovedRequestSideEffects,
+  evaluateDailyPunch,
+  getAllRuntimeEmployees,
+  getDailyAttendances,
+  getLeaveBalances,
+  getRuntimeDepartments,
+  handleRequestLifecycleChange,
   mergeWithRuntimeRequests,
   pushNotification,
   saveRuntimeRequest,
 } from '@/lib/runtime-store';
+import { alertSwal, confirmSwal, promptTextSwal } from '@/lib/swal';
 import { formatDateVN } from '@/lib/utils';
 import type {
+  AnnualLeaveBalance,
   ApprovalStep,
+  Employee,
   LeaveOvertimeRequest,
   MultiStepRequestStatus,
   RequestCategory,
 } from '@/mock/types';
 
-type CategoryFilterGroup = 'ALL' | 'LEAVE' | 'OVERTIME' | 'REMOTE_WORK' | 'BUSINESS_TRIP';
-type StatusFilterTab = 'ALL' | 'PENDING_GROUP' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+type CategoryFilterGroup =
+  | 'ALL'
+  | 'LEAVE'
+  | 'ANNUAL_LEAVE'
+  | 'SICK_LEAVE'
+  | 'UNPAID_LEAVE'
+  | 'LATE_EXPLANATION'
+  | 'OVERTIME'
+  | 'REMOTE_WORK'
+  | 'BUSINESS_TRIP';
+
+type StatusFilterTab =
+  | 'ALL'
+  | 'PENDING_GROUP'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+type OtDayType = 'WEEKDAY' | 'WEEKEND' | 'HOLIDAY';
 
 function normalizeVietnamese(text: string): string {
   return text
@@ -67,7 +100,10 @@ const TECH_DIVISION_DEPARTMENTS = new Set([
   'Phòng Dữ liệu & AI',
 ]);
 
-const ROLE_ACTOR_DEFAULT: Record<RoleCode, { code: string; name: string; dept: string; pos: string }> = {
+const ROLE_ACTOR_DEFAULT: Record<
+  RoleCode,
+  { code: string; name: string; dept: string; pos: string }
+> = {
   SUPER_ADMIN: {
     code: 'NV-2024-001',
     name: 'Nguyễn Văn An',
@@ -106,13 +142,58 @@ const ROLE_ACTOR_DEFAULT: Record<RoleCode, { code: string; name: string; dept: s
   },
 };
 
+function resolveLoggedInEmployee(
+  employees: Employee[],
+  role: RoleCode,
+  profile: UserProfileOverride | null,
+  email: string | null
+): Employee | null {
+  if (employees.length === 0) return null;
+
+  if (profile?.employee_code) {
+    const byCode = employees.find(
+      (e) =>
+        e.employee_code.toLowerCase() ===
+        profile.employee_code!.trim().toLowerCase()
+    );
+    if (byCode) return byCode;
+  }
+
+  const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
+  if (candidateEmail) {
+    const exactEmail = employees.find(
+      (e) => e.email.toLowerCase() === candidateEmail
+    );
+    if (exactEmail) return exactEmail;
+
+    const localPart = candidateEmail.split('@')[0];
+    if (localPart) {
+      const byLocal = employees.find(
+        (e) => e.email.split('@')[0].toLowerCase() === localPart
+      );
+      if (byLocal) return byLocal;
+    }
+  }
+
+  const fallbackCode = ROLE_ACTOR_DEFAULT[role].code;
+  return (
+    employees.find((e) => e.employee_code === fallbackCode) ??
+    employees[0] ??
+    null
+  );
+}
+
 function getEffectiveStatus(req: LeaveOvertimeRequest): MultiStepRequestStatus {
   return req.status ?? req.approval_status;
 }
 
 const STATUS_BADGE: Record<
   MultiStepRequestStatus,
-  { label: string; variant: 'warning' | 'teal' | 'success' | 'error' | 'muted'; borderClass: string }
+  {
+    label: string;
+    variant: 'warning' | 'teal' | 'success' | 'error' | 'muted';
+    borderClass: string;
+  }
 > = {
   PENDING: {
     label: 'Chờ duyệt',
@@ -122,7 +203,7 @@ const STATUS_BADGE: Record<
   IN_PROGRESS: {
     label: 'Đang xử lý',
     variant: 'teal',
-    borderClass: 'border-l-4 border-l-amber-500 dark:border-l-amber-400',
+    borderClass: 'border-l-4 border-l-[#0F766E] dark:border-l-teal-400',
   },
   APPROVED: {
     label: 'Đã duyệt',
@@ -142,16 +223,23 @@ const STATUS_BADGE: Record<
 };
 
 function getCategoryBadgeClass(cat: RequestCategory): string {
-  if (cat === 'ANNUAL_LEAVE' || cat === 'SICK_LEAVE' || cat === 'UNPAID_LEAVE') {
-    return 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-400';
+  if (
+    cat === 'ANNUAL_LEAVE' ||
+    cat === 'SICK_LEAVE' ||
+    cat === 'UNPAID_LEAVE'
+  ) {
+    return 'border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300';
   }
   if (cat === 'OVERTIME') {
-    return 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400';
+    return 'border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300';
+  }
+  if (cat === 'LATE_EXPLANATION') {
+    return 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300';
   }
   if (cat === 'REMOTE_WORK') {
-    return 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-400';
+    return 'border-[#0F766E]/25 bg-[#CBE8E2]/60 text-[#0B4F4A] dark:border-teal-400/25 dark:bg-teal-950/40 dark:text-teal-300';
   }
-  return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+  return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
 }
 
 const NEW_REQUEST_OPTIONS: Array<{
@@ -159,18 +247,78 @@ const NEW_REQUEST_OPTIONS: Array<{
   label: string;
   defaultUnit: 'NGAY' | 'GIO';
 }> = [
-  { value: 'ANNUAL_LEAVE', label: 'Nghỉ phép năm có hưởng lương', defaultUnit: 'NGAY' },
-  { value: 'UNPAID_LEAVE', label: 'Nghỉ không hưởng lương', defaultUnit: 'NGAY' },
-  { value: 'OVERTIME', label: 'Đăng ký tăng ca (OT)', defaultUnit: 'GIO' },
-  { value: 'REMOTE_WORK', label: 'Làm việc từ xa (WFH)', defaultUnit: 'NGAY' },
-  { value: 'BUSINESS_TRIP', label: 'Công tác trong nước', defaultUnit: 'NGAY' },
-  { value: 'OVERSEAS_BUSINESS_TRIP', label: 'Công tác nước ngoài', defaultUnit: 'NGAY' },
+  {
+    value: 'ANNUAL_LEAVE',
+    label: 'Nghỉ phép năm có hưởng lương',
+    defaultUnit: 'NGAY',
+  },
+  {
+    value: 'UNPAID_LEAVE',
+    label: 'Nghỉ không hưởng lương',
+    defaultUnit: 'NGAY',
+  },
+  {
+    value: 'SICK_LEAVE',
+    label: 'Nghỉ ốm / Chế độ BHXH',
+    defaultUnit: 'NGAY',
+  },
+  {
+    value: 'OVERTIME',
+    label: 'Làm thêm giờ (OT)',
+    defaultUnit: 'GIO',
+  },
+  {
+    value: 'REMOTE_WORK',
+    label: 'Làm việc từ xa (WFH)',
+    defaultUnit: 'NGAY',
+  },
+  {
+    value: 'LATE_EXPLANATION',
+    label: 'Giải trình chấm công (Quên chấm / Đi muộn)',
+    defaultUnit: 'NGAY',
+  },
+  {
+    value: 'BUSINESS_TRIP',
+    label: 'Công tác trong nước',
+    defaultUnit: 'NGAY',
+  },
+  {
+    value: 'OVERSEAS_BUSINESS_TRIP',
+    label: 'Công tác nước ngoài',
+    defaultUnit: 'NGAY',
+  },
 ];
 
-function matchesCategoryGroup(cat: RequestCategory, group: CategoryFilterGroup): boolean {
+const OT_DAY_TYPE_CONFIG: Record<
+  OtDayType,
+  { label: string; multiplier: number; shortLabel: string }
+> = {
+  WEEKDAY: {
+    label: 'Ngày thường — Hệ số 1.5x (150%)',
+    multiplier: 1.5,
+    shortLabel: 'Ngày thường 1.5x',
+  },
+  WEEKEND: {
+    label: 'Cuối tuần — Hệ số 2.0x (200%)',
+    multiplier: 2.0,
+    shortLabel: 'Cuối tuần 2.0x',
+  },
+  HOLIDAY: {
+    label: 'Ngày lễ / Tết — Hệ số 3.0x (300%)',
+    multiplier: 3.0,
+    shortLabel: 'Ngày lễ 3.0x',
+  },
+};
+
+function matchesCategoryGroup(
+  cat: RequestCategory,
+  group: CategoryFilterGroup
+): boolean {
   if (group === 'ALL') return true;
   if (group === 'LEAVE') {
-    return cat === 'ANNUAL_LEAVE' || cat === 'SICK_LEAVE' || cat === 'UNPAID_LEAVE';
+    return (
+      cat === 'ANNUAL_LEAVE' || cat === 'SICK_LEAVE' || cat === 'UNPAID_LEAVE'
+    );
   }
   if (group === 'BUSINESS_TRIP') {
     return cat === 'BUSINESS_TRIP' || cat === 'OVERSEAS_BUSINESS_TRIP';
@@ -244,6 +392,7 @@ function resolveDepartmentId(deptName: string, fallbackDeptId?: string): string 
 export function RequestsView() {
   const {
     role,
+    currentUserEmail,
     currentUserProfile,
     navIntent,
     clearNavIntent,
@@ -251,17 +400,62 @@ export function RequestsView() {
     setUiState,
     showToast,
   } = useApp();
-  const actorInfo = ROLE_ACTOR_DEFAULT[role];
-  const currentEmployeeCode = currentUserProfile?.employee_code ?? actorInfo.code;
-  const currentEmployeeName = currentUserProfile?.fullName ?? actorInfo.name;
-  const currentDepartment = currentUserProfile?.department ?? actorInfo.dept;
 
   const baseRequestsRef = useRef<LeaveOvertimeRequest[]>([]);
   const [requests, setRequests] = useState<LeaveOvertimeRequest[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<AnnualLeaveBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilterTab>('ALL');
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilterGroup>('ALL');
+  const [categoryFilter, setCategoryFilter] =
+    useState<CategoryFilterGroup>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Modal & detail states
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] =
+    useState<LeaveOvertimeRequest | null>(null);
+  const [checklistChecked, setChecklistChecked] = useState(false);
+
+  // Admin inline edit state
+  const [isEditingRequest, setIsEditingRequest] = useState(false);
+  const [editDuration, setEditDuration] = useState('1');
+  const [editHandover, setEditHandover] = useState('');
+  const [editReason, setEditReason] = useState('');
+
+  // Create Request Form States
+  const [formEmployeeCode, setFormEmployeeCode] = useState('');
+  const [formCategory, setFormCategory] =
+    useState<RequestCategory>('ANNUAL_LEAVE');
+  const [formStartDate, setFormStartDate] = useState('2026-11-25');
+  const [formEndDate, setFormEndDate] = useState('2026-11-25');
+  const [formDuration, setFormDuration] = useState('1');
+  const [formUnit, setFormUnit] = useState<'NGAY' | 'GIO'>('NGAY');
+  const [formHandover, setFormHandover] = useState('');
+  const [formReason, setFormReason] = useState('');
+  const [formMedicalDocNote, setFormMedicalDocNote] = useState('');
+  const [formOtDayType, setFormOtDayType] = useState<OtDayType>('WEEKDAY');
+  const [formTargetDate, setFormTargetDate] = useState('2026-11-18');
+  const [formActualCheckIn, setFormActualCheckIn] = useState('08:30');
+  const [formActualCheckOut, setFormActualCheckOut] = useState('17:30');
+  const [formError, setFormError] = useState('');
+
+  const syncFromRuntime = useCallback(() => {
+    const mergedRequests = mergeWithRuntimeRequests(baseRequestsRef.current);
+    setRequests(mergedRequests);
+    setEmployees(getAllRuntimeEmployees());
+    setLeaveBalances(getLeaveBalances(2026));
+    setSelectedRequest((prev) => {
+      if (!prev) return null;
+      return (
+        mergedRequests.find(
+          (item) =>
+            item.id === prev.id || item.request_code === prev.request_code
+        ) ?? null
+      );
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -269,48 +463,110 @@ export function RequestsView() {
       .then((data) => {
         if (!active) return;
         baseRequestsRef.current = data.MOCK_LEAVE_OVERTIME_REQUESTS;
-        setRequests(mergeWithRuntimeRequests(data.MOCK_LEAVE_OVERTIME_REQUESTS));
+        syncFromRuntime();
         setIsLoading(false);
       })
       .catch(() => {
-        if (active) setIsLoading(false);
+        if (!active) return;
+        syncFromRuntime();
+        setIsLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [syncFromRuntime]);
 
   useEffect(() => {
-    const syncFromRuntime = () => {
-      const merged = mergeWithRuntimeRequests(baseRequestsRef.current);
-      setRequests(merged);
-      setSelectedRequest((prev) => {
-        if (!prev) return null;
-        return (
-          merged.find(
-            (item) => item.id === prev.id || item.request_code === prev.request_code
-          ) ?? null
-        );
-      });
-    };
-
     window.addEventListener(HRM_RUNTIME_EVENT, syncFromRuntime);
     window.addEventListener('storage', syncFromRuntime);
     return () => {
       window.removeEventListener(HRM_RUNTIME_EVENT, syncFromRuntime);
       window.removeEventListener('storage', syncFromRuntime);
     };
-  }, []);
+  }, [syncFromRuntime]);
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<LeaveOvertimeRequest | null>(null);
-  const [checklistChecked, setChecklistChecked] = useState(false);
+  const currentEmp = useMemo(
+    () =>
+      resolveLoggedInEmployee(
+        employees,
+        role,
+        currentUserProfile,
+        currentUserEmail
+      ),
+    [employees, role, currentUserProfile, currentUserEmail]
+  );
 
+  const actorFallback = ROLE_ACTOR_DEFAULT[role];
+  const currentEmployeeCode =
+    currentEmp?.employee_code ??
+    currentUserProfile?.employee_code ??
+    actorFallback.code;
+  const currentEmployeeName =
+    currentEmp?.full_name ?? currentUserProfile?.fullName ?? actorFallback.name;
+  const currentDepartment =
+    currentEmp?.department_name ??
+    currentUserProfile?.department ??
+    actorFallback.dept;
+
+  // Keep formEmployeeCode synced to logged-in employee when not explicitly overridden
+  useEffect(() => {
+    if (!isCreateOpen && currentEmployeeCode) {
+      setFormEmployeeCode(currentEmployeeCode);
+    }
+  }, [currentEmployeeCode, isCreateOpen]);
+
+  // Handle incoming navIntent (both Explanation creation from Attendance & deep link to request)
   useEffect(() => {
     if (isLoading || !navIntent || navIntent.navId !== 'leaves') return;
+
+    if (navIntent.subTab === 'explanation') {
+      const rawEntity = navIntent.entityId || '';
+      const [parsedEmpCode, parsedDate] = rawEntity.includes('|')
+        ? rawEntity.split('|')
+        : ['', rawEntity];
+
+      const effectiveDate = /^\d{4}-\d{2}-\d{2}$/.test(parsedDate || '')
+        ? parsedDate!
+        : '2026-11-18';
+      const canCreateOnBehalf =
+        role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+      const resolvedCode =
+        parsedEmpCode &&
+        (canCreateOnBehalf || parsedEmpCode === currentEmployeeCode)
+          ? parsedEmpCode
+          : currentEmployeeCode;
+
+      const dailyMatch = getDailyAttendances(
+        effectiveDate.slice(0, 7),
+        resolvedCode
+      ).find((d) => d.date === effectiveDate);
+
+      setFormEmployeeCode(resolvedCode);
+      setFormCategory('LATE_EXPLANATION');
+      setFormUnit('NGAY');
+      setFormDuration('1');
+      setFormTargetDate(effectiveDate);
+      setFormStartDate(effectiveDate);
+      setFormEndDate(effectiveDate);
+      setFormActualCheckIn(dailyMatch?.check_in || '08:30');
+      setFormActualCheckOut(dailyMatch?.check_out || '17:30');
+      setFormReason(
+        dailyMatch?.status === 'MISSING_PUNCH'
+          ? `Giải trình bổ sung giờ chấm công ngày ${formatDateVN(effectiveDate)} do quên quẹt thẻ vân tay.`
+          : ''
+      );
+      setFormError('');
+      setStatusFilter('ALL');
+      setCategoryFilter('ALL');
+      setIsCreateOpen(true);
+      clearNavIntent();
+      return;
+    }
+
     if (navIntent.entityId) {
       const matched = requests.find(
-        (r) => r.request_code === navIntent.entityId || r.id === navIntent.entityId
+        (r) =>
+          r.request_code === navIntent.entityId || r.id === navIntent.entityId
       );
       if (matched) {
         setStatusFilter('ALL');
@@ -322,42 +578,140 @@ export function RequestsView() {
       }
     }
     clearNavIntent();
-  }, [isLoading, navIntent, requests, clearNavIntent]);
+  }, [
+    isLoading,
+    navIntent,
+    requests,
+    role,
+    currentEmployeeCode,
+    clearNavIntent,
+  ]);
 
-  const [rejectTarget, setRejectTarget] = useState<LeaveOvertimeRequest | null>(null);
-  const [rejectReasonInput, setRejectReasonInput] = useState('');
-  const [rejectError, setRejectError] = useState('');
-  const [cancelTarget, setCancelTarget] = useState<LeaveOvertimeRequest | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<LeaveOvertimeRequest | null>(null);
-  const [isEditingRequest, setIsEditingRequest] = useState(false);
-  const [editDuration, setEditDuration] = useState('1');
-  const [editHandover, setEditHandover] = useState('');
-  const [editReason, setEditReason] = useState('');
+  const canSelectRequester = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
 
-  const [formCategory, setFormCategory] = useState<RequestCategory>('ANNUAL_LEAVE');
-  const [formStartDate, setFormStartDate] = useState('2026-11-25');
-  const [formEndDate, setFormEndDate] = useState('2026-11-25');
-  const [formDuration, setFormDuration] = useState('1');
-  const [formUnit, setFormUnit] = useState<'NGAY' | 'GIO'>('NGAY');
-  const [formHandover, setFormHandover] = useState('');
-  const [formReason, setFormReason] = useState('');
-  const [formError, setFormError] = useState('');
+  const targetRequesterEmp = useMemo(() => {
+    if (canSelectRequester && formEmployeeCode) {
+      const found = employees.find(
+        (e) => e.employee_code === formEmployeeCode
+      );
+      if (found) return found;
+    }
+    return currentEmp;
+  }, [canSelectRequester, formEmployeeCode, employees, currentEmp]);
 
+  const myLeaveBalance = useMemo(() => {
+    return (
+      leaveBalances.find(
+        (b) =>
+          b.employee_code === currentEmployeeCode ||
+          (currentEmp && b.employee_id === currentEmp.id)
+      ) ?? null
+    );
+  }, [leaveBalances, currentEmployeeCode, currentEmp]);
+
+  const formRequesterBalance = useMemo(() => {
+    const targetCode =
+      targetRequesterEmp?.employee_code ?? currentEmployeeCode;
+    const targetId = targetRequesterEmp?.id;
+    return (
+      leaveBalances.find(
+        (b) =>
+          b.employee_code === targetCode || (targetId && b.employee_id === targetId)
+      ) ?? null
+    );
+  }, [leaveBalances, targetRequesterEmp, currentEmployeeCode]);
+
+  const explanationPreview = useMemo(() => {
+    if (formCategory !== 'LATE_EXPLANATION') return null;
+    const targetCode =
+      targetRequesterEmp?.employee_code ?? currentEmployeeCode;
+    const shiftCode = targetRequesterEmp?.work_shift_code || 'HC-08:30';
+    const existingDaily = getDailyAttendances(
+      formTargetDate.slice(0, 7),
+      targetCode
+    ).find((d) => d.date === formTargetDate);
+
+    const evalRes = evaluateDailyPunch({
+      shiftCode: existingDaily?.shift_code || shiftCode,
+      checkIn: formActualCheckIn || null,
+      checkOut: formActualCheckOut || null,
+    });
+    const recoveredWorkday =
+      evalRes.workday_value > 0 ? evalRes.workday_value : 1;
+
+    return {
+      existingDaily,
+      evalRes,
+      recoveredWorkday,
+      shiftCode: existingDaily?.shift_code || shiftCode,
+    };
+  }, [
+    formCategory,
+    formTargetDate,
+    formActualCheckIn,
+    formActualCheckOut,
+    targetRequesterEmp,
+    currentEmployeeCode,
+  ]);
+
+  // Scoped requests (also respects current_approver_id for successor Manager re-assignment!)
   const scopedRequests = useMemo(() => {
+    if (
+      role === 'SUPER_ADMIN' ||
+      role === 'DIRECTOR' ||
+      role === 'HR_MANAGER'
+    ) {
+      return requests;
+    }
+
     if (role === 'DEPT_MANAGER') {
-      return requests.filter(
-        (r) =>
-          TECH_DIVISION_DEPARTMENTS.has(r.department_name) ||
-          r.employee_code === currentEmployeeCode
-      );
+      return requests.filter((r) => {
+        if (
+          currentEmp &&
+          (r.current_approver_id === currentEmp.id ||
+            r.approver_id === currentEmp.id)
+        ) {
+          return true;
+        }
+        if (
+          r.employee_code === currentEmployeeCode ||
+          (currentEmp && r.employee_id === currentEmp.id)
+        ) {
+          return true;
+        }
+        if (currentEmp) {
+          const reqEmp = employees.find(
+            (e) => e.id === r.employee_id || e.employee_code === r.employee_code
+          );
+          if (reqEmp?.manager_id === currentEmp.id) return true;
+          if (
+            TECH_DIVISION_DEPARTMENTS.has(currentEmp.department_name) &&
+            TECH_DIVISION_DEPARTMENTS.has(r.department_name)
+          ) {
+            return true;
+          }
+          if (r.department_name === currentEmp.department_name) return true;
+        }
+        return TECH_DIVISION_DEPARTMENTS.has(r.department_name);
+      });
     }
-    if (role === 'EMPLOYEE') {
-      return requests.filter(
-        (r) => r.employee_code === currentEmployeeCode || r.full_name === currentEmployeeName
-      );
-    }
-    return requests;
-  }, [requests, role, currentEmployeeCode, currentEmployeeName]);
+
+    // EMPLOYEE (also sees any pending requests explicitly re-assigned to them via current_approver_id)
+    return requests.filter(
+      (r) =>
+        r.employee_code === currentEmployeeCode ||
+        (currentEmp && r.employee_id === currentEmp.id) ||
+        r.full_name === currentEmployeeName ||
+        Boolean(currentEmp && r.current_approver_id === currentEmp.id)
+    );
+  }, [
+    requests,
+    role,
+    currentEmp,
+    currentEmployeeCode,
+    currentEmployeeName,
+    employees,
+  ]);
 
   const statusCounts = useMemo(() => {
     return {
@@ -366,9 +720,15 @@ export function RequestsView() {
         const s = getEffectiveStatus(r);
         return s === 'PENDING' || s === 'IN_PROGRESS';
       }).length,
-      APPROVED: scopedRequests.filter((r) => getEffectiveStatus(r) === 'APPROVED').length,
-      REJECTED: scopedRequests.filter((r) => getEffectiveStatus(r) === 'REJECTED').length,
-      CANCELLED: scopedRequests.filter((r) => getEffectiveStatus(r) === 'CANCELLED').length,
+      APPROVED: scopedRequests.filter(
+        (r) => getEffectiveStatus(r) === 'APPROVED'
+      ).length,
+      REJECTED: scopedRequests.filter(
+        (r) => getEffectiveStatus(r) === 'REJECTED'
+      ).length,
+      CANCELLED: scopedRequests.filter(
+        (r) => getEffectiveStatus(r) === 'CANCELLED'
+      ).length,
     };
   }, [scopedRequests]);
 
@@ -376,7 +736,11 @@ export function RequestsView() {
     const q = normalizeVietnamese(searchQuery.trim());
     const list = scopedRequests.filter((req) => {
       const s = getEffectiveStatus(req);
-      if (statusFilter === 'PENDING_GROUP' && s !== 'PENDING' && s !== 'IN_PROGRESS') {
+      if (
+        statusFilter === 'PENDING_GROUP' &&
+        s !== 'PENDING' &&
+        s !== 'IN_PROGRESS'
+      ) {
         return false;
       }
       if (statusFilter === 'APPROVED' && s !== 'APPROVED') return false;
@@ -388,7 +752,7 @@ export function RequestsView() {
       }
       if (q) {
         const haystack = normalizeVietnamese(
-          `${req.request_code} ${req.employee_code} ${req.full_name} ${req.department_name} ${req.category_label} ${req.reason}`
+          `${req.request_code} ${req.employee_code} ${req.full_name} ${req.department_name} ${req.category_label} ${req.reason} ${req.medical_doc_note ?? ''}`
         );
         if (!haystack.includes(q)) return false;
       }
@@ -398,12 +762,14 @@ export function RequestsView() {
     if (role === 'DIRECTOR') {
       return [...list].sort((a, b) => {
         const aPriority =
-          (getEffectiveStatus(a) === 'PENDING' || getEffectiveStatus(a) === 'IN_PROGRESS') &&
+          (getEffectiveStatus(a) === 'PENDING' ||
+            getEffectiveStatus(a) === 'IN_PROGRESS') &&
           a.current_step_role === 'DIRECTOR'
             ? 0
             : 1;
         const bPriority =
-          (getEffectiveStatus(b) === 'PENDING' || getEffectiveStatus(b) === 'IN_PROGRESS') &&
+          (getEffectiveStatus(b) === 'PENDING' ||
+            getEffectiveStatus(b) === 'IN_PROGRESS') &&
           b.current_step_role === 'DIRECTOR'
             ? 0
             : 1;
@@ -414,29 +780,127 @@ export function RequestsView() {
     return list;
   }, [scopedRequests, statusFilter, categoryFilter, searchQuery, role]);
 
-  const canRoleApproveRequest = (req: LeaveOvertimeRequest): boolean => {
-    const eff = getEffectiveStatus(req);
-    if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
-    if (role === 'EMPLOYEE') return false;
-    if (role === 'SUPER_ADMIN') return true;
-    if (req.current_step_role !== role) return false;
-    if (role === 'DEPT_MANAGER' && !TECH_DIVISION_DEPARTMENTS.has(req.department_name)) {
+  const canRoleApproveRequest = useCallback(
+    (req: LeaveOvertimeRequest): boolean => {
+      const eff = getEffectiveStatus(req);
+      if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
+      if (role === 'SUPER_ADMIN') return true;
+
+      // Prevent self-approval by regular employee unless HR/Director/SuperAdmin
+      if (
+        role === 'EMPLOYEE' &&
+        !(currentEmp && req.current_approver_id === currentEmp.id)
+      ) {
+        return false;
+      }
+
+      const stepRole = req.current_step_role;
+      if (stepRole === 'DEPT_MANAGER') {
+        // Explicit current_approver_id (e.g. re-assigned successor Manager) takes precedence!
+        if (req.current_approver_id) {
+          return Boolean(currentEmp && req.current_approver_id === currentEmp.id);
+        }
+        if (role !== 'DEPT_MANAGER') return false;
+        if (currentEmp) {
+          if (req.approver_id === currentEmp.id) return true;
+          const reqEmp = employees.find(
+            (e) =>
+              e.id === req.employee_id || e.employee_code === req.employee_code
+          );
+          if (reqEmp?.manager_id === currentEmp.id) return true;
+          if (
+            TECH_DIVISION_DEPARTMENTS.has(currentEmp.department_name) &&
+            TECH_DIVISION_DEPARTMENTS.has(req.department_name)
+          ) {
+            return true;
+          }
+          if (req.department_name === currentEmp.department_name) return true;
+          return false;
+        }
+        return TECH_DIVISION_DEPARTMENTS.has(req.department_name);
+      }
+
+      if (stepRole === 'HR_MANAGER') {
+        return (
+          role === 'HR_MANAGER' ||
+          Boolean(currentEmp && req.current_approver_id === currentEmp.id)
+        );
+      }
+
+      if (stepRole === 'DIRECTOR') {
+        return (
+          role === 'DIRECTOR' ||
+          Boolean(currentEmp && req.current_approver_id === currentEmp.id)
+        );
+      }
+
       return false;
-    }
-    return true;
-  };
+    },
+    [role, currentEmp, employees]
+  );
 
-  const canCancelRequest = (req: LeaveOvertimeRequest): boolean => {
-    const eff = getEffectiveStatus(req);
-    if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
-    return req.employee_code === currentEmployeeCode || req.requester_role === role;
-  };
+  const canCancelRequest = useCallback(
+    (req: LeaveOvertimeRequest): boolean => {
+      const eff = getEffectiveStatus(req);
+      if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
+      return (
+        req.employee_code === currentEmployeeCode ||
+        Boolean(currentEmp && req.employee_id === currentEmp.id)
+      );
+    },
+    [currentEmployeeCode, currentEmp]
+  );
 
-  const handleApproveStep = (req: LeaveOvertimeRequest) => {
+  const handleApproveStep = async (req: LeaveOvertimeRequest) => {
     if (!canRoleApproveRequest(req)) return;
-    const nowIso = new Date().toISOString();
+
     const currentSteps = req.approval_steps ?? [];
     const targetStepRole = req.current_step_role ?? role;
+    const simulatedSteps = currentSteps.map((step) =>
+      step.role === targetStepRole && step.status === 'PENDING'
+        ? { ...step, status: 'APPROVED' as const }
+        : step
+    );
+    const nextPendingPreview = simulatedSteps.find((s) => s.status === 'PENDING');
+    const willBeFinal = !nextPendingPreview;
+
+    let sideEffectHtml = '';
+    if (willBeFinal) {
+      if (req.request_category === 'ANNUAL_LEAVE') {
+        sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động trừ <b>${req.duration_days_or_hours} ngày</b> quỹ phép năm 2026 &amp; ghi nhận <b>1.0 công hưởng lương/ngày</b>.</span>`;
+      } else if (req.request_category === 'OVERTIME') {
+        const hrs = req.ot_hours ?? req.duration_days_or_hours;
+        const mult = req.ot_multiplier ?? 1.5;
+        sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động cộng <b>+${hrs} giờ OT (${mult.toFixed(1)}x)</b> vào bảng tổng hợp công tháng.</span>`;
+      } else if (req.request_category === 'LATE_EXPLANATION') {
+        sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động xóa trạng thái <b>MISSING_PUNCH (0.0 công)</b> ngày <b>${formatDateVN(
+          req.target_date || req.start_datetime
+        )}</b> và khôi phục công hợp lệ.</span>`;
+      } else {
+        sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động đồng bộ trạng thái công sang bảng chấm công tháng.</span>`;
+      }
+    }
+
+    const confirmed = await confirmSwal({
+      title: willBeFinal
+        ? `Phê duyệt hoàn tất đơn ${req.request_code}?`
+        : `Duyệt bước hiện tại đơn ${req.request_code}?`,
+      html: `Nhân sự: <b>${req.full_name}</b> (${req.employee_code})<br/>Loại đơn: <b>${req.category_label}</b> · Thời lượng: <b>${req.duration_days_or_hours} ${
+        req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+      }</b>${
+        nextPendingPreview
+          ? `<br/>Bước tiếp theo: <b>${nextPendingPreview.label}</b>`
+          : sideEffectHtml
+      }`,
+      confirmText: willBeFinal ? 'Phê duyệt hoàn tất' : 'Xác nhận duyệt bước này',
+      cancelText: 'Hủy bỏ',
+      variant: 'primary',
+    });
+
+    if (!confirmed) return;
+
+    const prevStatus = getEffectiveStatus(req);
+    const nowIso = new Date().toISOString();
     const updatedSteps: ApprovalStep[] = currentSteps.map((step) =>
       step.role === targetStepRole && step.status === 'PENDING'
         ? {
@@ -450,29 +914,51 @@ export function RequestsView() {
 
     const nextPendingStep = updatedSteps.find((s) => s.status === 'PENDING');
     const isFinal = !nextPendingStep;
-    const nextStatus: MultiStepRequestStatus = isFinal ? 'APPROVED' : 'IN_PROGRESS';
-    const nextLeaveDeducted =
-      req.leave_deducted ||
-      ((role === 'HR_MANAGER' || role === 'SUPER_ADMIN') &&
-        req.request_category === 'ANNUAL_LEAVE' &&
-        isFinal);
+    const nextStatus: MultiStepRequestStatus = isFinal
+      ? 'APPROVED'
+      : 'IN_PROGRESS';
 
-    const updatedReq: LeaveOvertimeRequest = {
+    const hrEmp = employees.find((e) => e.role_code === 'HR_MANAGER');
+    const dirEmp = employees.find((e) => e.role_code === 'DIRECTOR');
+    const nextApproverId = nextPendingStep
+      ? nextPendingStep.role === 'HR_MANAGER'
+        ? hrEmp?.id ?? 'emp-002'
+        : nextPendingStep.role === 'DIRECTOR'
+          ? dirEmp?.id ?? 'emp-000'
+          : req.current_approver_id ?? req.approver_id
+      : null;
+
+    const nextApproverName = nextPendingStep
+      ? nextPendingStep.actor_name ||
+        (nextPendingStep.role === 'HR_MANAGER'
+          ? hrEmp?.full_name ?? 'Trần Thị Bích Ngọc'
+          : dirEmp?.full_name ?? 'Trần Quốc Việt')
+      : currentEmployeeName;
+
+    const draftUpdatedReq: LeaveOvertimeRequest = {
       ...req,
       approval_steps: updatedSteps,
       current_step_role: nextPendingStep ? nextPendingStep.role : null,
+      current_approver_id: nextApproverId,
+      approver_id: nextApproverId ?? currentEmp?.id ?? req.approver_id,
+      approver_name: nextApproverName,
       status: nextStatus,
       approval_status: isFinal ? 'APPROVED' : 'PENDING',
-      leave_deducted: nextLeaveDeducted,
       responded_at: isFinal ? nowIso : req.responded_at,
     };
 
-    setRequests((prev) => prev.map((item) => (item.id === req.id ? updatedReq : item)));
-    setSelectedRequest((prev) => (prev && prev.id === req.id ? updatedReq : prev));
-    setChecklistChecked(false);
-    saveRuntimeRequest(updatedReq);
+    let finalizedReq = handleRequestLifecycleChange(draftUpdatedReq, prevStatus);
+    if (isFinal && !finalizedReq.side_effects_applied) {
+      finalizedReq = applyApprovedRequestSideEffects(finalizedReq).request;
+    }
 
-    if (targetStepRole === 'DEPT_MANAGER' && nextPendingStep?.role === 'HR_MANAGER') {
+    syncFromRuntime();
+    setChecklistChecked(false);
+
+    if (
+      targetStepRole === 'DEPT_MANAGER' &&
+      nextPendingStep?.role === 'HR_MANAGER'
+    ) {
       pushNotification({
         title: `Đơn ${req.request_code} chờ Nhân sự kiểm tra`,
         message: `${currentEmployeeName} đã duyệt Cấp 1 cho đơn ${req.category_label.toLowerCase()} của ${req.full_name}.`,
@@ -483,7 +969,7 @@ export function RequestsView() {
       });
       pushNotification({
         title: `Đơn ${req.request_code} đã qua duyệt Cấp 1`,
-        message: `Trưởng bộ phận đã duyệt bước 1, đơn đã chuyển tiếp tới Phòng Nhân sự kiểm tra.`,
+        message: `Quản lý đã duyệt bước 1, đơn đã chuyển tiếp tới Phòng Nhân sự kiểm tra.`,
         category: 'LEAVE_REQUEST',
         target_employee_codes: [req.employee_code],
         nav_id: 'leaves',
@@ -493,7 +979,9 @@ export function RequestsView() {
       if (!isFinal && nextPendingStep?.role === 'DIRECTOR') {
         pushNotification({
           title: `Đơn ${req.request_code} chờ Giám đốc phê duyệt Cấp 3`,
-          message: `Phòng Nhân sự đã kiểm tra hợp lệ đơn ${req.category_label.toLowerCase()} (${req.duration_days_or_hours} ${req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}) của ${req.full_name}.`,
+          message: `Phòng Nhân sự đã kiểm tra hợp lệ đơn ${req.category_label.toLowerCase()} (${req.duration_days_or_hours} ${
+            req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+          }) của ${req.full_name}.`,
           category: 'LEAVE_REQUEST',
           target_roles: ['DIRECTOR'],
           nav_id: 'leaves',
@@ -509,8 +997,8 @@ export function RequestsView() {
         });
       } else {
         pushNotification({
-          title: 'Đơn đã được phê duyệt',
-          message: `Đơn ${req.request_code} (${req.category_label.toLowerCase()}) của ${req.full_name} đã được phê duyệt hoàn tất.`,
+          title: `Đơn ${req.request_code} đã được phê duyệt hoàn tất`,
+          message: `Đơn ${req.category_label.toLowerCase()} của ${req.full_name} đã được phê duyệt và đồng bộ bảng chấm công.`,
           category: 'LEAVE_REQUEST',
           target_employee_codes: [req.employee_code],
           nav_id: 'leaves',
@@ -519,8 +1007,8 @@ export function RequestsView() {
       }
     } else if (isFinal) {
       pushNotification({
-        title: 'Đơn đã được phê duyệt',
-        message: `Giám đốc đã phê duyệt hoàn tất đơn ${req.request_code} (${req.category_label.toLowerCase()}).`,
+        title: `Đơn ${req.request_code} đã được phê duyệt hoàn tất`,
+        message: `${currentEmployeeName} đã phê duyệt bước cuối đơn ${req.category_label.toLowerCase()} và đồng bộ dữ liệu công.`,
         category: 'LEAVE_REQUEST',
         target_employee_codes: [req.employee_code],
         nav_id: 'leaves',
@@ -530,81 +1018,96 @@ export function RequestsView() {
 
     showToast(
       isFinal
-        ? `Đã phê duyệt hoàn tất đơn ${req.request_code}`
-        : `Đã duyệt bước ${targetStepRole === 'DEPT_MANAGER' ? 'Cấp 1' : 'Cấp 2'} đơn ${req.request_code}`,
+        ? `Đã phê duyệt hoàn tất đơn ${finalizedReq.request_code}`
+        : `Đã duyệt bước ${
+            targetStepRole === 'DEPT_MANAGER' ? 'Cấp 1' : 'Cấp 2'
+          } đơn ${finalizedReq.request_code}`,
       nextPendingStep
         ? `Đơn đã chuyển tiếp sang ${nextPendingStep.label}.`
-        : `${req.full_name} — ${req.category_label}`,
+        : `${finalizedReq.full_name} — Đã đồng bộ công & quỹ phép tự động.`,
       'success'
     );
+
     recordAuditLog({
       actor_name: currentEmployeeName,
       actor_code: currentEmployeeCode,
       actor_role: role,
-      action: 'APPROVE',
+      action: 'APPROVE_LEAVE',
       module: 'Đơn từ & Phê duyệt',
-      target: `${req.request_code} (${req.full_name})`,
+      target: `${finalizedReq.request_code} (${finalizedReq.full_name})`,
       detail: isFinal
-        ? `Phê duyệt hoàn tất đơn ${req.category_label}`
-        : `Duyệt bước ${targetStepRole}, chuyển tiếp sang ${nextPendingStep?.role}`,
+        ? `Phê duyệt hoàn tất đơn ${finalizedReq.category_label} và kích hoạt đồng bộ bảng công/quỹ phép.`
+        : `Duyệt bước ${targetStepRole}, chuyển tiếp sang ${nextPendingStep?.role}.`,
     });
   };
 
-  const openRejectModal = (req: LeaveOvertimeRequest) => {
-    setRejectTarget(req);
-    setRejectReasonInput('');
-    setRejectError('');
-  };
+  const handleRejectRequest = async (req: LeaveOvertimeRequest) => {
+    if (!canRoleApproveRequest(req)) return;
 
-  const handleConfirmReject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rejectTarget) return;
-    const reasonTrimmed = rejectReasonInput.trim();
+    const reasonInput = await promptTextSwal({
+      title: `Từ chối đơn ${req.request_code}`,
+      label: 'Lý do từ chối phê duyệt (bắt buộc)',
+      html: `Đơn <b>${req.category_label}</b> của <b>${req.full_name}</b> (${req.employee_code}).`,
+      placeholder:
+        'Nhập lý do từ chối cụ thể (ví dụ: Trùng lịch golive dự án, thiếu chứng từ BHXH...)',
+      required: true,
+      confirmText: 'Xác nhận từ chối',
+      cancelText: 'Quay lại',
+      variant: 'danger',
+    });
+
+    if (reasonInput === null) return;
+    const reasonTrimmed = reasonInput.trim();
     if (reasonTrimmed.length < 3) {
-      setRejectError('Vui lòng nhập lý do từ chối tối thiểu 3 ký tự.');
+      await alertSwal({
+        title: 'Lý do từ chối quá ngắn',
+        text: 'Vui lòng nhập lý do từ chối tối thiểu 3 ký tự.',
+        icon: 'warning',
+      });
       return;
     }
 
+    const prevStatus = getEffectiveStatus(req);
     const nowIso = new Date().toISOString();
-    const updatedSteps: ApprovalStep[] = (rejectTarget.approval_steps ?? []).map((step) =>
-      step.role === rejectTarget.current_step_role && step.status === 'PENDING'
-        ? {
-            ...step,
-            status: 'REJECTED',
-            actor_name: currentEmployeeName,
-            acted_at: nowIso,
-            note: reasonTrimmed,
-          }
-        : step
+    const updatedSteps: ApprovalStep[] = (req.approval_steps ?? []).map(
+      (step) =>
+        step.role === req.current_step_role && step.status === 'PENDING'
+          ? {
+              ...step,
+              status: 'REJECTED',
+              actor_name: currentEmployeeName,
+              acted_at: nowIso,
+              note: reasonTrimmed,
+            }
+          : step
     );
 
     const updatedReq: LeaveOvertimeRequest = {
-      ...rejectTarget,
+      ...req,
       approval_steps: updatedSteps,
       current_step_role: null,
+      current_approver_id: null,
+      approver_name: currentEmployeeName,
       status: 'REJECTED',
       approval_status: 'REJECTED',
       rejection_reason: reasonTrimmed,
       responded_at: nowIso,
     };
 
-    setRequests((prev) => prev.map((item) => (item.id === rejectTarget.id ? updatedReq : item)));
-    setSelectedRequest((prev) => (prev && prev.id === rejectTarget.id ? updatedReq : prev));
-    saveRuntimeRequest(updatedReq);
+    handleRequestLifecycleChange(updatedReq, prevStatus);
+    syncFromRuntime();
+
     pushNotification({
-      title: `Đơn ${rejectTarget.request_code} bị từ chối`,
-      message: `${currentEmployeeName} đã từ chối đơn ${rejectTarget.category_label.toLowerCase()}. Lý do: ${reasonTrimmed}`,
+      title: `Đơn ${req.request_code} bị từ chối`,
+      message: `${currentEmployeeName} đã từ chối đơn ${req.category_label.toLowerCase()}. Lý do: ${reasonTrimmed}`,
       category: 'LEAVE_REQUEST',
-      target_employee_codes: [rejectTarget.employee_code],
+      target_employee_codes: [req.employee_code],
       nav_id: 'leaves',
-      entity_id: rejectTarget.request_code,
+      entity_id: req.request_code,
     });
-    setRejectTarget(null);
-    setRejectReasonInput('');
-    setRejectError('');
 
     showToast(
-      `Đã từ chối đơn ${rejectTarget.request_code}`,
+      `Đã từ chối đơn ${req.request_code}`,
       `Lý do: ${reasonTrimmed}`,
       'warning'
     );
@@ -612,41 +1115,58 @@ export function RequestsView() {
       actor_name: currentEmployeeName,
       actor_code: currentEmployeeCode,
       actor_role: role,
-      action: 'REJECT',
+      action: 'APPROVE_LEAVE',
       module: 'Đơn từ & Phê duyệt',
-      target: `${rejectTarget.request_code} (${rejectTarget.full_name})`,
-      detail: `Từ chối đơn: ${reasonTrimmed}`,
+      target: `${req.request_code} (${req.full_name})`,
+      detail: `Từ chối đơn ${req.category_label}: ${reasonTrimmed}`,
       status: 'WARNING',
     });
   };
 
-  const handleConfirmCancel = () => {
-    if (!cancelTarget || !canCancelRequest(cancelTarget)) return;
+  const handleCancelRequest = async (req: LeaveOvertimeRequest) => {
+    if (!canCancelRequest(req)) return;
+
+    const confirmed = await confirmSwal({
+      title: `Xác nhận hủy đơn ${req.request_code}?`,
+      html: `Đơn <b>${req.category_label}</b> sẽ chuyển sang trạng thái <b>Đã hủy</b>${
+        req.request_category === 'ANNUAL_LEAVE'
+          ? ' và hoàn trả lại số ngày phép đang giữ chỗ chờ duyệt.'
+          : '.'
+      }`,
+      confirmText: 'Xác nhận hủy đơn',
+      cancelText: 'Giữ lại',
+      variant: 'danger',
+    });
+
+    if (!confirmed) return;
+
+    const prevStatus = getEffectiveStatus(req);
     const nowIso = new Date().toISOString();
     const updatedReq: LeaveOvertimeRequest = {
-      ...cancelTarget,
+      ...req,
       status: 'CANCELLED',
       current_step_role: null,
+      current_approver_id: null,
       responded_at: nowIso,
     };
-    setRequests((prev) => prev.map((item) => (item.id === cancelTarget.id ? updatedReq : item)));
-    setSelectedRequest((prev) => (prev && prev.id === cancelTarget.id ? updatedReq : prev));
-    saveRuntimeRequest(updatedReq);
+
+    handleRequestLifecycleChange(updatedReq, prevStatus);
+    syncFromRuntime();
+
     showToast(
-      `Đã hủy đơn ${cancelTarget.request_code}`,
-      'Đơn đề xuất đã được rút lại.',
+      `Đã hủy đơn ${req.request_code}`,
+      'Đơn đề xuất đã được rút lại thành công.',
       'default'
     );
     recordAuditLog({
       actor_name: currentEmployeeName,
       actor_code: currentEmployeeCode,
       actor_role: role,
-      action: 'CANCEL',
+      action: 'CREATE_REQUEST',
       module: 'Đơn từ & Phê duyệt',
-      target: `${cancelTarget.request_code} (${cancelTarget.full_name})`,
-      detail: `Người gửi hủy đơn ${cancelTarget.category_label}`,
+      target: `${req.request_code} (${req.full_name})`,
+      detail: `Người gửi chủ động hủy đơn ${req.category_label}`,
     });
-    setCancelTarget(null);
   };
 
   const startEditingRequest = (req: LeaveOvertimeRequest) => {
@@ -658,20 +1178,29 @@ export function RequestsView() {
 
   const handleSaveRequestEdit = () => {
     if (!selectedRequest) return;
-    const numericDur = Math.max(0.5, Number(editDuration) || selectedRequest.duration_days_or_hours);
+    const numericDur = Math.max(
+      0.5,
+      Number(editDuration) || selectedRequest.duration_days_or_hours
+    );
     const updatedReq: LeaveOvertimeRequest = {
       ...selectedRequest,
       duration_days_or_hours: numericDur,
+      ot_hours:
+        selectedRequest.request_category === 'OVERTIME'
+          ? numericDur
+          : selectedRequest.ot_hours,
       handover_to_name: editHandover.trim() || null,
       reason: editReason.trim() || selectedRequest.reason,
     };
-    setRequests((prev) => prev.map((item) => (item.id === updatedReq.id ? updatedReq : item)));
-    setSelectedRequest(updatedReq);
-    setIsEditingRequest(false);
     saveRuntimeRequest(updatedReq);
+    syncFromRuntime();
+    setIsEditingRequest(false);
+
     showToast(
       `Đã cập nhật đơn ${updatedReq.request_code}`,
-      `${updatedReq.full_name} — ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
+      `${updatedReq.full_name} — ${numericDur} ${
+        updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+      }`,
       'success'
     );
     recordAuditLog({
@@ -681,83 +1210,175 @@ export function RequestsView() {
       action: 'UPDATE_RECORD',
       module: 'Đơn từ & Phê duyệt',
       target: `${updatedReq.request_code} (${updatedReq.full_name})`,
-      detail: `Chỉnh sửa thông tin đơn: ${numericDur} ${updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}`,
+      detail: `Chỉnh sửa thông tin đơn: ${numericDur} ${
+        updatedReq.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+      }`,
     });
-  };
-
-  const handleConfirmDeleteRequest = () => {
-    if (!deleteTarget) return;
-    setRequests((prev) => prev.filter((item) => item.id !== deleteTarget.id));
-    if (selectedRequest?.id === deleteTarget.id) {
-      setSelectedRequest(null);
-      setIsEditingRequest(false);
-    }
-    showToast(
-      `Đã xóa đơn ${deleteTarget.request_code}`,
-      deleteTarget.full_name,
-      'warning'
-    );
-    recordAuditLog({
-      actor_name: currentEmployeeName,
-      actor_code: currentEmployeeCode,
-      actor_role: role,
-      action: 'DELETE_RECORD',
-      module: 'Đơn từ & Phê duyệt',
-      target: `${deleteTarget.request_code} (${deleteTarget.full_name})`,
-      detail: `Xóa đơn ${deleteTarget.category_label}`,
-      status: 'WARNING',
-    });
-    setDeleteTarget(null);
   };
 
   const handleCategoryChange = (val: string) => {
     const nextCat = val as RequestCategory;
     setFormCategory(nextCat);
+    setFormError('');
     const found = NEW_REQUEST_OPTIONS.find((opt) => opt.value === nextCat);
     if (found) {
       setFormUnit(found.defaultUnit);
-      setFormDuration(found.defaultUnit === 'GIO' ? '4' : '1');
+      if (nextCat === 'OVERTIME') {
+        setFormDuration('3');
+      } else if (nextCat === 'LATE_EXPLANATION') {
+        setFormDuration('1');
+        setFormStartDate(formTargetDate);
+        setFormEndDate(formTargetDate);
+      } else {
+        setFormDuration('1');
+      }
     }
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numericDuration = Number(formDuration);
-    if (!formStartDate || !formEndDate) {
-      setFormError('Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc.');
+    setFormError('');
+
+    const effectiveStart =
+      formCategory === 'LATE_EXPLANATION' ? formTargetDate : formStartDate;
+    const effectiveEnd =
+      formCategory === 'LATE_EXPLANATION'
+        ? formTargetDate
+        : formCategory === 'OVERTIME'
+          ? formStartDate
+          : formEndDate;
+
+    if (!effectiveStart || !effectiveEnd) {
+      setFormError('Vui lòng chọn đầy đủ ngày áp dụng đơn từ.');
       return;
     }
+    if (effectiveEnd < effectiveStart) {
+      setFormError('Ngày kết thúc không được nhỏ hơn ngày bắt đầu.');
+      return;
+    }
+
+    const numericDuration =
+      formCategory === 'LATE_EXPLANATION' ? 1 : Number(formDuration);
     if (Number.isNaN(numericDuration) || numericDuration <= 0) {
-      setFormError('Số ngày hoặc số giờ phải lớn hơn 0.');
+      setFormError('Số ngày hoặc số giờ đề xuất phải lớn hơn 0.');
       return;
     }
+
+    if (formCategory === 'LATE_EXPLANATION') {
+      if (!formActualCheckIn || !formActualCheckOut) {
+        setFormError(
+          'Vui lòng nhập đầy đủ Giờ vào thực tế và Giờ ra thực tế để giải trình công.'
+        );
+        return;
+      }
+      if (formActualCheckOut <= formActualCheckIn) {
+        setFormError('Giờ ra thực tế phải sau giờ vào thực tế.');
+        return;
+      }
+    }
+
+    if (
+      formCategory === 'SICK_LEAVE' &&
+      formMedicalDocNote.trim().length < 3
+    ) {
+      setFormError(
+        'Đơn nghỉ ốm hưởng BHXH bắt buộc ghi chú mã Giấy chứng nhận nghỉ ốm hoặc nơi khám.'
+      );
+      return;
+    }
+
     if (formReason.trim().length < 5) {
-      setFormError('Vui lòng nhập lý do tối thiểu 5 ký tự.');
+      setFormError('Vui lòng nhập lý do chi tiết tối thiểu 5 ký tự.');
       return;
     }
+
+    // Annual Leave live balance check & block if exceeding remaining_days
+    if (formCategory === 'ANNUAL_LEAVE') {
+      const isProbationWithoutLeave =
+        targetRequesterEmp?.employment_status === 'PROBATION' &&
+        !formRequesterBalance;
+      const availableDays = formRequesterBalance
+        ? formRequesterBalance.remaining_days
+        : isProbationWithoutLeave
+          ? 0
+          : 12;
+
+      if (numericDuration > availableDays) {
+        const msg =
+          availableDays <= 0
+            ? `Nhân sự ${
+                targetRequesterEmp?.full_name ?? currentEmployeeName
+              } hiện còn 0 ngày phép năm (đang thử việc hoặc đã dùng hết phép). Vui lòng chọn loại đơn "Nghỉ không hưởng lương".`
+            : `Số ngày xin nghỉ phép năm (${numericDuration} ngày) vượt quá quỹ phép còn lại (${availableDays} ngày). Vui lòng giảm số ngày hoặc tách phần vượt sang "Nghỉ không hưởng lương".`;
+        setFormError(msg);
+        await alertSwal({
+          title: 'Vượt quá quỹ phép năm còn lại',
+          text: msg,
+          icon: 'warning',
+        });
+        return;
+      }
+    }
+
+    const reqEmp = targetRequesterEmp;
+    const reqEmpId = reqEmp?.id ?? 'emp-004';
+    const reqEmpCode = reqEmp?.employee_code ?? currentEmployeeCode;
+    const reqEmpName = reqEmp?.full_name ?? currentEmployeeName;
+    const reqDeptName = reqEmp?.department_name ?? currentDepartment;
+    const reqPosName = reqEmp?.position_name ?? actorFallback.pos;
+    const reqRoleCode: RoleCode = reqEmp?.role_code ?? role;
+
+    const depts = getRuntimeDepartments();
+    const matchedDept = depts.find(
+      (d) =>
+        d.id === reqEmp?.department_id || d.department_name === reqDeptName
+    );
+    const directManager =
+      (reqEmp?.manager_id
+        ? employees.find((emp) => emp.id === reqEmp.manager_id)
+        : null) ??
+      (matchedDept?.manager_id
+        ? employees.find((emp) => emp.id === matchedDept.manager_id)
+        : null) ??
+      employees.find((emp) => emp.employee_code === 'NV-2024-003') ??
+      null;
+
+    const hrManager =
+      employees.find((emp) => emp.role_code === 'HR_MANAGER') ?? null;
+    const directorEmp =
+      employees.find((emp) => emp.role_code === 'DIRECTOR') ?? null;
+
+    const skipDeptManagerStep =
+      reqRoleCode === 'DEPT_MANAGER' ||
+      reqRoleCode === 'HR_MANAGER' ||
+      reqRoleCode === 'DIRECTOR' ||
+      reqRoleCode === 'SUPER_ADMIN';
 
     const directorMinDays = readDirectorMinDays();
     const needsDirector =
-      (formUnit === 'NGAY' && numericDuration > directorMinDays) ||
+      (formUnit === 'NGAY' &&
+        formCategory !== 'LATE_EXPLANATION' &&
+        numericDuration > directorMinDays) ||
       formCategory === 'UNPAID_LEAVE' ||
       formCategory === 'OVERSEAS_BUSINESS_TRIP';
 
-    const isDeptMgr = role === 'DEPT_MANAGER';
     const steps: ApprovalStep[] = [
       {
         step_order: 1,
         role: 'DEPT_MANAGER',
         label: 'Cấp 1 · Trưởng bộ phận duyệt',
-        status: isDeptMgr ? 'SKIPPED' : 'PENDING',
-        actor_name: 'Lê Hoàng Nam',
-        note: isDeptMgr ? 'Tự động bỏ qua do người gửi là Trưởng bộ phận' : undefined,
+        status: skipDeptManagerStep ? 'SKIPPED' : 'PENDING',
+        actor_name: directManager?.full_name ?? 'Lê Hoàng Nam',
+        note: skipDeptManagerStep
+          ? 'Tự động bỏ qua do người đề xuất thuộc cấp Quản lý'
+          : undefined,
       },
       {
         step_order: 2,
         role: 'HR_MANAGER',
         label: 'Cấp 2 · Trưởng phòng Nhân sự kiểm tra',
         status: 'PENDING',
-        actor_name: 'Trần Thị Bích Ngọc',
+        actor_name: hrManager?.full_name ?? 'Trần Thị Bích Ngọc',
       },
     ];
 
@@ -773,7 +1394,7 @@ export function RequestsView() {
               : `> ${directorMinDays} ngày`
         })`,
         status: 'PENDING',
-        actor_name: 'Trần Quốc Việt',
+        actor_name: directorEmp?.full_name ?? 'Trần Quốc Việt',
       });
     }
 
@@ -783,28 +1404,46 @@ export function RequestsView() {
       return m ? Math.max(max, Number(m[1])) : max;
     }, 87);
     const nextCodeNum = String(maxCodeNum + 1).padStart(3, '0');
-    const firstStepRole: 'DEPT_MANAGER' | 'HR_MANAGER' = isDeptMgr ? 'HR_MANAGER' : 'DEPT_MANAGER';
-    const targetDeptId = resolveDepartmentId(currentDepartment, currentUserProfile?.department_id);
+
+    const firstStepRole: 'DEPT_MANAGER' | 'HR_MANAGER' = skipDeptManagerStep
+      ? 'HR_MANAGER'
+      : 'DEPT_MANAGER';
+    const firstApproverId = skipDeptManagerStep
+      ? hrManager?.id ?? 'emp-002'
+      : directManager?.id ?? 'emp-003';
+    const firstApproverName = skipDeptManagerStep
+      ? hrManager?.full_name ?? 'Trần Thị Bích Ngọc'
+      : directManager?.full_name ?? 'Lê Hoàng Nam';
+
+    const otMultiplier =
+      formCategory === 'OVERTIME'
+        ? OT_DAY_TYPE_CONFIG[formOtDayType].multiplier
+        : undefined;
 
     const newItem: LeaveOvertimeRequest = {
       id: `req-${Date.now()}`,
       request_code: `REQ-202611-${nextCodeNum}`,
-      employee_id: 'emp-004',
-      employee_code: currentEmployeeCode,
-      full_name: currentEmployeeName,
-      department_name: currentDepartment,
-      position_name: actorInfo.pos,
-      requester_role: role,
+      employee_id: reqEmpId,
+      employee_code: reqEmpCode,
+      full_name: reqEmpName,
+      department_name: reqDeptName,
+      position_name: reqPosName,
+      requester_role: reqRoleCode,
       request_category: formCategory,
-      category_label: catOption?.label ?? 'Đơn từ khác',
-      start_datetime: `${formStartDate}T08:30:00+07:00`,
-      end_datetime: `${formEndDate}T17:30:00+07:00`,
+      category_label: catOption?.label ?? 'Đơn từ nhân sự',
+      start_datetime: `${effectiveStart}T${
+        formCategory === 'LATE_EXPLANATION' ? formActualCheckIn : '08:30'
+      }:00+07:00`,
+      end_datetime: `${effectiveEnd}T${
+        formCategory === 'LATE_EXPLANATION' ? formActualCheckOut : '17:30'
+      }:00+07:00`,
       duration_days_or_hours: numericDuration,
-      duration_unit: formUnit,
+      duration_unit: formCategory === 'OVERTIME' ? 'GIO' : 'NGAY',
       reason: formReason.trim(),
       handover_to_name: formHandover.trim() || null,
-      approver_id: isDeptMgr ? 'emp-002' : 'emp-003',
-      approver_name: isDeptMgr ? 'Trần Thị Bích Ngọc' : 'Lê Hoàng Nam',
+      approver_id: firstApproverId,
+      approver_name: firstApproverName,
+      current_approver_id: firstApproverId,
       approval_status: 'PENDING',
       status: 'PENDING',
       current_step_role: firstStepRole,
@@ -813,15 +1452,51 @@ export function RequestsView() {
       created_at: new Date().toISOString(),
       responded_at: null,
       source: 'MANUAL_FORM',
+      ...(formCategory === 'SICK_LEAVE'
+        ? { medical_doc_note: formMedicalDocNote.trim() }
+        : {}),
+      ...(formCategory === 'OVERTIME'
+        ? {
+            ot_hours: numericDuration,
+            ot_day_type: formOtDayType,
+            ot_multiplier: otMultiplier,
+          }
+        : {}),
+      ...(formCategory === 'LATE_EXPLANATION'
+        ? {
+            target_date: formTargetDate,
+            actual_check_in: formActualCheckIn,
+            actual_check_out: formActualCheckOut,
+          }
+        : {}),
     };
 
-    setRequests((prev) => [newItem, ...prev]);
-    saveRuntimeRequest(newItem);
+    try {
+      handleRequestLifecycleChange(newItem);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Không thể khởi tạo đơn từ.';
+      setFormError(message);
+      await alertSwal({
+        title: 'Không thể gửi đơn',
+        text: message,
+        icon: 'warning',
+      });
+      return;
+    }
 
-    if (isDeptMgr) {
+    syncFromRuntime();
+    const targetDeptId = resolveDepartmentId(
+      reqDeptName,
+      reqEmp?.department_id
+    );
+
+    if (skipDeptManagerStep) {
       pushNotification({
         title: `Đơn mới ${newItem.request_code} chờ Nhân sự kiểm tra`,
-        message: `${newItem.full_name} tạo đơn ${newItem.category_label.toLowerCase()} (${numericDuration} ${formUnit === 'NGAY' ? 'ngày' : 'giờ'}).`,
+        message: `${newItem.full_name} gửi đơn ${newItem.category_label.toLowerCase()} (${numericDuration} ${
+          newItem.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+        }).`,
         category: 'LEAVE_REQUEST',
         target_roles: ['HR_MANAGER'],
         nav_id: 'leaves',
@@ -830,9 +1505,14 @@ export function RequestsView() {
     } else {
       pushNotification({
         title: `Đơn mới ${newItem.request_code} chờ duyệt Cấp 1`,
-        message: `${newItem.full_name} gửi đơn ${newItem.category_label.toLowerCase()} (${numericDuration} ${formUnit === 'NGAY' ? 'ngày' : 'giờ'}).`,
+        message: `${newItem.full_name} gửi đơn ${newItem.category_label.toLowerCase()} (${numericDuration} ${
+          newItem.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+        }).`,
         category: 'LEAVE_REQUEST',
         target_roles: ['DEPT_MANAGER'],
+        target_employee_codes: directManager
+          ? [directManager.employee_code]
+          : undefined,
         target_department_id: targetDeptId,
         nav_id: 'leaves',
         entity_id: newItem.request_code,
@@ -843,9 +1523,13 @@ export function RequestsView() {
     setFormError('');
     setFormReason('');
     setFormHandover('');
+    setFormMedicalDocNote('');
+
     showToast(
       `Đã tạo đơn ${newItem.request_code}`,
-      `Đơn đã được chuyển tới ${isDeptMgr ? 'Cấp 2 (HR)' : 'Cấp 1 (Trưởng bộ phận)'}.`,
+      `Đơn đã định tuyến tới ${firstApproverName} (${
+        skipDeptManagerStep ? 'Cấp 2 · HR' : 'Cấp 1 · Quản lý trực tiếp'
+      }).`,
       'success'
     );
     recordAuditLog({
@@ -855,14 +1539,16 @@ export function RequestsView() {
       action: 'CREATE_REQUEST',
       module: 'Đơn từ & Phê duyệt',
       target: `${newItem.request_code} (${newItem.full_name})`,
-      detail: `Tạo đơn mới: ${newItem.category_label} (${numericDuration} ${formUnit === 'NGAY' ? 'ngày' : 'giờ'})`,
+      detail: `Tạo đơn mới: ${newItem.category_label} (${numericDuration} ${
+        newItem.duration_unit === 'NGAY' ? 'ngày' : 'giờ'
+      })`,
     });
   };
 
   if (uiState === 'loading' || isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
         <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     );
@@ -872,11 +1558,19 @@ export function RequestsView() {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" strokeWidth={1.5} />
+          <AlertCircle
+            className="h-8 w-8 text-red-600 dark:text-red-400"
+            strokeWidth={1.5}
+          />
           <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
             Không thể tải danh sách đơn từ
           </p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => setUiState('ready')}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setUiState('ready')}
+          >
             Thử lại
           </Button>
         </CardContent>
@@ -884,31 +1578,82 @@ export function RequestsView() {
     );
   }
 
+  const formExceedsBalance =
+    formCategory === 'ANNUAL_LEAVE' &&
+    Number(formDuration) >
+      (formRequesterBalance
+        ? formRequesterBalance.remaining_days
+        : targetRequesterEmp?.employment_status === 'PROBATION'
+          ? 0
+          : 12);
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
-            Đơn từ &amp; Phê duyệt đa cấp
+            Đơn từ, Giải trình công &amp; Phê duyệt đa cấp
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            Luồng duyệt tuần tự: Trưởng bộ phận → Nhân sự (HR) → Giám đốc (khi vượt ngưỡng hoặc nghỉ không lương).
+            Luồng duyệt tuần tự Quản lý trực tiếp → Nhân sự (HR) → Giám đốc, tự động khấu trừ quỹ phép, cộng giờ OT và phục hồi công giải trình.
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setFormError('');
-            setIsCreateOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Tạo đơn mới
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setFormEmployeeCode(currentEmployeeCode);
+              setFormCategory('LATE_EXPLANATION');
+              setFormUnit('NGAY');
+              setFormDuration('1');
+              setFormError('');
+              setIsCreateOpen(true);
+            }}
+          >
+            <Clock className="h-4 w-4" strokeWidth={1.5} />
+            Giải trình chấm công
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setFormEmployeeCode(currentEmployeeCode);
+              setFormCategory('ANNUAL_LEAVE');
+              setFormUnit('NGAY');
+              setFormDuration('1');
+              setFormError('');
+              setIsCreateOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Tạo đơn mới
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
+      {/* KPI & Live Personal Leave Balance Row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <Card className="col-span-2 border-l-4 border-l-[#0F766E] dark:border-l-teal-400 dark:bg-[#121214] lg:col-span-1">
+          <CardContent className="p-4">
+            <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
+              Phép năm còn lại (2026)
+            </span>
+            <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+              {myLeaveBalance
+                ? `${myLeaveBalance.remaining_days} ngày`
+                : currentEmp?.employment_status === 'PROBATION'
+                  ? '0 ngày'
+                  : '12 ngày'}
+            </p>
+            <p className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+              {myLeaveBalance
+                ? `Đã nghỉ ${myLeaveBalance.used_days} · Chờ duyệt ${myLeaveBalance.pending_days}`
+                : currentEmployeeCode}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400 dark:bg-[#121214]">
           <CardContent className="p-4">
             <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Tổng số đơn từ
@@ -918,7 +1663,8 @@ export function RequestsView() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
+
+        <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400 dark:bg-[#121214]">
           <CardContent className="p-4">
             <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đang chờ / xử lý
@@ -928,7 +1674,8 @@ export function RequestsView() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
+
+        <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400 dark:bg-[#121214]">
           <CardContent className="p-4">
             <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đã phê duyệt
@@ -938,7 +1685,8 @@ export function RequestsView() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-rose-500 dark:border-l-rose-400">
+
+        <Card className="border-l-4 border-l-rose-500 dark:border-l-rose-400 dark:bg-[#121214]">
           <CardContent className="p-4">
             <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
               Đã từ chối
@@ -950,11 +1698,12 @@ export function RequestsView() {
         </Card>
       </div>
 
-      <Card className="rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900">
-        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
+      {/* Main List Card */}
+      <Card className="rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800 dark:bg-[#121214]">
+        <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div
-              className="flex flex-wrap items-center gap-1 rounded-xl border border-[#C6D9D3] bg-[#E4EEEB] p-1 dark:border-zinc-800/80 dark:bg-zinc-900/70"
+              className="flex flex-wrap items-center gap-1 rounded-xl border border-[#C6D9D3] bg-[#E4EEEB] p-1 dark:border-zinc-800 dark:bg-zinc-900/70"
               role="group"
               aria-label="Lọc trạng thái đơn"
             >
@@ -988,7 +1737,7 @@ export function RequestsView() {
               })}
             </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-[460px]">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-[480px]">
               <div className="relative">
                 <Search
                   className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
@@ -1004,13 +1753,19 @@ export function RequestsView() {
               </div>
               <Select
                 value={categoryFilter}
-                onValueChange={(val) => setCategoryFilter(val as CategoryFilterGroup)}
+                onValueChange={(val) =>
+                  setCategoryFilter(val as CategoryFilterGroup)
+                }
                 aria-label="Lọc theo loại đơn"
                 options={[
                   { value: 'ALL', label: 'Tất cả loại đơn' },
-                  { value: 'LEAVE', label: 'Nghỉ phép' },
-                  { value: 'OVERTIME', label: 'Tăng ca OT' },
-                  { value: 'REMOTE_WORK', label: 'Làm từ xa WFH' },
+                  { value: 'LEAVE', label: 'Nhóm Nghỉ phép / Ốm / KL' },
+                  { value: 'ANNUAL_LEAVE', label: 'Nghỉ phép năm' },
+                  { value: 'SICK_LEAVE', label: 'Nghỉ ốm / BHXH' },
+                  { value: 'UNPAID_LEAVE', label: 'Nghỉ không lương' },
+                  { value: 'LATE_EXPLANATION', label: 'Giải trình chấm công' },
+                  { value: 'OVERTIME', label: 'Làm thêm giờ (OT)' },
+                  { value: 'REMOTE_WORK', label: 'Làm việc từ xa (WFH)' },
                   { value: 'BUSINESS_TRIP', label: 'Công tác' },
                 ]}
               />
@@ -1021,7 +1776,10 @@ export function RequestsView() {
         <CardContent className="p-5">
           {uiState === 'empty' || filteredRequests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-8 w-8 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
+              <FileText
+                className="h-8 w-8 text-[#5C7871] dark:text-zinc-400"
+                strokeWidth={1.5}
+              />
               <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
                 Không có đơn từ nào khớp bộ lọc
               </p>
@@ -1036,27 +1794,62 @@ export function RequestsView() {
                 const statusInfo = STATUS_BADGE[effStatus];
                 const canApproveHere = canRoleApproveRequest(req);
                 const canCancelHere = canCancelRequest(req);
+                const isReassignedToMe = Boolean(
+                  currentEmp &&
+                    req.current_approver_id === currentEmp.id &&
+                    (effStatus === 'PENDING' || effStatus === 'IN_PROGRESS')
+                );
 
                 return (
                   <div
                     key={req.id}
                     onClick={() => {
                       setChecklistChecked(false);
+                      setIsEditingRequest(false);
                       setSelectedRequest(req);
                     }}
-                    className={`flex cursor-pointer flex-col gap-4 rounded-xl border border-[#C6D9D3] ${statusInfo.borderClass} odd:bg-[#FCFEFD] even:bg-[#F5FAF8] p-4 transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:odd:bg-zinc-900/40 dark:even:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/70 lg:flex-row lg:items-center lg:justify-between`}
+                    className={`flex cursor-pointer flex-col gap-4 rounded-xl border border-[#C6D9D3] ${statusInfo.borderClass} odd:bg-[#FCFEFD] even:bg-[#F5FAF8] p-4 transition-colors hover:bg-[#E8F3EF] dark:border-zinc-800 dark:odd:bg-zinc-900/40 dark:even:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-900/70 lg:flex-row lg:items-center lg:justify-between`}
                   >
                     <div className="min-w-0 flex-1 space-y-2.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="whitespace-nowrap font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
                           {req.request_code}
                         </span>
-                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-                        <Badge className={getCategoryBadgeClass(req.request_category)}>
+                        <Badge variant={statusInfo.variant}>
+                          {statusInfo.label}
+                        </Badge>
+                        <Badge
+                          className={getCategoryBadgeClass(
+                            req.request_category
+                          )}
+                        >
                           {req.category_label}
                         </Badge>
+                        {req.request_category === 'OVERTIME' && (
+                          <Badge variant="warning" className="font-mono tabular-nums">
+                            <Timer className="h-3 w-3" strokeWidth={1.5} />
+                            {req.ot_day_type
+                              ? OT_DAY_TYPE_CONFIG[req.ot_day_type].shortLabel
+                              : `Hệ số ${(req.ot_multiplier ?? 1.5).toFixed(1)}x`}
+                          </Badge>
+                        )}
+                        {req.request_category === 'LATE_EXPLANATION' &&
+                          req.actual_check_in &&
+                          req.actual_check_out && (
+                            <Badge variant="outline" className="font-mono tabular-nums">
+                              Giờ thực tế: {req.actual_check_in} -{' '}
+                              {req.actual_check_out}
+                            </Badge>
+                          )}
                         {req.leave_deducted && (
                           <Badge variant="success">Đã trừ quỹ phép</Badge>
+                        )}
+                        {req.side_effects_applied &&
+                          req.request_category !== 'ANNUAL_LEAVE' && (
+                            <Badge variant="teal">Đã đồng bộ bảng công</Badge>
+                          )}
+                        {isReassignedToMe && (
+                          <Badge variant="teal">Chờ bạn duyệt</Badge>
                         )}
                       </div>
 
@@ -1076,6 +1869,15 @@ export function RequestsView() {
                         {req.reason}
                       </p>
 
+                      {req.medical_doc_note && (
+                        <p className="text-xs text-[#0F766E] dark:text-teal-400">
+                          Chứng từ y tế / BHXH:{' '}
+                          <span className="font-medium">
+                            {req.medical_doc_note}
+                          </span>
+                        </p>
+                      )}
+
                       {req.rejection_reason && (
                         <p className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-400">
                           Lý do từ chối: {req.rejection_reason}
@@ -1084,27 +1886,41 @@ export function RequestsView() {
 
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#415A54] dark:text-zinc-400">
                         <span className="inline-flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
+                          <Calendar
+                            className="h-4 w-4 text-[#5C7871] dark:text-zinc-400"
+                            strokeWidth={1.5}
+                          />
                           <span className="font-mono tabular-nums">
-                            {formatDateVN(req.start_datetime)} - {formatDateVN(req.end_datetime)}
+                            {req.request_category === 'LATE_EXPLANATION' &&
+                            req.target_date
+                              ? formatDateVN(req.target_date)
+                              : `${formatDateVN(req.start_datetime)} - ${formatDateVN(
+                                  req.end_datetime
+                                )}`}
                           </span>
                           <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-200">
-                            ({req.duration_days_or_hours} {req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'})
+                            ({req.duration_days_or_hours}{' '}
+                            {req.duration_unit === 'NGAY' ? 'ngày' : 'giờ'})
                           </span>
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <UserCheck className="h-4 w-4 text-[#5C7871] dark:text-zinc-400" strokeWidth={1.5} />
-                          <span>
-                            Bàn giao:{' '}
-                            <strong className="font-medium text-[#11221E] dark:text-zinc-200">
-                              {req.handover_to_name ?? 'Không có'}
-                            </strong>
+                        {req.handover_to_name && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <UserCheck
+                              className="h-4 w-4 text-[#5C7871] dark:text-zinc-400"
+                              strokeWidth={1.5}
+                            />
+                            <span>
+                              Bàn giao:{' '}
+                              <strong className="font-medium text-[#11221E] dark:text-zinc-200">
+                                {req.handover_to_name}
+                              </strong>
+                            </span>
                           </span>
-                        </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[#D5E3DF] pt-3 dark:border-zinc-800/80 lg:border-t-0 lg:pt-0">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-[#D5E3DF] pt-3 dark:border-zinc-800 lg:border-t-0 lg:pt-0">
                       {canApproveHere && (
                         <>
                           <Button
@@ -1112,10 +1928,13 @@ export function RequestsView() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openRejectModal(req);
+                              void handleRejectRequest(req);
                             }}
                           >
-                            <X className="h-4 w-4 text-red-600 dark:text-red-400" strokeWidth={1.5} />
+                            <X
+                              className="h-4 w-4 text-red-600 dark:text-red-400"
+                              strokeWidth={1.5}
+                            />
                             Từ chối
                           </Button>
                           <Button
@@ -1123,7 +1942,7 @@ export function RequestsView() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleApproveStep(req);
+                              void handleApproveStep(req);
                             }}
                           >
                             <Check className="h-4 w-4" strokeWidth={1.5} />
@@ -1135,10 +1954,9 @@ export function RequestsView() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setCancelTarget(req);
+                            void handleCancelRequest(req);
                           }}
                         >
                           <Ban className="h-4 w-4" strokeWidth={1.5} />
@@ -1148,14 +1966,15 @@ export function RequestsView() {
                       {!canApproveHere && !canCancelHere && (
                         <div className="text-right text-xs text-[#415A54] dark:text-zinc-400">
                           <div>
-                            {effStatus === 'APPROVED' || effStatus === 'REJECTED'
+                            {effStatus === 'APPROVED' ||
+                            effStatus === 'REJECTED'
                               ? `Xử lý bởi: ${req.approver_name}`
                               : effStatus === 'CANCELLED'
                                 ? 'Người gửi đã hủy'
                                 : req.current_step_role
                                   ? `Đang chờ: ${
                                       req.current_step_role === 'DEPT_MANAGER'
-                                        ? 'Trưởng bộ phận'
+                                        ? req.approver_name || 'Trưởng bộ phận'
                                         : req.current_step_role === 'HR_MANAGER'
                                           ? 'Nhân sự (HR)'
                                           : 'Giám đốc'
@@ -1178,145 +1997,404 @@ export function RequestsView() {
         </CardContent>
       </Card>
 
+      {/* CREATE REQUEST MODAL */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Tạo đơn từ mới</DialogTitle>
+        <DialogContent className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
+            <DialogTitle>Tạo đơn từ / Giải trình chấm công</DialogTitle>
             <DialogDescription>
-              Hệ thống tự động định tuyến cấp phê duyệt dựa trên vai trò và số ngày đề xuất.
+              Hệ thống tự động kiểm tra quỹ phép năm, xác định người duyệt trực tiếp và đồng bộ dữ liệu công ngay khi hoàn tất phê duyệt.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateSubmit} className="mt-4 space-y-4">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="req-category"
-                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-              >
-                Loại đơn
-              </label>
-              <Select
-                id="req-category"
-                value={formCategory}
-                onValueChange={handleCategoryChange}
-                options={NEW_REQUEST_OPTIONS.map((opt) => ({
-                  value: opt.value,
-                  label: opt.label,
-                }))}
-              />
-            </div>
+          <form
+            onSubmit={handleCreateSubmit}
+            className="flex flex-1 flex-col overflow-hidden"
+          >
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              {canSelectRequester && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="req-employee"
+                    className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                  >
+                    Nhân sự lập đơn
+                  </label>
+                  <Select
+                    id="req-employee"
+                    value={formEmployeeCode || currentEmployeeCode}
+                    onValueChange={setFormEmployeeCode}
+                    options={employees
+                      .filter((e) => e.employment_status !== 'RESIGNED')
+                      .map((e) => ({
+                        value: e.employee_code,
+                        label: `${e.employee_code} — ${e.full_name} (${e.department_name})`,
+                      }))}
+                  />
+                </div>
+              )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label
-                  htmlFor="req-start"
+                  htmlFor="req-category"
                   className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
-                  Từ ngày
-                </label>
-                <Input
-                  id="req-start"
-                  type="date"
-                  value={formStartDate}
-                  onChange={(e) => setFormStartDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="req-end"
-                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                >
-                  Đến ngày
-                </label>
-                <Input
-                  id="req-end"
-                  type="date"
-                  value={formEndDate}
-                  onChange={(e) => setFormEndDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="req-duration"
-                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                >
-                  Số lượng ({formUnit === 'NGAY' ? 'ngày' : 'giờ'})
-                </label>
-                <Input
-                  id="req-duration"
-                  type="number"
-                  min={0.5}
-                  step={0.5}
-                  value={formDuration}
-                  onChange={(e) => setFormDuration(e.target.value)}
-                  className="font-mono tabular-nums"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="req-unit"
-                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                >
-                  Đơn vị tính
+                  Loại đơn đề xuất
                 </label>
                 <Select
-                  id="req-unit"
-                  value={formUnit}
-                  onValueChange={(v) => setFormUnit(v as 'NGAY' | 'GIO')}
-                  options={[
-                    { value: 'NGAY', label: 'Ngày' },
-                    { value: 'GIO', label: 'Giờ' },
-                  ]}
+                  id="req-category"
+                  value={formCategory}
+                  onValueChange={handleCategoryChange}
+                  options={NEW_REQUEST_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  }))}
                 />
               </div>
+
+              {/* Live Annual Leave Balance Banner */}
+              {formCategory === 'ANNUAL_LEAVE' && (
+                <div
+                  className={`rounded-xl border p-3.5 text-xs ${
+                    formExceedsBalance
+                      ? 'border-rose-500/35 bg-rose-50/80 text-rose-900 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200'
+                      : 'border-[#0F766E]/30 bg-[#CBE8E2]/45 text-[#11221E] dark:border-teal-400/25 dark:bg-teal-950/25 dark:text-zinc-200'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      Quỹ phép năm 2026 —{' '}
+                      {targetRequesterEmp?.full_name ?? currentEmployeeName}
+                    </span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                      Còn lại:{' '}
+                      {formRequesterBalance
+                        ? formRequesterBalance.remaining_days
+                        : targetRequesterEmp?.employment_status === 'PROBATION'
+                          ? 0
+                          : 12}{' '}
+                      ngày
+                    </span>
+                  </div>
+                  {formRequesterBalance && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
+                      <span>
+                        Tiêu chuẩn:{' '}
+                        {formRequesterBalance.total_entitled_days +
+                          formRequesterBalance.carried_over_days}{' '}
+                        ngày
+                      </span>
+                      <span>Đã nghỉ: {formRequesterBalance.used_days} ngày</span>
+                      <span>
+                        Đang chờ duyệt: {formRequesterBalance.pending_days} ngày
+                      </span>
+                    </div>
+                  )}
+                  {formExceedsBalance && (
+                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-rose-500/20 pt-2">
+                      <span className="inline-flex items-center gap-1 font-medium text-rose-700 dark:text-rose-300">
+                        <AlertTriangle
+                          className="h-3.5 w-3.5 shrink-0"
+                          strokeWidth={1.5}
+                        />
+                        Số ngày xin nghỉ vượt quá số ngày phép còn lại!
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => handleCategoryChange('UNPAID_LEAVE')}
+                      >
+                        Chuyển sang Nghỉ không lương
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Conditional Fields for LATE_EXPLANATION */}
+              {formCategory === 'LATE_EXPLANATION' ? (
+                <div className="space-y-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-3.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="req-target-date"
+                        className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      >
+                        Ngày cần giải trình
+                      </label>
+                      <Input
+                        id="req-target-date"
+                        type="date"
+                        value={formTargetDate}
+                        onChange={(e) => {
+                          const d = e.target.value;
+                          setFormTargetDate(d);
+                          setFormStartDate(d);
+                          setFormEndDate(d);
+                        }}
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="req-actual-in"
+                        className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      >
+                        Giờ vào thực tế
+                      </label>
+                      <Input
+                        id="req-actual-in"
+                        type="time"
+                        value={formActualCheckIn}
+                        onChange={(e) => setFormActualCheckIn(e.target.value)}
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="req-actual-out"
+                        className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      >
+                        Giờ ra thực tế
+                      </label>
+                      <Input
+                        id="req-actual-out"
+                        type="time"
+                        value={formActualCheckOut}
+                        onChange={(e) => setFormActualCheckOut(e.target.value)}
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                  </div>
+
+                  {explanationPreview && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+                      <span className="text-[#415A54] dark:text-zinc-400">
+                        {explanationPreview.existingDaily ? (
+                          <>
+                            Bản ghi hiện tại:{' '}
+                            <strong className="font-mono text-rose-700 dark:text-rose-400">
+                              {explanationPreview.existingDaily.status} (
+                              {explanationPreview.existingDaily.workday_value.toFixed(
+                                1
+                              )}{' '}
+                              công)
+                            </strong>
+                          </>
+                        ) : (
+                          <>
+                            Ca chuẩn áp dụng:{' '}
+                            <strong className="font-mono">
+                              {explanationPreview.shiftCode}
+                            </strong>
+                          </>
+                        )}
+                      </span>
+                      <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                        Sau khi duyệt: +{explanationPreview.recoveredWorkday.toFixed(1)}{' '}
+                        công hợp lệ
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Standard Date Range & Duration */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="req-start"
+                        className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      >
+                        {formCategory === 'OVERTIME' ? 'Ngày tăng ca' : 'Từ ngày'}
+                      </label>
+                      <Input
+                        id="req-start"
+                        type="date"
+                        value={formStartDate}
+                        onChange={(e) => {
+                          setFormStartDate(e.target.value);
+                          if (
+                            formCategory === 'OVERTIME' ||
+                            e.target.value > formEndDate
+                          ) {
+                            setFormEndDate(e.target.value);
+                          }
+                        }}
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                    {formCategory !== 'OVERTIME' ? (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="req-end"
+                          className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                        >
+                          Đến ngày
+                        </label>
+                        <Input
+                          id="req-end"
+                          type="date"
+                          value={formEndDate}
+                          onChange={(e) => setFormEndDate(e.target.value)}
+                          className="font-mono tabular-nums"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="req-ot-day-type"
+                          className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                        >
+                          Loại ngày &amp; Hệ số lương OT
+                        </label>
+                        <Select
+                          id="req-ot-day-type"
+                          value={formOtDayType}
+                          onValueChange={(v) => setFormOtDayType(v as OtDayType)}
+                          options={[
+                            {
+                              value: 'WEEKDAY',
+                              label: OT_DAY_TYPE_CONFIG.WEEKDAY.label,
+                            },
+                            {
+                              value: 'WEEKEND',
+                              label: OT_DAY_TYPE_CONFIG.WEEKEND.label,
+                            },
+                            {
+                              value: 'HOLIDAY',
+                              label: OT_DAY_TYPE_CONFIG.HOLIDAY.label,
+                            },
+                          ]}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="req-duration"
+                        className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      >
+                        {formCategory === 'OVERTIME'
+                          ? 'Số giờ tăng ca (ot_hours)'
+                          : 'Số ngày đề xuất'}
+                      </label>
+                      <Input
+                        id="req-duration"
+                        type="number"
+                        min={0.5}
+                        step={0.5}
+                        value={formDuration}
+                        onChange={(e) => setFormDuration(e.target.value)}
+                        className="font-mono tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="req-unit"
+                        className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      >
+                        Đơn vị tính
+                      </label>
+                      <Input
+                        id="req-unit"
+                        readOnly
+                        value={
+                          formCategory === 'OVERTIME'
+                            ? `Giờ (Hệ số ${OT_DAY_TYPE_CONFIG[formOtDayType].multiplier.toFixed(1)}x)`
+                            : 'Ngày công'
+                        }
+                        className="bg-[#F2F7F5] font-mono text-xs tabular-nums dark:bg-zinc-900"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Conditional Medical Note for SICK_LEAVE */}
+              {formCategory === 'SICK_LEAVE' && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="req-medical-doc"
+                    className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                  >
+                    Số seri Giấy chứng nhận nghỉ ốm hưởng BHXH / Bệnh viện khám *
+                  </label>
+                  <Input
+                    id="req-medical-doc"
+                    value={formMedicalDocNote}
+                    onChange={(e) => setFormMedicalDocNote(e.target.value)}
+                    placeholder="Ví dụ: GCN-BHXH-2026-88412 · Bệnh viện Đại học Y Dược"
+                  />
+                </div>
+              )}
+
+              {formCategory !== 'LATE_EXPLANATION' &&
+                formCategory !== 'OVERTIME' && (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="req-handover"
+                      className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                    >
+                      Người nhận bàn giao công việc (không bắt buộc)
+                    </label>
+                    <Input
+                      id="req-handover"
+                      value={formHandover}
+                      onChange={(e) => setFormHandover(e.target.value)}
+                      placeholder="Ví dụ: Bùi Trọng Nghĩa"
+                    />
+                  </div>
+                )}
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="req-reason"
+                  className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                >
+                  Lý do chi tiết *
+                </label>
+                <textarea
+                  id="req-reason"
+                  rows={3}
+                  value={formReason}
+                  onChange={(e) => setFormReason(e.target.value)}
+                  placeholder={
+                    formCategory === 'LATE_EXPLANATION'
+                      ? 'Nhập lý do quên chấm công hoặc đi muộn (họp khách hàng, quên quẹt thẻ vân tay...)'
+                      : 'Nhập lý do đề xuất chi tiết...'
+                  }
+                  className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] transition-colors placeholder:text-[#5C7871] focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
+                />
+              </div>
+
+              {formError && (
+                <p
+                  className="text-xs font-medium text-red-600 dark:text-red-400"
+                  role="alert"
+                >
+                  {formError}
+                </p>
+              )}
             </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="req-handover"
-                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+            <DialogFooter className="mt-0 shrink-0 border-t border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
               >
-                Người nhận bàn giao (không bắt buộc)
-              </label>
-              <Input
-                id="req-handover"
-                value={formHandover}
-                onChange={(e) => setFormHandover(e.target.value)}
-                placeholder="Ví dụ: Bùi Trọng Nghĩa"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="req-reason"
-                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-              >
-                Lý do chi tiết
-              </label>
-              <textarea
-                id="req-reason"
-                rows={3}
-                value={formReason}
-                onChange={(e) => setFormReason(e.target.value)}
-                placeholder="Nhập lý do đề xuất..."
-                className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] transition-colors placeholder:text-[#5C7871] focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
-              />
-            </div>
-
-            {formError && (
-              <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">
-                {formError}
-              </p>
-            )}
-
-            <DialogFooter>
-              <Button variant="outline" type="button" onClick={() => setIsCreateOpen(false)}>
                 Hủy bỏ
               </Button>
-              <Button variant="primary" type="submit">
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={formExceedsBalance}
+              >
                 Gửi đơn phê duyệt
               </Button>
             </DialogFooter>
@@ -1324,6 +2402,7 @@ export function RequestsView() {
         </DialogContent>
       </Dialog>
 
+      {/* REQUEST DETAIL & MULTI-STEP APPROVAL MODAL */}
       <Dialog
         open={selectedRequest !== null}
         onOpenChange={(open) => {
@@ -1335,396 +2414,353 @@ export function RequestsView() {
         }}
       >
         <DialogContent className="flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden p-0">
-          {selectedRequest && (() => {
-            const effStatus = getEffectiveStatus(selectedRequest);
-            const canApproveModal = canRoleApproveRequest(selectedRequest);
-            const canCancelModal = canCancelRequest(selectedRequest);
-            const needsChecklist =
-              canApproveModal && (role === 'DEPT_MANAGER' || role === 'HR_MANAGER');
+          {selectedRequest &&
+            (() => {
+              const effStatus = getEffectiveStatus(selectedRequest);
+              const canApproveModal = canRoleApproveRequest(selectedRequest);
+              const canCancelModal = canCancelRequest(selectedRequest);
+              const needsChecklist =
+                canApproveModal &&
+                (role === 'DEPT_MANAGER' || role === 'HR_MANAGER');
 
-            return (
-              <>
-                <DialogHeader className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
-                  <div className="flex flex-wrap items-center gap-2 pr-8">
-                    <span className="font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
-                      {selectedRequest.request_code}
-                    </span>
-                    <Badge variant={STATUS_BADGE[effStatus].variant}>
-                      {STATUS_BADGE[effStatus].label}
-                    </Badge>
-                    <Badge className={getCategoryBadgeClass(selectedRequest.request_category)}>
-                      {selectedRequest.category_label}
-                    </Badge>
-                    {selectedRequest.leave_deducted && (
-                      <Badge variant="success">Đã trừ quỹ phép</Badge>
-                    )}
-                  </div>
-                  <DialogTitle className="pt-1">
-                    Chi tiết đơn từ — {selectedRequest.full_name}
-                  </DialogTitle>
-                  <DialogDescription>
-                    <span className="font-mono tabular-nums">{selectedRequest.employee_code}</span> ·{' '}
-                    {selectedRequest.position_name} · {selectedRequest.department_name}
-                  </DialogDescription>
-                </DialogHeader>
+              return (
+                <>
+                  <DialogHeader className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
+                    <div className="flex flex-wrap items-center gap-2 pr-8">
+                      <span className="font-mono text-xs font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                        {selectedRequest.request_code}
+                      </span>
+                      <Badge variant={STATUS_BADGE[effStatus].variant}>
+                        {STATUS_BADGE[effStatus].label}
+                      </Badge>
+                      <Badge
+                        className={getCategoryBadgeClass(
+                          selectedRequest.request_category
+                        )}
+                      >
+                        {selectedRequest.category_label}
+                      </Badge>
+                      {selectedRequest.leave_deducted && (
+                        <Badge variant="success">Đã trừ quỹ phép</Badge>
+                      )}
+                      {selectedRequest.side_effects_applied && (
+                        <Badge variant="teal">
+                          <FileCheck2 className="h-3 w-3" strokeWidth={1.5} />
+                          Đã đồng bộ công
+                        </Badge>
+                      )}
+                    </div>
+                    <DialogTitle className="pt-1">
+                      Chi tiết đơn từ — {selectedRequest.full_name}
+                    </DialogTitle>
+                    <DialogDescription>
+                      <span className="font-mono tabular-nums">
+                        {selectedRequest.employee_code}
+                      </span>{' '}
+                      · {selectedRequest.position_name} ·{' '}
+                      {selectedRequest.department_name}
+                    </DialogDescription>
+                  </DialogHeader>
 
-                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4 text-sm">
-                  <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/60 sm:grid-cols-2">
-                    <div>
-                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Thời gian đề xuất</div>
-                      <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
-                        {formatDateVN(selectedRequest.start_datetime)} -{' '}
-                        {formatDateVN(selectedRequest.end_datetime)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Tổng thời lượng</div>
-                      <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
-                        {selectedRequest.duration_days_or_hours}{' '}
-                        {selectedRequest.duration_unit === 'NGAY' ? 'ngày' : 'giờ'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Người nhận bàn giao</div>
-                      <div className="mt-1 font-medium text-[#11221E] dark:text-zinc-100">
-                        {selectedRequest.handover_to_name ?? 'Không có'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-[#5C7871] dark:text-zinc-400">Ngày gửi đơn</div>
-                      <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
-                        {formatDateVN(selectedRequest.created_at)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
-                    <div className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
-                      Lý do chi tiết
-                    </div>
-                    <p className="mt-1.5 leading-6 text-[#11221E] dark:text-zinc-200">
-                      {selectedRequest.reason}
-                    </p>
-                  </div>
-
-                  {isEditingRequest && role === 'SUPER_ADMIN' && (
-                    <div className="space-y-3 rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/40 p-4 dark:border-teal-400/25 dark:bg-teal-950/20">
-                      <div className="text-xs font-semibold text-[#0B4F4A] dark:text-teal-300">
-                        Chỉnh sửa thông tin đơn từ (Quản trị viên)
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <label
-                            htmlFor="edit-req-duration"
-                            className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                          >
-                            Thời lượng ({selectedRequest.duration_unit === 'NGAY' ? 'ngày' : 'giờ'})
-                          </label>
-                          <Input
-                            id="edit-req-duration"
-                            type="number"
-                            min={0.5}
-                            step={0.5}
-                            value={editDuration}
-                            onChange={(e) => setEditDuration(e.target.value)}
-                            className="font-mono tabular-nums"
-                          />
+                  <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4 text-sm">
+                    <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800 dark:bg-zinc-900/60 sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs text-[#5C7871] dark:text-zinc-400">
+                          {selectedRequest.request_category ===
+                          'LATE_EXPLANATION'
+                            ? 'Ngày công giải trình'
+                            : 'Thời gian áp dụng'}
                         </div>
-                        <div className="space-y-1">
-                          <label
-                            htmlFor="edit-req-handover"
-                            className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                          >
-                            Người nhận bàn giao
-                          </label>
-                          <Input
-                            id="edit-req-handover"
-                            value={editHandover}
-                            onChange={(e) => setEditHandover(e.target.value)}
-                            placeholder="Không có"
-                          />
+                        <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                          {selectedRequest.request_category ===
+                            'LATE_EXPLANATION' && selectedRequest.target_date
+                            ? formatDateVN(selectedRequest.target_date)
+                            : `${formatDateVN(
+                                selectedRequest.start_datetime
+                              )} - ${formatDateVN(selectedRequest.end_datetime)}`}
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <label
-                          htmlFor="edit-req-reason"
-                          className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                        >
-                          Lý do
-                        </label>
-                        <textarea
-                          id="edit-req-reason"
-                          rows={2}
-                          value={editReason}
-                          onChange={(e) => setEditReason(e.target.value)}
-                          className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100"
-                        />
+                      <div>
+                        <div className="text-xs text-[#5C7871] dark:text-zinc-400">
+                          Tổng thời lượng
+                        </div>
+                        <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                          {selectedRequest.duration_days_or_hours}{' '}
+                          {selectedRequest.duration_unit === 'NGAY'
+                            ? 'ngày'
+                            : 'giờ'}
+                          {selectedRequest.request_category === 'OVERTIME' && (
+                            <span className="ml-1.5 text-xs text-amber-700 dark:text-amber-400">
+                              (
+                              {selectedRequest.ot_day_type
+                                ? OT_DAY_TYPE_CONFIG[selectedRequest.ot_day_type]
+                                    .shortLabel
+                                : `${(selectedRequest.ot_multiplier ?? 1.5).toFixed(1)}x`}
+                              )
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsEditingRequest(false)}
-                        >
-                          Hủy sửa
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="primary"
-                          size="sm"
-                          onClick={handleSaveRequestEdit}
-                        >
-                          Lưu chỉnh sửa
-                        </Button>
+
+                      {selectedRequest.request_category ===
+                        'LATE_EXPLANATION' && (
+                        <div>
+                          <div className="text-xs text-[#5C7871] dark:text-zinc-400">
+                            Giờ vào - Giờ ra thực tế
+                          </div>
+                          <div className="mt-1 font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                            {selectedRequest.actual_check_in ?? '08:30'} -{' '}
+                            {selectedRequest.actual_check_out ?? '17:30'}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedRequest.medical_doc_note && (
+                        <div>
+                          <div className="text-xs text-[#5C7871] dark:text-zinc-400">
+                            Chứng từ nghỉ ốm / BHXH
+                          </div>
+                          <div className="mt-1 font-medium text-[#11221E] dark:text-zinc-100">
+                            {selectedRequest.medical_doc_note}
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="text-xs text-[#5C7871] dark:text-zinc-400">
+                          Người nhận bàn giao
+                        </div>
+                        <div className="mt-1 font-medium text-[#11221E] dark:text-zinc-100">
+                          {selectedRequest.handover_to_name ?? 'Không có'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-[#5C7871] dark:text-zinc-400">
+                          Ngày gửi đơn
+                        </div>
+                        <div className="mt-1 font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                          {formatDateVN(selectedRequest.created_at)}
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {selectedRequest.rejection_reason && (
-                    <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300">
-                      <div className="text-xs font-semibold">Lý do từ chối</div>
-                      <p className="mt-1 text-sm">{selectedRequest.rejection_reason}</p>
-                    </div>
-                  )}
-
-                  {selectedRequest.approval_steps && selectedRequest.approval_steps.length > 0 && (
-                    <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
-                      <div className="mb-3 text-xs font-semibold text-[#5C7871] dark:text-zinc-400">
-                        Tiến trình phê duyệt đa cấp
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800 dark:bg-transparent">
+                      <div className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
+                        Lý do chi tiết
                       </div>
-                      <div className="space-y-3">
-                        {selectedRequest.approval_steps.map((step) => {
-                          const isCurrent =
-                            (effStatus === 'PENDING' || effStatus === 'IN_PROGRESS') &&
-                            selectedRequest.current_step_role === step.role;
-                          return (
-                            <div
-                              key={step.step_order}
-                              className="flex flex-col gap-1 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] p-3 dark:border-zinc-800/70 dark:bg-zinc-900/40"
+                      <p className="mt-1.5 leading-6 text-[#11221E] dark:text-zinc-200">
+                        {selectedRequest.reason}
+                      </p>
+                    </div>
+
+                    {isEditingRequest && role === 'SUPER_ADMIN' && (
+                      <div className="space-y-3 rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/40 p-4 dark:border-teal-400/25 dark:bg-teal-950/20">
+                        <div className="text-xs font-semibold text-[#0B4F4A] dark:text-teal-300">
+                          Chỉnh sửa thông tin đơn từ (Quản trị viên)
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="edit-req-duration"
+                              className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <StepperBadge step={step} isCurrent={isCurrent} />
-                                {step.actor_name && (
-                                  <span className="text-xs text-[#415A54] dark:text-zinc-400">
-                                    {step.actor_name}
-                                    {step.acted_at && (
-                                      <span className="ml-1.5 font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
-                                        · {formatDateVN(step.acted_at)}
+                              Thời lượng (
+                              {selectedRequest.duration_unit === 'NGAY'
+                                ? 'ngày'
+                                : 'giờ'}
+                              )
+                            </label>
+                            <Input
+                              id="edit-req-duration"
+                              type="number"
+                              min={0.5}
+                              step={0.5}
+                              value={editDuration}
+                              onChange={(e) => setEditDuration(e.target.value)}
+                              className="font-mono tabular-nums"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label
+                              htmlFor="edit-req-handover"
+                              className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                            >
+                              Người nhận bàn giao
+                            </label>
+                            <Input
+                              id="edit-req-handover"
+                              value={editHandover}
+                              onChange={(e) => setEditHandover(e.target.value)}
+                              placeholder="Không có"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="edit-req-reason"
+                            className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                          >
+                            Lý do
+                          </label>
+                          <textarea
+                            id="edit-req-reason"
+                            rows={2}
+                            value={editReason}
+                            onChange={(e) => setEditReason(e.target.value)}
+                            className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsEditingRequest(false)}
+                          >
+                            Hủy sửa
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={handleSaveRequestEdit}
+                          >
+                            Lưu chỉnh sửa
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedRequest.rejection_reason && (
+                      <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300">
+                        <div className="text-xs font-semibold">
+                          Lý do từ chối
+                        </div>
+                        <p className="mt-1 text-sm">
+                          {selectedRequest.rejection_reason}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedRequest.approval_steps &&
+                      selectedRequest.approval_steps.length > 0 && (
+                        <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800 dark:bg-transparent">
+                          <div className="mb-3 text-xs font-semibold text-[#5C7871] dark:text-zinc-400">
+                            Tiến trình phê duyệt đa cấp
+                          </div>
+                          <div className="space-y-3">
+                            {selectedRequest.approval_steps.map((step) => {
+                              const isCurrent =
+                                (effStatus === 'PENDING' ||
+                                  effStatus === 'IN_PROGRESS') &&
+                                selectedRequest.current_step_role === step.role;
+                              return (
+                                <div
+                                  key={step.step_order}
+                                  className="flex flex-col gap-1 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5] p-3 dark:border-zinc-800/70 dark:bg-zinc-900/40"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <StepperBadge
+                                      step={step}
+                                      isCurrent={isCurrent}
+                                    />
+                                    {step.actor_name && (
+                                      <span className="text-xs text-[#415A54] dark:text-zinc-400">
+                                        {step.actor_name}
+                                        {step.acted_at && (
+                                          <span className="ml-1.5 font-mono tabular-nums text-[#5C7871] dark:text-zinc-400">
+                                            · {formatDateVN(step.acted_at)}
+                                          </span>
+                                        )}
                                       </span>
                                     )}
-                                  </span>
-                                )}
-                              </div>
-                              {step.note && (
-                                <p className="text-xs text-[#415A54] dark:text-zinc-400">
-                                  Ghi chú: {step.note}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                                  </div>
+                                  {step.note && (
+                                    <p className="text-xs text-[#415A54] dark:text-zinc-400">
+                                      Ghi chú: {step.note}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
-                  {needsChecklist && (
-                    <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/40 p-3.5 text-xs text-[#11221E] dark:border-teal-400/25 dark:bg-teal-950/30 dark:text-zinc-200">
-                      <input
-                        type="checkbox"
-                        checked={checklistChecked}
-                        onChange={(e) => setChecklistChecked(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E] focus:ring-[#0F766E]"
-                      />
-                      <span>
-                        {role === 'DEPT_MANAGER'
-                          ? 'Xác nhận đã kiểm tra bàn giao công việc và không ảnh hưởng deadline của team.'
-                          : 'Xác nhận đã kiểm tra quy chế công ty, quỹ phép năm còn lại và lịch nghỉ trùng của bộ phận.'}
-                      </span>
-                    </label>
-                  )}
-                </div>
+                    {needsChecklist && (
+                      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/40 p-3.5 text-xs text-[#11221E] dark:border-teal-400/25 dark:bg-teal-950/30 dark:text-zinc-200">
+                        <input
+                          type="checkbox"
+                          checked={checklistChecked}
+                          onChange={(e) =>
+                            setChecklistChecked(e.target.checked)
+                          }
+                          className="mt-0.5 h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E] focus:ring-[#0F766E]"
+                        />
+                        <span>
+                          {role === 'DEPT_MANAGER'
+                            ? 'Xác nhận đã kiểm tra bàn giao công việc / tính xác thực giờ công và không ảnh hưởng tiến độ bộ phận.'
+                            : 'Xác nhận đã đối soát quy chế công ty, quỹ phép năm / hệ số OT / chứng từ BHXH hợp lệ.'}
+                        </span>
+                      </label>
+                    )}
+                  </div>
 
-                <DialogFooter className="mt-0 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
-                  <Button variant="outline" onClick={() => setSelectedRequest(null)}>
-                    Đóng
-                  </Button>
-                  {role === 'SUPER_ADMIN' && !isEditingRequest && (
+                  <DialogFooter className="mt-0 flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
                     <Button
                       variant="outline"
-                      onClick={() => startEditingRequest(selectedRequest)}
+                      onClick={() => setSelectedRequest(null)}
                     >
-                      <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                      Chỉnh sửa
+                      Đóng
                     </Button>
-                  )}
-                  {role === 'SUPER_ADMIN' && (
-                    <Button
-                      variant="destructive"
-                      className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
-                      onClick={() => setDeleteTarget(selectedRequest)}
-                    >
-                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                      Xóa đơn
-                    </Button>
-                  )}
-                  {canCancelModal && (
-                    <Button
-                      variant="destructive"
-                      className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
-                      onClick={() => setCancelTarget(selectedRequest)}
-                    >
-                      <Ban className="h-4 w-4" strokeWidth={1.5} />
-                      Hủy đơn
-                    </Button>
-                  )}
-                  {canApproveModal && (
-                    <>
+                    {role === 'SUPER_ADMIN' && !isEditingRequest && (
                       <Button
                         variant="outline"
-                        onClick={() => openRejectModal(selectedRequest)}
+                        onClick={() => startEditingRequest(selectedRequest)}
                       >
-                        <X className="h-4 w-4 text-red-600 dark:text-red-400" strokeWidth={1.5} />
-                        Từ chối
+                        <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                        Chỉnh sửa
                       </Button>
+                    )}
+                    {canCancelModal && (
                       <Button
-                        variant="primary"
-                        disabled={needsChecklist && !checklistChecked}
-                        onClick={() => handleApproveStep(selectedRequest)}
+                        variant="destructive"
+                        onClick={() => void handleCancelRequest(selectedRequest)}
                       >
-                        <Check className="h-4 w-4" strokeWidth={1.5} />
-                        Duyệt bước này
+                        <Ban className="h-4 w-4" strokeWidth={1.5} />
+                        Hủy đơn
                       </Button>
-                    </>
-                  )}
-                </DialogFooter>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={rejectTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRejectTarget(null);
-            setRejectReasonInput('');
-            setRejectError('');
-          }
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Xác nhận từ chối đơn {rejectTarget?.request_code}</DialogTitle>
-            <DialogDescription>
-              Vui lòng nhập lý do từ chối để thông báo tới {rejectTarget?.full_name}.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleConfirmReject} className="mt-4 space-y-3">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="reject-reason-input"
-                className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
-              >
-                Lý do từ chối (bắt buộc)
-              </label>
-              <textarea
-                id="reject-reason-input"
-                rows={3}
-                value={rejectReasonInput}
-                onChange={(e) => {
-                  setRejectReasonInput(e.target.value);
-                  if (rejectError) setRejectError('');
-                }}
-                placeholder="Ví dụ: Trùng lịch triển khai dự án hoặc vượt định mức phép năm..."
-                className="w-full rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-sm text-[#11221E] transition-colors placeholder:text-[#5C7871] focus-visible:border-[#0F766E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/[0.18] dark:border-zinc-800/80 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus-visible:border-teal-400 dark:focus-visible:ring-teal-400/20"
-              />
-            </div>
-            {rejectError && (
-              <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">
-                {rejectError}
-              </p>
-            )}
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setRejectTarget(null)}
-              >
-                Quay lại
-              </Button>
-              <Button variant="destructive" type="submit">
-                Xác nhận từ chối
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={cancelTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setCancelTarget(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Xác nhận hủy đơn</DialogTitle>
-            <DialogDescription>
-              Bạn có chắc chắn muốn hủy đơn{' '}
-              <span className="font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
-                {cancelTarget?.request_code}
-              </span>{' '}
-              này không?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => setCancelTarget(null)}>
-              Giữ lại
-            </Button>
-            <Button
-              variant="destructive"
-              type="button"
-              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
-              onClick={handleConfirmCancel}
-            >
-              Xác nhận hủy
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Xác nhận xóa đơn từ</DialogTitle>
-            <DialogDescription>
-              Bạn có chắc chắn muốn xóa vĩnh viễn đơn{' '}
-              <span className="font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
-                {deleteTarget?.request_code}
-              </span>{' '}
-              của {deleteTarget?.full_name}?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => setDeleteTarget(null)}>
-              Hủy
-            </Button>
-            <Button
-              variant="destructive"
-              type="button"
-              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700 dark:border-rose-600 dark:bg-rose-600 dark:hover:bg-rose-500"
-              onClick={handleConfirmDeleteRequest}
-            >
-              Xác nhận xóa
-            </Button>
-          </DialogFooter>
+                    )}
+                    {canApproveModal && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            void handleRejectRequest(selectedRequest)
+                          }
+                        >
+                          <X
+                            className="h-4 w-4 text-red-600 dark:text-red-400"
+                            strokeWidth={1.5}
+                          />
+                          Từ chối
+                        </Button>
+                        <Button
+                          variant="primary"
+                          disabled={needsChecklist && !checklistChecked}
+                          onClick={() =>
+                            void handleApproveStep(selectedRequest)
+                          }
+                        >
+                          <Check className="h-4 w-4" strokeWidth={1.5} />
+                          Duyệt bước này
+                        </Button>
+                      </>
+                    )}
+                  </DialogFooter>
+                </>
+              );
+            })()}
         </DialogContent>
       </Dialog>
     </div>

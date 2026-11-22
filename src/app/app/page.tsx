@@ -11,6 +11,7 @@ import { DashboardView } from '@/components/modules/dashboard-view';
 import { CoreHrView } from '@/components/modules/core-hr-view';
 import { AtsView } from '@/components/modules/ats-view';
 import { OnboardingView } from '@/components/modules/onboarding-view';
+import { OffboardingView } from '@/components/modules/offboarding-view';
 import { AttendanceView } from '@/components/modules/attendance-view';
 import { RequestsView } from '@/components/modules/requests-view';
 import { PayrollView } from '@/components/modules/payroll-view';
@@ -25,6 +26,9 @@ const NAV_ALIAS_TO_ID: Record<string, string> = {
   employees: 'core-hr',
   recruitment: 'ats',
   assets: 'onboarding',
+  offboarding: 'offboarding',
+  resignations: 'offboarding',
+  settlement: 'offboarding',
   requests: 'leaves',
   performance: 'kpi',
   roles: 'rbac',
@@ -108,6 +112,8 @@ function InternalAppContent() {
         return <AtsView />;
       case 'onboarding':
         return <OnboardingView />;
+      case 'offboarding':
+        return <OffboardingView />;
       case 'attendance':
         return <AttendanceView />;
       case 'leaves':

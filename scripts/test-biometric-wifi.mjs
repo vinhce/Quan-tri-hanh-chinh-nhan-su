@@ -1077,7 +1077,7 @@ Configuration for interface "Wi-Fi"
       employeeId: activeEmp.id,
       date: todayVN,
       action: 'CHECK_IN',
-      timeHHmm: '05:23',
+      timeHHmm: '07:23',
       source: 'BIOMETRIC_FINGERPRINT',
       authMethod: 'WEBAUTHN_FINGERPRINT',
       biometricDeviceLabel: 'Windows Hello · Laptop Công ty',
@@ -1113,6 +1113,42 @@ Configuration for interface "Wi-Fi"
       todayDate: todayVN,
     });
     assert.strictEqual(pastUnclosed.status, 'MISSING_PUNCH');
+  });
+
+  test('4.3c Chặn chấm công ngoài khung giờ 22:00 – 06:00 sáng (22:15 & 01:36)', () => {
+    const todayVN = runtimeStore.getTodayDateVN();
+    const activeEmp =
+      employeesMock.MOCK_EMPLOYEES.find((e) => e.id === 'emp-002') ||
+      employeesMock.MOCK_EMPLOYEES[0];
+
+    assert.strictEqual(runtimeStore.isAttendanceNightLockWindow('22:15'), true);
+    assert.strictEqual(runtimeStore.isAttendanceNightLockWindow('01:36'), true);
+    assert.strictEqual(runtimeStore.isAttendanceNightLockWindow('06:00'), false);
+    assert.strictEqual(runtimeStore.isAttendanceNightLockWindow('21:59'), false);
+
+    assert.throws(
+      () =>
+        runtimeStore.checkInOutToday({
+          employeeId: activeEmp.id,
+          date: todayVN,
+          action: 'CHECK_IN',
+          timeHHmm: '22:15',
+          source: 'BIOMETRIC_FINGERPRINT',
+        }),
+      /Ngoài khung giờ chấm công/
+    );
+
+    assert.throws(
+      () =>
+        runtimeStore.checkInOutToday({
+          employeeId: activeEmp.id,
+          date: todayVN,
+          action: 'CHECK_OUT',
+          timeHHmm: '01:36',
+          source: 'BIOMETRIC_FINGERPRINT',
+        }),
+      /Ngoài khung giờ chấm công/
+    );
   });
 
   test('4.4 checkInOutToday mặc định vẫn giữ WEB_CLOCK để tương thích ngược toàn bộ test cũ', () => {

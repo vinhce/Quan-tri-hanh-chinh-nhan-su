@@ -45,6 +45,7 @@ import {
   getPerformanceReviews,
   getPreboardingInvites,
   getSystemUsers,
+  getTodayDateVN,
   HRM_RUNTIME_EVENT,
   hrQuickUpdatePreboarding,
   isOfficialEmployeeStatus,
@@ -318,6 +319,8 @@ export function OnboardingView() {
     'ALL' | OnboardingStatus
   >('ALL');
   const [progressSearch, setProgressSearch] = useState<string>('');
+  const [checklistEmployeeFilter, setChecklistEmployeeFilter] =
+    useState<string>('ALL');
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
 
   // Department Task Interactive Controls (for Selected Record)
@@ -334,23 +337,9 @@ export function OnboardingView() {
   const [hrOfficialSalaryInput, setHrOfficialSalaryInput] =
     useState<string>('24000000');
 
-  // HR Quick Update Pre-boarding Modal state
+  // HR Review & Approve Pre-boarding Modal state
   const [quickUpdateInvite, setQuickUpdateInvite] =
     useState<PreboardingInvite | null>(null);
-  const [quNationalId, setQuNationalId] = useState<string>('');
-  const [quIssueDate, setQuIssueDate] = useState<string>('2022-04-15');
-  const [quIssuePlace, setQuIssuePlace] = useState<string>(
-    'Cục Cảnh sát QLHC về TTXH'
-  );
-  const [quTaxCode, setQuTaxCode] = useState<string>('');
-  const [quBhxhNo, setQuBhxhNo] = useState<string>('');
-  const [quDependents, setQuDependents] = useState<string>('0');
-  const [quBankName, setQuBankName] = useState<string>('Vietcombank');
-  const [quBankAccount, setQuBankAccount] = useState<string>('');
-  const [quAddress, setQuAddress] = useState<string>('');
-  const [quEmgName, setQuEmgName] = useState<string>('');
-  const [quEmgPhone, setQuEmgPhone] = useState<string>('');
-  const [quEmgRelation, setQuEmgRelation] = useState<string>('Vợ/Chồng');
 
   // Create New Pre-boarding Invite Modal state
   const [isNewInviteOpen, setIsNewInviteOpen] = useState<boolean>(false);
@@ -614,6 +603,7 @@ export function OnboardingView() {
       setProgressSearch('');
       if (matchedRecord) {
         setSelectedRecordId(matchedRecord.id);
+        setChecklistEmployeeFilter(matchedRecord.id);
       }
     }
 
@@ -887,22 +877,7 @@ export function OnboardingView() {
   };
 
   const openQuickUpdateModal = (invite: PreboardingInvite) => {
-    const sub = invite.submitted_data;
     setQuickUpdateInvite(invite);
-    setQuNationalId(sub?.national_id ?? '');
-    setQuIssueDate(sub?.national_id_issue_date ?? '2022-04-18');
-    setQuIssuePlace(
-      sub?.national_id_issue_place ?? 'Cục Cảnh sát QLHC về TTXH'
-    );
-    setQuTaxCode(sub?.tax_code ?? '');
-    setQuBhxhNo(sub?.social_insurance_no ?? '');
-    setQuDependents(String(sub?.dependents_count ?? 0));
-    setQuBankName(sub?.bank_name ?? 'Vietcombank');
-    setQuBankAccount(sub?.bank_account_no ?? '');
-    setQuAddress(sub?.address ?? '');
-    setQuEmgName(sub?.emergency_contact_name ?? '');
-    setQuEmgPhone(sub?.emergency_contact_phone ?? '');
-    setQuEmgRelation(sub?.emergency_contact_relation ?? 'Vợ/Chồng');
   };
 
   const handleSaveQuickUpdatePreboarding = async (
@@ -911,23 +886,21 @@ export function OnboardingView() {
   ) => {
     e?.preventDefault();
     if (!quickUpdateInvite) return;
+    const sub = quickUpdateInvite.submitted_data;
+    if (!sub || quickUpdateInvite.status === 'PENDING') {
+      await alertSwal({
+        title: 'Ứng viên chưa hoàn tất khai báo Pre-boarding',
+        text: 'HR chỉ kiểm tra và phê duyệt sau khi ứng viên tự khai báo thông tin trên cổng Pre-boarding.',
+        icon: 'warning',
+      });
+      return;
+    }
 
     try {
       const { invite: updated } = hrQuickUpdatePreboarding(
         quickUpdateInvite.token,
         {
-          national_id: quNationalId.trim(),
-          national_id_issue_date: quIssueDate,
-          national_id_issue_place: quIssuePlace.trim(),
-          tax_code: quTaxCode.trim(),
-          social_insurance_no: quBhxhNo.trim() || undefined,
-          dependents_count: Math.max(0, Number.parseInt(quDependents, 10) || 0),
-          bank_name: quBankName.trim(),
-          bank_account_no: quBankAccount.trim(),
-          address: quAddress.trim() || undefined,
-          emergency_contact_name: quEmgName.trim(),
-          emergency_contact_phone: quEmgPhone.trim(),
-          emergency_contact_relation: quEmgRelation.trim(),
+          ...sub,
           verify: verifyNow,
           actorName,
         }
@@ -937,15 +910,13 @@ export function OnboardingView() {
       setQuickUpdateInvite(null);
 
       showToast(
-        verifyNow
-          ? 'Đã duyệt hồ sơ Pre-boarding'
-          : 'Đã lưu tạm hồ sơ Pre-boarding',
+        'Đã duyệt hồ sơ Pre-boarding',
         `${updated.full_name} (${updated.employee_code}) · ${PREBOARDING_BADGE_META[updated.status].shortLabel}`,
         'success'
       );
     } catch (err) {
       await alertSwal({
-        title: 'Không thể cập nhật Pre-boarding',
+        title: 'Không thể duyệt hồ sơ Pre-boarding',
         text: err instanceof Error ? err.message : 'Vui lòng thử lại.',
         icon: 'error',
       });
@@ -1694,15 +1665,6 @@ export function OnboardingView() {
     );
   }
 
-  const selectedRecordEmployeeAssets = selectedRecord
-    ? employeeAssets.filter(
-        (ea) =>
-          (ea.employee_code === selectedRecord.employee_code ||
-            ea.employee_id === selectedRecord.employee_id) &&
-          ea.status === 'ASSIGNED'
-      )
-    : [];
-
   const hasActiveAssetFilters =
     Boolean(assetSearch.trim()) ||
     assetCategoryFilter !== 'ALL' ||
@@ -1712,14 +1674,9 @@ export function OnboardingView() {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
-            Onboarding, Pre-boarding &amp; Tài sản cấp phát
-          </h1>
-          <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            {roleScopeSubtitle}
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold tracking-tight text-[#11221E] dark:text-zinc-100">
+          Onboarding &amp; Tài sản
+        </h1>
         {canManageAll && (
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -1728,7 +1685,7 @@ export function OnboardingView() {
               onClick={() => setIsNewInviteOpen(true)}
             >
               <UserPlus className="h-4 w-4" strokeWidth={1.5} />
-              Mở Pre-boarding mới
+              Mở Pre-boarding
             </Button>
             <Button
               variant="primary"
@@ -1736,174 +1693,10 @@ export function OnboardingView() {
               onClick={openCreateAssetDialog}
             >
               <PackagePlus className="h-4 w-4" strokeWidth={1.5} />
-              Thêm tài sản mới
+              Thêm tài sản
             </Button>
           </div>
         )}
-      </div>
-
-      {/* Expiring Probation Alert & Official Conversion Banner */}
-      {scopedExpiringProbations.length > 0 && (
-        <Card className="border-l-4 border-l-amber-500 bg-[#FCFEFD] dark:border-l-amber-400 dark:bg-[#121214]">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-300">
-                <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                <span>
-                  Cảnh báo Kết thúc Thử việc &amp; Chuyển chính thức ({scopedExpiringProbations.length} hồ sơ sắp đến hạn trong 30 ngày)
-                </span>
-              </div>
-              <span className="text-xs text-[#415A54] dark:text-zinc-400">
-                Yêu cầu Quản lý đánh giá ĐẠT (PASS) trước khi ký HĐLĐ 100% lương &amp; mở quỹ phép năm
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
-              {scopedExpiringProbations.map((item) => {
-                const emp = item.employee;
-                const passReview = reviews.find(
-                  (r) =>
-                    (r.employee_id === item.contract.employee_id ||
-                      r.employee_code === item.contract.employee_code) &&
-                    r.cycle === 'PROBATION' &&
-                    r.result === 'PASS'
-                );
-
-                return (
-                  <div
-                    key={item.contract.id}
-                    className="flex flex-col gap-2.5 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/85 p-3.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/70 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-[#11221E] dark:text-zinc-100">
-                          {item.contract.full_name}
-                        </span>
-                        <span className="font-mono tabular-nums text-[#415A54] dark:text-zinc-400">
-                          ({item.contract.employee_code})
-                        </span>
-                        <Badge variant="warning" className="font-mono text-[11px]">
-                          Còn {item.daysRemaining} ngày
-                        </Badge>
-                      </div>
-                      <div className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
-                        {item.contract.contract_number} · Hạn:{' '}
-                        {formatDateVN(item.contract.end_date || '')} · Hưởng{' '}
-                        {item.contract.salary_percent ?? 85}% lương (
-                        {formatVND(item.contract.base_salary_vnd)})
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                        {passReview ? (
-                          <Badge variant="success">
-                            Đánh giá Quản lý: ĐẠT ({passReview.kpi_score}đ · Hạng{' '}
-                            {passReview.grade})
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">
-                            Chưa có phiếu đánh giá ĐẠT từ Quản lý
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {!passReview &&
-                        emp &&
-                        (isDeptManager || canManageAll) && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handleQuickPassProbationReview(emp)}
-                          >
-                            Duyệt ĐẠT thử việc
-                          </Button>
-                        )}
-                      {canManageAll && emp && (
-                        <Button
-                          type="button"
-                          variant="primary"
-                          size="sm"
-                          onClick={() => openConvertToOfficialModal(emp)}
-                        >
-                          <Award className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          Chuyển chính thức (OFFICIAL)
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 4 KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-l-4 border-l-[#0F766E] dark:border-l-teal-400">
-          <CardContent className="p-4">
-            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-              Đang hội nhập
-            </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
-              {kpiStats.inProgressCount}
-            </div>
-            <div className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-              {isEmployee
-                ? 'Hồ sơ cá nhân đang mở'
-                : pendingPreboardingInvites.length > 0
-                  ? `${pendingPreboardingInvites.length} hồ sơ chờ duyệt`
-                  : 'Không còn hồ sơ tồn đọng'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
-          <CardContent className="p-4">
-            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-              Hoàn tất hội nhập
-            </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-              {kpiStats.completedCount}
-            </div>
-            <div className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-              Đã chuyển sang làm việc chính thức
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
-          <CardContent className="p-4">
-            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-              Tỷ lệ checklist trung bình
-            </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
-              {scopedRecords.length > 0 ? `${kpiStats.avgChecklistPercent}%` : '—'}
-            </div>
-            <div className="mt-1 font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
-              {scopedRecords.length > 0
-                ? `${kpiStats.doneItemsTotal}/${kpiStats.allItemsTotal} mục hoàn thành`
-                : 'Không có checklist đang mở'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
-          <CardContent className="p-4">
-            <div className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-              Thiết bị đã bàn giao
-            </div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
-              {kpiStats.assignedDevicesCount}
-            </div>
-            <div className="mt-1 font-mono text-xs tabular-nums text-[#5C7871] dark:text-zinc-400">
-              {isEmployee
-                ? `Đứng tên mã ${actorCode}`
-                : `${kpiStats.availableDevicesCount} sẵn sàng trong kho`}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Main 2-Tab View */}
@@ -1948,100 +1741,81 @@ export function OnboardingView() {
         <TabsContent value="progress" className="space-y-4">
           {/* Active Pre-boarding Invites Strip */}
           {!isEmployee && pendingPreboardingInvites.length > 0 && (
-            <Card className="border-l-4 border-l-[#0F766E] bg-[#FCFEFD] dark:border-l-teal-400 dark:bg-[#121214]">
-              <CardContent className="space-y-2.5 p-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
-                    Hồ sơ Pre-boarding chờ duyệt
-                  </h2>
-                  <span className="font-mono text-[11px] font-medium tabular-nums text-[#0F766E] dark:text-teal-400">
-                    {pendingPreboardingInvites.length} hồ sơ chờ duyệt
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {pendingPreboardingInvites.map((inv) => {
-                    const stMeta = PREBOARDING_BADGE_META[inv.status];
-                    return (
-                      <div
-                        key={inv.id}
-                        className="flex flex-col gap-2 rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/75 px-3 py-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/60 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="min-w-0 space-y-0.5">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="font-semibold text-[#11221E] dark:text-zinc-100">
-                              {inv.full_name}
-                            </span>
-                            <span className="font-mono tabular-nums text-[#0F766E] dark:text-teal-400">
-                              ({inv.employee_code})
-                            </span>
-                            <Badge variant={stMeta.variant}>
-                              {stMeta.shortLabel}
-                            </Badge>
-                          </div>
-                          <div className="truncate text-[11px] text-[#415A54] dark:text-zinc-400">
-                            {inv.position_name} · Nhận việc{' '}
-                            <span className="font-mono tabular-nums">
-                              {formatDateVN(inv.expected_start_date)}
-                            </span>
-                          </div>
+            <Card className="overflow-hidden bg-white dark:bg-[#121214]">
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-zinc-800/80">
+                <h2 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                  Pre-boarding chờ duyệt
+                </h2>
+                <span className="font-mono text-xs font-medium tabular-nums text-slate-400 dark:text-zinc-400">
+                  {pendingPreboardingInvites.length}
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800/80">
+                {pendingPreboardingInvites.map((inv) => {
+                  const stMeta = PREBOARDING_BADGE_META[inv.status];
+                  return (
+                    <div
+                      key={inv.id}
+                      className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-[#11221E] dark:text-zinc-100">
+                          {inv.full_name}
                         </div>
-
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() => void handleCopyPreboardingUrl(inv.token)}
-                          >
-                            {copiedToken === inv.token ? (
-                              <Check className="h-3 w-3" strokeWidth={1.5} />
-                            ) : (
-                              <ClipboardCopy className="h-3 w-3" strokeWidth={1.5} />
-                            )}
-                            Copy link
-                          </Button>
-
-                          <Link
-                            href={inv.preboarding_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-[11px]"
-                            >
-                              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                              Mở cổng
-                            </Button>
-                          </Link>
-
-                          {canManageAll && (
-                            <Button
-                              type="button"
-                              variant="primary"
-                              size="sm"
-                              className="h-7 px-2.5 text-[11px]"
-                              onClick={() => openQuickUpdateModal(inv)}
-                            >
-                              <Pencil className="h-3 w-3" strokeWidth={1.5} />
-                              Rà soát
-                            </Button>
-                          )}
+                        <div className="mt-0.5 truncate text-xs text-slate-400 dark:text-zinc-400">
+                          {inv.employee_code} · {inv.position_title || inv.position_name}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
+
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <Badge variant={stMeta.variant}>
+                          {stMeta.shortLabel}
+                        </Badge>
+                        {canManageAll && (
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={() => openQuickUpdateModal(inv)}
+                          >
+                            Duyệt hồ sơ
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 px-0"
+                          aria-label={`Sao chép link Pre-boarding của ${inv.full_name}`}
+                          title="Sao chép link Pre-boarding"
+                          onClick={() => void handleCopyPreboardingUrl(inv.token)}
+                        >
+                          {copiedToken === inv.token ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" strokeWidth={1.75} />
+                          ) : (
+                            <ClipboardCopy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          )}
+                        </Button>
+                        <Link
+                          href={inv.preboarding_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Mở cổng Pre-boarding của ${inv.full_name}`}
+                          title="Mở cổng Pre-boarding"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C6D9D3] bg-white text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
           )}
 
           {isEmployee && scopedRecords.length === 0 ? (
-            <Card className="border-l-4 border-l-[#0F766E] dark:border-l-teal-400">
+            <Card className="bg-white dark:bg-[#121214]">
               <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -2051,7 +1825,7 @@ export function OnboardingView() {
                     <Badge variant="success">Đã hoàn tất hội nhập</Badge>
                   </div>
                   <p className="text-xs leading-5 text-[#415A54] dark:text-zinc-400">
-                    Tài khoản {actorName} không có quy trình hội nhập nhân viên mới đang chờ xử lý. Bạn có thể kiểm tra danh sách máy tính, màn hình và thẻ từ đang được bàn giao tại tab Tài sản đang giữ.
+                    Tài khoản {actorName} hiện không có mục checklist hội nhập nào đang chờ xử lý.
                   </p>
                 </div>
                 <Button
@@ -2066,963 +1840,260 @@ export function OnboardingView() {
               </CardContent>
             </Card>
           ) : (
-            <>
-              {/* Filter Bar for Tab 1 */}
-              {!isEmployee && (
-                <Card>
-                  <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="relative flex-1 sm:max-w-sm">
-                      <Search
-                        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-[#5C7871] dark:text-zinc-400"
-                        strokeWidth={1.5}
-                      />
-                      <Input
-                        value={progressSearch}
-                        onChange={(e) => setProgressSearch(e.target.value)}
-                        placeholder="Tìm theo mã hồ sơ, mã NV, họ tên hoặc phòng ban..."
-                        aria-label="Tìm hồ sơ hội nhập"
-                        className="pl-9"
-                      />
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        variant={
-                          progressStatusFilter === 'ALL' ? 'primary' : 'outline'
-                        }
-                        size="sm"
-                        onClick={() => setProgressStatusFilter('ALL')}
-                      >
-                        Tất cả ({scopedRecords.length})
-                      </Button>
-                      <Button
-                        variant={
-                          progressStatusFilter === 'IN_PROGRESS'
-                            ? 'primary'
-                            : 'outline'
-                        }
-                        size="sm"
-                        onClick={() => setProgressStatusFilter('IN_PROGRESS')}
-                      >
-                        Đang hội nhập ({kpiStats.inProgressCount})
-                      </Button>
-                      <Button
-                        variant={
-                          progressStatusFilter === 'COMPLETED'
-                            ? 'primary'
-                            : 'outline'
-                        }
-                        size="sm"
-                        onClick={() => setProgressStatusFilter('COMPLETED')}
-                      >
-                        Hoàn tất ({kpiStats.completedCount})
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+            (() => {
+              const todayIso = getTodayDateVN();
+              const q = normalizeVietnamese(progressSearch.trim());
+              const targetRecords =
+                checklistEmployeeFilter === 'ALL'
+                  ? scopedRecords
+                  : scopedRecords.filter(
+                      (rec) => rec.id === checklistEmployeeFilter
+                    );
 
-              {filteredRecords.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <ClipboardCheck
-                      className="h-7 w-7 text-[#5C7871] dark:text-zinc-500"
-                      strokeWidth={1.5}
-                    />
-                    <p className="mt-2.5 text-sm font-medium text-[#11221E] dark:text-zinc-100">
-                      Không có hồ sơ hội nhập khớp điều kiện lọc
-                    </p>
-                    <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                      Thử xóa từ khóa tìm kiếm hoặc chuyển bộ lọc trạng thái về Tất cả
-                    </p>
-                    {(progressSearch || progressStatusFilter !== 'ALL') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-4"
-                        onClick={() => {
-                          setProgressSearch('');
-                          setProgressStatusFilter('ALL');
-                        }}
-                      >
-                        Xóa bộ lọc
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-                  {/* Left: Onboarding Records List */}
-                  <div className="space-y-3 lg:col-span-5">
-                    {filteredRecords.map((rec) => {
-                      const stats = getChecklistStats(rec);
-                      const statusMeta = ONBOARDING_STATUS_META[rec.status];
-                      const isSelected = selectedRecord?.id === rec.id;
-                      const attachedCount = assets.filter(
-                        (a) =>
-                          rec.assigned_asset_ids.includes(a.id) ||
-                          a.assigned_to_code === rec.employee_code
-                      ).length;
-                      const recInvite = preboardingInvites.find(
-                        (inv) =>
-                          (rec.preboarding_token &&
-                            inv.token === rec.preboarding_token) ||
-                          inv.employee_code === rec.employee_code
+              const flatChecklistItems = targetRecords
+                .flatMap((rec) =>
+                  rec.checklist
+                    .filter((item) => {
+                      if (!q) return true;
+                      const haystack = normalizeVietnamese(
+                        `${item.title} ${rec.full_name} ${rec.employee_code} ${rec.department_name} ${rec.position_name}`
                       );
-                      const recUser = systemUsers.find(
-                        (u) => u.employee_code === rec.employee_code
-                      );
+                      return haystack.includes(q);
+                    })
+                    .map((item) => ({ rec, item }))
+                )
+                .sort((a, b) => {
+                  if (a.item.completed !== b.item.completed) {
+                    return a.item.completed ? 1 : -1;
+                  }
+                  return 0;
+                });
 
-                      return (
-                        <div
-                          key={rec.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleSelectRecord(rec)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleSelectRecord(rec);
-                            }
-                          }}
-                          className={cn(
-                            'cursor-pointer rounded-[12px] border border-l-4 p-4 shadow-[0_1px_3px_rgba(17,34,30,0.05)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:bg-[#121214] dark:shadow-none',
-                            rec.status === 'COMPLETED'
-                              ? 'border-l-emerald-500 dark:border-l-emerald-400'
-                              : 'border-l-[#0F766E] dark:border-l-teal-400',
-                            isSelected
-                              ? 'border-[#0F766E] bg-[#E8F3EF] ring-1 ring-[#0F766E]/25 dark:border-zinc-600 dark:bg-zinc-800/50 dark:ring-teal-400/25'
-                              : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E]/60 hover:bg-[#F5FAF8] dark:border-zinc-800/80 dark:hover:border-zinc-700'
-                          )}
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-mono text-xs font-medium tabular-nums text-[#415A54] dark:text-zinc-400">
-                              {rec.id} · {rec.employee_code}
-                            </span>
-                            <Badge variant={statusMeta.variant}>
-                              {statusMeta.label}
-                            </Badge>
-                          </div>
+              const focusedRecord =
+                checklistEmployeeFilter !== 'ALL'
+                  ? scopedRecords.find((r) => r.id === checklistEmployeeFilter) ??
+                    null
+                  : targetRecords.length === 1
+                    ? targetRecords[0]
+                    : null;
+              const focusedEmployee = focusedRecord
+                ? employees.find(
+                    (e) =>
+                      e.id === focusedRecord.employee_id ||
+                      e.employee_code === focusedRecord.employee_code
+                  ) ?? null
+                : null;
+              const focusedStats = focusedRecord
+                ? getChecklistStats(focusedRecord)
+                : null;
+              const canCompleteFocused = Boolean(
+                canManageAll &&
+                  focusedRecord &&
+                  focusedRecord.status === 'IN_PROGRESS'
+              );
+              const canConvertFocused = Boolean(
+                canManageAll &&
+                  focusedEmployee &&
+                  !isOfficialEmployeeStatus(focusedEmployee.employment_status) &&
+                  focusedEmployee.employment_status !== 'RESIGNED'
+              );
+              const showFocusedFooter = Boolean(
+                focusedRecord &&
+                  focusedStats &&
+                  (canCompleteFocused || canConvertFocused)
+              );
 
-                          <div className="mt-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                            {rec.full_name}
-                          </div>
-                          <div className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
-                            {rec.position_name} · {rec.department_name}
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                            {recInvite && (
-                              <Badge
-                                variant={PREBOARDING_BADGE_META[recInvite.status].variant}
-                                className="text-[10.5px]"
-                              >
-                                {PREBOARDING_BADGE_META[recInvite.status].label}
-                              </Badge>
-                            )}
-                            <Badge
-                              variant={recUser?.is_active ? 'success' : 'warning'}
-                              className="text-[10.5px]"
-                            >
-                              {recUser?.is_active
-                                ? 'Tài khoản: Đang hoạt động'
-                                : 'Tài khoản: Chờ IT kích hoạt'}
-                            </Badge>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#5C7871] dark:text-zinc-400">
-                            <span className="font-mono tabular-nums">
-                              Nhận việc: {formatDateVN(rec.start_date)}
-                            </span>
-                            <span className="font-mono tabular-nums">
-                              Thiết bị: {attachedCount}
-                            </span>
-                          </div>
-
-                          {/* Progress bar */}
-                          <div className="mt-3 space-y-1.5 border-t border-[#D5E3DF] pt-3 dark:border-zinc-800/80">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-[#415A54] dark:text-zinc-400">
-                                Hoàn thành checklist
-                              </span>
-                              <span className="font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
-                                {stats.done}/{stats.total} ({stats.percent}%)
-                              </span>
-                            </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-[#E4EEEB] dark:bg-zinc-800">
-                              <div
-                                className={cn(
-                                  'h-full rounded-full',
-                                  rec.status === 'COMPLETED' || stats.percent === 100
-                                    ? 'bg-emerald-600 dark:bg-emerald-400'
-                                    : 'bg-[#0F766E] dark:bg-teal-400'
-                                )}
-                                style={{ width: `${stats.percent}%` }}
-                              />
-                            </div>
-                          </div>
+              return (
+                <Card className="overflow-hidden bg-white dark:bg-[#121214]">
+                  <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 dark:border-zinc-800/80 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
+                      Checklist Onboarding
+                    </h2>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      {!isEmployee && scopedRecords.length > 0 && (
+                        <div className="w-full sm:w-56">
+                          <Select
+                            aria-label="Lọc theo nhân viên"
+                            value={checklistEmployeeFilter}
+                            onValueChange={(val) => {
+                              setChecklistEmployeeFilter(val);
+                              setSelectedRecordId(val === 'ALL' ? null : val);
+                            }}
+                            options={[
+                              { label: 'Tất cả nhân viên', value: 'ALL' },
+                              ...scopedRecords.map((rec) => ({
+                                label: `${rec.full_name} (${rec.employee_code})`,
+                                value: rec.id,
+                              })),
+                            ]}
+                          />
                         </div>
-                      );
-                    })}
+                      )}
+                      <div className="relative w-full sm:w-52">
+                        <Search
+                          className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-zinc-500"
+                          strokeWidth={1.5}
+                        />
+                        <Input
+                          value={progressSearch}
+                          onChange={(e) => setProgressSearch(e.target.value)}
+                          placeholder="Tìm đầu việc, nhân viên..."
+                          aria-label="Tìm đầu việc Onboarding"
+                          className="h-9 pl-9 text-sm"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Right: Selected Record Detail & 4-Department Interactive Checklists */}
-                  <div ref={detailPanelRef} className="lg:col-span-7">
-                    {selectedRecord &&
-                      (() => {
-                        const stats = getChecklistStats(selectedRecord);
-                        const statusMeta = ONBOARDING_STATUS_META[selectedRecord.status];
-                        const isReadyToComplete =
-                          stats.percent === 100 &&
-                          selectedRecord.status === 'IN_PROGRESS';
-                        const isAccountActive = Boolean(
-                          selectedRecordSystemUser?.is_active
-                        );
-                        const isCurrentlyOfficial = isOfficialEmployeeStatus(
-                          selectedRecordEmployee?.employment_status
+                  {flatChecklistItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center px-5 py-12 text-center">
+                      <ClipboardCheck
+                        className="h-7 w-7 text-slate-400 dark:text-zinc-500"
+                        strokeWidth={1.5}
+                      />
+                      <p className="mt-2.5 text-sm font-medium text-[#11221E] dark:text-zinc-100">
+                        Không có đầu việc Onboarding phù hợp
+                      </p>
+                      {(progressSearch || checklistEmployeeFilter !== 'ALL') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => {
+                            setProgressSearch('');
+                            setChecklistEmployeeFilter('ALL');
+                          }}
+                        >
+                          Xóa bộ lọc
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-zinc-800/80">
+                      {flatChecklistItems.map(({ rec, item }) => {
+                        const isOverdue =
+                          !item.completed && rec.start_date < todayIso;
+                        const canToggle = canActorToggleGroup(
+                          role,
+                          item.group,
+                          rec.status
                         );
 
                         return (
-                          <Card className="bg-[#FCFEFD] dark:bg-[#121214]">
-                            <CardContent className="space-y-5 p-5">
-                              {/* Detail Header */}
-                              <div className="flex flex-col gap-3 border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="space-y-1.5">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <h2 className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
-                                      {selectedRecord.full_name}
-                                    </h2>
-                                    <Badge variant={statusMeta.variant}>
-                                      {statusMeta.label}
-                                    </Badge>
-                                    {selectedRecordEmployee && (
-                                      <Badge
-                                        variant={
-                                          isCurrentlyOfficial ? 'success' : 'info'
-                                        }
-                                      >
-                                        {isCurrentlyOfficial
-                                          ? 'Nhân viên Chính thức (OFFICIAL)'
-                                          : selectedRecordEmployee.employment_status ===
-                                              'PENDING_ONBOARD'
-                                            ? 'Chờ nhận việc'
-                                            : 'Đang Thử việc (PROBATION)'}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
-                                    {selectedRecord.id} · Mã NV:{' '}
-                                    {selectedRecord.employee_code} ·{' '}
-                                    {selectedRecord.email}
-                                  </div>
-                                  <div className="text-xs text-[#415A54] dark:text-zinc-300">
-                                    {selectedRecord.position_name} ·{' '}
-                                    {selectedRecord.department_name} · Quản lý:{' '}
-                                    <span className="font-semibold text-[#11221E] dark:text-zinc-100">
-                                      {selectedRecord.manager_name}
-                                    </span>
-                                    {(selectedRecord.mentor_name ||
-                                      selectedRecordEmployee?.mentor_name) && (
-                                      <>
-                                        {' '}
-                                        · Mentor:{' '}
-                                        <span className="font-semibold text-[#0F766E] dark:text-teal-400">
-                                          {selectedRecord.mentor_name ||
-                                            selectedRecordEmployee?.mentor_name}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-                                  <div className="font-mono text-lg font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
-                                    {stats.percent}% ({stats.done}/{stats.total})
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    {canManageAll && stats.percent < 100 && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleToggleAll(selectedRecord, true)
-                                        }
-                                        className="h-8 border-[#C6D9D3] bg-[#EFF5F3] px-2.5 text-xs font-semibold text-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400"
-                                      >
-                                        <Check
-                                          className="mr-1 h-3.5 w-3.5"
-                                          strokeWidth={1.5}
-                                        />
-                                        Tích hoàn tất 100%
-                                      </Button>
-                                    )}
-                                    {isReadyToComplete && canManageAll && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleCompleteOnboarding(selectedRecord)
-                                        }
-                                      >
-                                        <CheckCircle2
-                                          className="h-4 w-4"
-                                          strokeWidth={1.5}
-                                        />
-                                        Chốt hoàn tất Onboarding
-                                      </Button>
-                                    )}
-                                    {canManageAll &&
-                                      selectedRecordEmployee &&
-                                      !isCurrentlyOfficial && (
-                                        <Button
-                                          variant="primary"
-                                          size="sm"
-                                          onClick={() =>
-                                            openConvertToOfficialModal(
-                                              selectedRecordEmployee
-                                            )
-                                          }
-                                        >
-                                          <Award
-                                            className="h-4 w-4"
-                                            strokeWidth={1.5}
-                                          />
-                                          Chuyển chính thức (OFFICIAL)
-                                        </Button>
-                                      )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Pre-boarding & Probation Review Status Bar */}
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-900/60">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-semibold text-[#11221E] dark:text-zinc-100">
-                                      Pre-boarding
-                                    </span>
-                                    {selectedRecordInvite ? (
-                                      <Badge
-                                        variant={
-                                          PREBOARDING_BADGE_META[
-                                            selectedRecordInvite.status
-                                          ].variant
-                                        }
-                                      >
-                                        {
-                                          PREBOARDING_BADGE_META[
-                                            selectedRecordInvite.status
-                                          ].shortLabel
-                                        }
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="success">Đã duyệt</Badge>
-                                    )}
-                                  </div>
-
-                                  {selectedRecordInvite ? (
-                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 px-2 text-[11px]"
-                                        onClick={() =>
-                                          void handleCopyPreboardingUrl(
-                                            selectedRecordInvite.token
-                                          )
-                                        }
-                                      >
-                                        <ClipboardCopy
-                                          className="h-3 w-3"
-                                          strokeWidth={1.5}
-                                        />
-                                        Copy link
-                                      </Button>
-                                      <Link
-                                        href={selectedRecordInvite.preboarding_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 px-2 text-[11px]"
-                                        >
-                                          <ExternalLink
-                                            className="h-3 w-3"
-                                            strokeWidth={1.5}
-                                          />
-                                          Mở cổng
-                                        </Button>
-                                      </Link>
-                                      {canManageAll && (
-                                        <Button
-                                          type="button"
-                                          variant="primary"
-                                          size="sm"
-                                          className="h-7 px-2 text-[11px]"
-                                          onClick={() =>
-                                            openQuickUpdateModal(
-                                              selectedRecordInvite
-                                            )
-                                          }
-                                        >
-                                          Rà soát
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <p className="mt-1.5 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
-                                      CCCD: {selectedRecordEmployee?.national_id || 'Đã lưu'} · NH:{' '}
-                                      {selectedRecordEmployee?.bank_name || '—'}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/75 p-3.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/60">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-semibold text-[#11221E] dark:text-zinc-100">
-                                      Đánh giá Thử việc (60 ngày)
-                                    </span>
-                                    {selectedRecordProbationReview ? (
-                                      <Badge
-                                        variant={
-                                          selectedRecordProbationReview.result ===
-                                          'PASS'
-                                            ? 'success'
-                                            : 'warning'
-                                        }
-                                      >
-                                        {selectedRecordProbationReview.result} (
-                                        {selectedRecordProbationReview.kpi_score}đ)
-                                      </Badge>
-                                    ) : (
-                                      <Badge variant="outline">Chưa đánh giá</Badge>
-                                    )}
-                                  </div>
-                                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                                    <span className="text-[11px] text-[#415A54] dark:text-zinc-400">
-                                      {selectedRecordProbationReview
-                                        ? `Người duyệt: ${selectedRecordProbationReview.reviewer_name}`
-                                        : 'Cần Trưởng bộ phận đánh giá ĐẠT'}
-                                    </span>
-                                    {!selectedRecordProbationReview &&
-                                      selectedRecordEmployee &&
-                                      (isDeptManager || canManageAll) && (
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 px-2 text-[11px]"
-                                          onClick={() =>
-                                            void handleQuickPassProbationReview(
-                                              selectedRecordEmployee
-                                            )
-                                          }
-                                        >
-                                          Chấm ĐẠT (PASS)
-                                        </Button>
-                                      )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* 4 Task Groups with Auto Side-Effect Controls */}
-                              <div className="space-y-4">
-                                {TASK_GROUP_ORDER.map((groupKey) => {
-                                  const groupItems = selectedRecord.checklist.filter(
-                                    (item) => item.group === groupKey
-                                  );
-                                  if (groupItems.length === 0) return null;
-                                  const groupDone = groupItems.filter(
-                                    (i) => i.completed
-                                  ).length;
-                                  const canToggleGroup = canActorToggleGroup(
-                                    role,
-                                    groupKey,
-                                    selectedRecord.status
-                                  );
-
-                                  return (
-                                    <div
-                                      key={groupKey}
-                                      className="overflow-hidden rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800/80 dark:bg-zinc-900/60"
-                                    >
-                                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#D5E3DF] bg-[#F2F7F5] px-4 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-800/40">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
-                                            {TASK_GROUP_LABELS[groupKey]}
-                                          </span>
-
-                                          {groupKey === 'IT' && (
-                                            <Badge
-                                              variant={
-                                                isAccountActive ? 'success' : 'warning'
-                                              }
-                                            >
-                                              <ShieldCheck
-                                                className="h-3 w-3"
-                                                strokeWidth={1.5}
-                                              />
-                                              {isAccountActive
-                                                ? 'Tài khoản: Đang hoạt động'
-                                                : 'Tài khoản: Đã khóa'}
-                                            </Badge>
-                                          )}
-
-                                          {groupKey === 'HR' &&
-                                            selectedRecordProbationContract && (
-                                              <Badge
-                                                variant="teal"
-                                                className="font-mono text-[11px]"
-                                              >
-                                                {
-                                                  selectedRecordProbationContract.contract_number
-                                                }{' '}
-                                                ·{' '}
-                                                {selectedRecordProbationContract.salary_percent ??
-                                                  85}
-                                                %
-                                              </Badge>
-                                            )}
-
-                                          {groupKey === 'MANAGER' &&
-                                            (selectedRecord.mentor_name ||
-                                              selectedRecordEmployee?.mentor_name) && (
-                                              <Badge variant="teal">
-                                                Mentor:{' '}
-                                                {selectedRecord.mentor_name ||
-                                                  selectedRecordEmployee?.mentor_name}
-                                              </Badge>
-                                            )}
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-mono text-xs font-semibold tabular-nums text-[#415A54] dark:text-zinc-400">
-                                            {groupDone}/{groupItems.length}
-                                          </span>
-                                          {canToggleGroup && (
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() =>
-                                                handleToggleGroup(
-                                                  selectedRecord,
-                                                  groupKey,
-                                                  groupDone < groupItems.length
-                                                )
-                                              }
-                                              className="h-6 px-2 text-[11px] font-medium text-[#0F766E] hover:bg-[#E8F3EF] dark:text-teal-400 dark:hover:bg-zinc-800"
-                                            >
-                                              {groupDone < groupItems.length
-                                                ? 'Tích cả nhóm'
-                                                : 'Bỏ chọn'}
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      {/* Department Side-Effect Action Bar */}
-                                      {canToggleGroup && groupKey === 'IT' && (
-                                        <div className="border-b border-[#D5E3DF] bg-[#EFF5F3]/70 px-4 py-3 text-xs dark:border-zinc-800 dark:bg-zinc-900/80">
-                                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                                            <div className="flex-1">
-                                              <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                                Email doanh nghiệp cấp phát (SSO)
-                                              </label>
-                                              <Input
-                                                value={itEmailInput}
-                                                onChange={(e) =>
-                                                  setItEmailInput(e.target.value)
-                                                }
-                                                placeholder="nhanvien@hrm-enterprise.vn"
-                                                className="h-8 text-xs"
-                                              />
-                                            </div>
-                                            <Button
-                                              type="button"
-                                              variant="primary"
-                                              size="sm"
-                                              className="h-8 shrink-0"
-                                              onClick={() =>
-                                                void handleRunItProvisioning(
-                                                  selectedRecord
-                                                )
-                                              }
-                                            >
-                                              <MailCheck
-                                                className="h-3.5 w-3.5"
-                                                strokeWidth={1.5}
-                                              />
-                                              Cấp Email &amp; Kích hoạt SSO
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {canToggleGroup && groupKey === 'ADMIN' && (
-                                        <div className="border-b border-[#D5E3DF] bg-[#EFF5F3]/70 px-4 py-3 space-y-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/80">
-                                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                            <div>
-                                              <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                                Chọn tài sản sẵn có trong kho ({availableAssets.length})
-                                              </label>
-                                              <Select
-                                                value={adminAssetIdInput}
-                                                onValueChange={setAdminAssetIdInput}
-                                                options={
-                                                  availableAssets.length > 0
-                                                    ? availableAssets.map((a) => ({
-                                                        label: `${a.asset_code} — ${a.name}`,
-                                                        value: a.id,
-                                                      }))
-                                                    : [
-                                                        {
-                                                          label:
-                                                            'Kho hiện hết thiết bị sẵn sàng',
-                                                          value: '',
-                                                        },
-                                                      ]
-                                                }
-                                              />
-                                            </div>
-                                            <div>
-                                              <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                                Ngày bàn giao
-                                              </label>
-                                              <Input
-                                                type="date"
-                                                value={adminAssignedDateInput}
-                                                onChange={(e) =>
-                                                  setAdminAssignedDateInput(
-                                                    e.target.value
-                                                  )
-                                                }
-                                                className="font-mono text-xs tabular-nums"
-                                              />
-                                            </div>
-                                          </div>
-                                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                                            <div className="flex-1">
-                                              <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                                Tình trạng lúc bàn giao
-                                              </label>
-                                              <Input
-                                                value={adminConditionInput}
-                                                onChange={(e) =>
-                                                  setAdminConditionInput(
-                                                    e.target.value
-                                                  )
-                                                }
-                                                className="h-8 text-xs"
-                                              />
-                                            </div>
-                                            <Button
-                                              type="button"
-                                              variant="primary"
-                                              size="sm"
-                                              className="h-8 shrink-0"
-                                              disabled={!adminAssetIdInput}
-                                              onClick={() =>
-                                                void handleRunAdminAssetTask(
-                                                  selectedRecord
-                                                )
-                                              }
-                                            >
-                                              <PackageCheck
-                                                className="h-3.5 w-3.5"
-                                                strokeWidth={1.5}
-                                              />
-                                              Gán Tài sản &amp; Lưu biên bản
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {canToggleGroup && groupKey === 'HR' && (
-                                        <div className="border-b border-[#D5E3DF] bg-[#EFF5F3]/70 px-4 py-3 space-y-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/80">
-                                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                            <div>
-                                              <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                                Lương chính thức 100% (VND)
-                                              </label>
-                                              <Input
-                                                type="text"
-                                                inputMode="numeric"
-                                                value={
-                                                  hrOfficialSalaryInput
-                                                    ? formatNumberVN(
-                                                        Number(hrOfficialSalaryInput)
-                                                      )
-                                                    : ''
-                                                }
-                                                onChange={(e) =>
-                                                  setHrOfficialSalaryInput(
-                                                    e.target.value.replace(/\D/g, '')
-                                                  )
-                                                }
-                                                className="font-mono text-xs tabular-nums"
-                                              />
-                                            </div>
-                                            <div>
-                                              <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                                Tỷ lệ lương thử việc (%)
-                                              </label>
-                                              <Select
-                                                value={hrSalaryPercentInput}
-                                                onValueChange={
-                                                  setHrSalaryPercentInput
-                                                }
-                                                options={[
-                                                  {
-                                                    label: `85% (${formatVND(
-                                                      Math.round(
-                                                        ((Number(
-                                                          hrOfficialSalaryInput
-                                                        ) || 0) *
-                                                          85) /
-                                                          100
-                                                      )
-                                                    )})`,
-                                                    value: '85',
-                                                  },
-                                                  {
-                                                    label: `90% (${formatVND(
-                                                      Math.round(
-                                                        ((Number(
-                                                          hrOfficialSalaryInput
-                                                        ) || 0) *
-                                                          90) /
-                                                          100
-                                                      )
-                                                    )})`,
-                                                    value: '90',
-                                                  },
-                                                  {
-                                                    label: `100% (${formatVND(
-                                                      Number(hrOfficialSalaryInput) ||
-                                                        0
-                                                    )})`,
-                                                    value: '100',
-                                                  },
-                                                ]}
-                                              />
-                                            </div>
-                                          </div>
-                                          <div className="flex justify-end">
-                                            <Button
-                                              type="button"
-                                              variant="primary"
-                                              size="sm"
-                                              className="h-8"
-                                              onClick={() =>
-                                                void handleRunHrProbationContract(
-                                                  selectedRecord
-                                                )
-                                              }
-                                            >
-                                              <FileSignature
-                                                className="h-3.5 w-3.5"
-                                                strokeWidth={1.5}
-                                              />
-                                              Sinh HĐ Thử việc
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {canToggleGroup && groupKey === 'MANAGER' && (
-                                        <div className="border-b border-[#D5E3DF] bg-[#EFF5F3]/70 px-4 py-3 space-y-2.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/80">
-                                          <div>
-                                            <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                              Người hướng dẫn đồng hành
-                                            </label>
-                                            <Select
-                                              value={managerMentorIdInput}
-                                              onValueChange={setManagerMentorIdInput}
-                                              options={mentorOptions}
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="mb-1 block text-[11px] font-medium text-[#415A54] dark:text-zinc-300">
-                                              Mục tiêu KPI 60 ngày thử việc
-                                            </label>
-                                            <Input
-                                              value={managerGoalsInput}
-                                              onChange={(e) =>
-                                                setManagerGoalsInput(e.target.value)
-                                              }
-                                              className="h-8 text-xs"
-                                            />
-                                          </div>
-                                          <div className="flex flex-wrap justify-end gap-2">
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-8"
-                                              onClick={() =>
-                                                handleSaveMentorOnly(selectedRecord)
-                                              }
-                                            >
-                                              Lưu Mentor &amp; Mục tiêu
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="primary"
-                                              size="sm"
-                                              className="h-8"
-                                              onClick={() =>
-                                                void handleCompleteManagerTask(
-                                                  selectedRecord
-                                                )
-                                              }
-                                            >
-                                              <UserCheck
-                                                className="h-3.5 w-3.5"
-                                                strokeWidth={1.5}
-                                              />
-                                              Giao Mentor &amp; Hoàn tất nhóm MANAGER
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Checklist Items */}
-                                      <div className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
-                                        {groupItems.map((item) => (
-                                          <button
-                                            key={item.id}
-                                            type="button"
-                                            role="checkbox"
-                                            aria-checked={item.completed}
-                                            disabled={!canToggleGroup}
-                                            onClick={() =>
-                                              handleToggleChecklist(
-                                                selectedRecord,
-                                                item.id,
-                                                item.group,
-                                                item.title,
-                                                item.completed
-                                              )
-                                            }
-                                            className={cn(
-                                              'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0F766E]/30',
-                                              canToggleGroup
-                                                ? 'cursor-pointer hover:bg-[#E8F3EF] dark:hover:bg-zinc-800/50'
-                                                : 'cursor-default opacity-85'
-                                            )}
-                                          >
-                                            <span
-                                              className={cn(
-                                                'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-                                                item.completed
-                                                  ? 'border-[#0F766E] bg-[#0F766E] text-white dark:border-teal-400 dark:bg-teal-400 dark:text-zinc-950'
-                                                  : 'border-[#5C7871] bg-[#FCFEFD] dark:border-zinc-600 dark:bg-zinc-900'
-                                              )}
-                                            >
-                                              {item.completed && (
-                                                <Check
-                                                  className="h-3 w-3"
-                                                  strokeWidth={2}
-                                                />
-                                              )}
-                                            </span>
-
-                                            <div className="min-w-0 flex-1">
-                                              <div
-                                                className={cn(
-                                                  'text-sm',
-                                                  item.completed
-                                                    ? 'text-[#5C7871] line-through dark:text-zinc-400'
-                                                    : 'font-medium text-[#11221E] dark:text-zinc-100'
-                                                )}
-                                              >
-                                                {item.title}
-                                              </div>
-                                              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[#415A54] dark:text-zinc-400">
-                                                <span>
-                                                  Đầu mối: {item.assignee_role_label}
-                                                </span>
-                                                {item.completed &&
-                                                  item.completed_by && (
-                                                    <span className="font-mono text-[11px] tabular-nums text-[#0F766E] dark:text-teal-400">
-                                                      Xác nhận: {item.completed_by}
-                                                      {item.completed_at
-                                                        ? ` · ${formatDateVN(item.completed_at)}`
-                                                        : ''}
-                                                    </span>
-                                                  )}
-                                              </div>
-                                            </div>
-                                          </button>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Attached Employee Assets Summary */}
-                              <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800/80 dark:bg-transparent">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold text-[#11221E] dark:text-zinc-100">
-                                    Biên bản Tài sản đang bàn giao ({selectedRecordEmployeeAssets.length})
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveTab('assets');
-                                      setAssetSearch(selectedRecord.employee_code);
-                                      setAssetCategoryFilter('ALL');
-                                      setAssetStatusFilter('ALL');
-                                    }}
-                                    className="text-xs font-medium text-[#0F766E] transition-colors hover:underline dark:text-teal-400"
-                                  >
-                                    Mở trong kho tài sản
-                                  </button>
-                                </div>
-
-                                {selectedRecordEmployeeAssets.length === 0 ? (
-                                  <p className="mt-2 text-xs text-[#5C7871] dark:text-zinc-400">
-                                    Chưa có thiết bị nào được gán cho mã{' '}
-                                    {selectedRecord.employee_code}
-                                  </p>
-                                ) : (
-                                  <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                    {selectedRecordEmployeeAssets.map((ea) => (
-                                      <div
-                                        key={ea.id}
-                                        className="flex items-start gap-2.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2.5 text-xs dark:border-zinc-800/80 dark:bg-zinc-800/40"
-                                      >
-                                        {renderCategoryIcon(ea.category)}
-                                        <div className="min-w-0 flex-1">
-                                          <div className="truncate font-medium text-[#11221E] dark:text-zinc-100">
-                                            {ea.asset_name}
-                                          </div>
-                                          <div className="font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
-                                            {ea.asset_code} · Giao:{' '}
-                                            {formatDateVN(ea.assigned_date)}
-                                          </div>
-                                          <div className="mt-0.5 truncate text-[11px] text-[#5C7871] dark:text-zinc-400">
-                                            {ea.assign_condition}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
+                          <label
+                            key={`${rec.id}-${item.id}`}
+                            className={cn(
+                              'flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-slate-50/70 dark:hover:bg-zinc-900/40',
+                              canToggle ? 'cursor-pointer' : 'cursor-default'
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={item.completed}
+                              disabled={!canToggle}
+                              onChange={() =>
+                                handleToggleChecklist(
+                                  rec,
+                                  item.id,
+                                  item.group,
+                                  item.title,
+                                  item.completed
+                                )
+                              }
+                              aria-label={`${item.title} — ${rec.full_name}`}
+                              className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#0F766E] accent-[#0F766E] focus:ring-2 focus:ring-[#0F766E]/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div
+                                className={cn(
+                                  'truncate text-sm font-medium',
+                                  item.completed
+                                    ? 'text-slate-400 line-through dark:text-zinc-500'
+                                    : 'text-[#11221E] dark:text-zinc-100'
                                 )}
+                              >
+                                {item.title}
                               </div>
-                            </CardContent>
-                          </Card>
+                              <div className="mt-0.5 truncate text-xs text-slate-400 dark:text-zinc-400">
+                                {rec.full_name} · Hạn: {rec.start_date}
+                              </div>
+                            </div>
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-full border px-3 py-1 text-xs font-medium',
+                                item.completed
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                  : isOverdue
+                                    ? 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-400'
+                                    : 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-400'
+                              )}
+                            >
+                              {item.completed
+                                ? 'Hoàn tất'
+                                : isOverdue
+                                  ? 'Quá hạn'
+                                  : 'Đang làm'}
+                            </span>
+                          </label>
                         );
-                      })()}
-                  </div>
-                </div>
-              )}
-            </>
+                      })}
+                    </div>
+                  )}
+
+                  {showFocusedFooter && focusedRecord && focusedStats && (
+                    <div className="flex flex-col gap-2.5 border-t border-slate-100 bg-slate-50/70 px-5 py-3 dark:border-zinc-800/80 dark:bg-zinc-900/40 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-xs text-[#415A54] dark:text-zinc-400">
+                        <strong className="font-medium text-[#11221E] dark:text-zinc-100">
+                          {focusedRecord.full_name}
+                        </strong>{' '}
+                        ({focusedRecord.employee_code}) · Hoàn thành{' '}
+                        <span className="font-mono font-medium tabular-nums">
+                          {focusedStats.done}/{focusedStats.total}
+                        </span>{' '}
+                        mục ({focusedStats.percent}%)
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {canCompleteFocused && (
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            disabled={focusedStats.percent < 100}
+                            title={
+                              focusedStats.percent < 100
+                                ? 'Hoàn tất 100% đầu việc để chốt Onboarding'
+                                : 'Chốt hoàn tất Onboarding'
+                            }
+                            onClick={() =>
+                              handleCompleteOnboarding(focusedRecord)
+                            }
+                          >
+                            <CheckCircle2
+                              className="h-3.5 w-3.5"
+                              strokeWidth={1.5}
+                            />
+                            Chốt hoàn tất
+                          </Button>
+                        )}
+                        {canConvertFocused && focusedEmployee && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              openConvertToOfficialModal(focusedEmployee)
+                            }
+                          >
+                            <Award className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            Chuyển chính thức
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })()
           )}
         </TabsContent>
 
@@ -3253,7 +2324,7 @@ export function OnboardingView() {
         </TabsContent>
       </Tabs>
 
-      {/* DIALOG 1: HR QUICK UPDATE & VERIFY PRE-BOARDING */}
+      {/* DIALOG 1: HR REVIEW & VERIFY PRE-BOARDING (READ-ONLY) */}
       <Dialog
         open={Boolean(quickUpdateInvite)}
         onOpenChange={(open) => {
@@ -3261,210 +2332,220 @@ export function OnboardingView() {
         }}
       >
         <DialogContent className="flex max-h-[88dvh] max-w-2xl flex-col overflow-hidden p-0">
-          {quickUpdateInvite && (
-            <>
-              <div className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800/80">
-                <DialogHeader>
-                  <DialogTitle>
-                    HR Rà soát &amp; Cập nhật nhanh Hồ sơ Pre-boarding
-                  </DialogTitle>
-                  <DialogDescription>
-                    {quickUpdateInvite.full_name} ({quickUpdateInvite.employee_code}) ·{' '}
-                    {quickUpdateInvite.position_name}
-                  </DialogDescription>
-                </DialogHeader>
-              </div>
+          {quickUpdateInvite &&
+            (() => {
+              const sub = quickUpdateInvite.submitted_data;
+              const isNotSubmitted =
+                !sub || quickUpdateInvite.status === 'PENDING';
+              const inviteBadge = PREBOARDING_BADGE_META[quickUpdateInvite.status];
 
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <form
-                  id="hr-quick-update-preboarding-form"
-                  onSubmit={(e) => void handleSaveQuickUpdatePreboarding(true, e)}
-                  className="space-y-3.5 text-xs"
-                >
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Số CCCD (12 số) *
-                      </label>
-                      <Input
-                        value={quNationalId}
-                        onChange={(e) =>
-                          setQuNationalId(e.target.value.replace(/\D/g, ''))
+              return (
+                <>
+                  <div className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800/80">
+                    <DialogHeader>
+                      <div className="flex flex-wrap items-center gap-2 pr-6">
+                        <DialogTitle>
+                          HR Rà soát &amp; Duyệt Hồ sơ Pre-boarding
+                        </DialogTitle>
+                        <Badge variant={inviteBadge.variant}>
+                          {inviteBadge.shortLabel}
+                        </Badge>
+                      </div>
+                      <DialogDescription>
+                        {quickUpdateInvite.full_name} (
+                        {quickUpdateInvite.employee_code}) ·{' '}
+                        {quickUpdateInvite.position_title ||
+                          quickUpdateInvite.position_name}
+                      </DialogDescription>
+                    </DialogHeader>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto px-6 py-5">
+                    {isNotSubmitted ? (
+                      <div className="flex flex-col items-center justify-center rounded-xl border border-amber-200 bg-amber-50/70 px-5 py-8 text-center dark:border-amber-800/50 dark:bg-amber-950/20">
+                        <AlertCircle
+                          className="h-8 w-8 text-amber-600 dark:text-amber-400"
+                          strokeWidth={1.5}
+                        />
+                        <p className="mt-3 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                          Ứng viên chưa hoàn tất khai báo Pre-boarding
+                        </p>
+                        <p className="mt-1 max-w-md text-xs leading-5 text-[#415A54] dark:text-zinc-400">
+                          HR chỉ kiểm tra và phê duyệt sau khi ứng viên tự khai báo thông tin trên cổng Pre-boarding.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() =>
+                            void handleCopyPreboardingUrl(
+                              quickUpdateInvite.token
+                            )
+                          }
+                        >
+                          {copiedToken === quickUpdateInvite.token ? (
+                            <Check
+                              className="h-4 w-4 text-emerald-600"
+                              strokeWidth={1.75}
+                            />
+                          ) : (
+                            <ClipboardCopy
+                              className="h-4 w-4"
+                              strokeWidth={1.5}
+                            />
+                          )}
+                          Copy link cổng Pre-boarding
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3.5 text-xs">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Số CCCD
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                              {sub.national_id || '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Ngày cấp CCCD
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                              {sub.national_id_issue_date
+                                ? formatDateVN(sub.national_id_issue_date)
+                                : '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Nơi cấp CCCD
+                            </div>
+                            <div className="mt-1 text-sm font-medium text-[#11221E] dark:text-zinc-100">
+                              {sub.national_id_issue_place || '—'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Mã số thuế TNCN
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                              {sub.tax_code || '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Mã số BHXH
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                              {sub.social_insurance_no || '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Người phụ thuộc
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                              {sub.dependents_count ?? 0}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Ngân hàng nhận lương
+                            </div>
+                            <div className="mt-1 text-sm font-medium text-[#11221E] dark:text-zinc-100">
+                              {sub.bank_name || '—'}
+                            </div>
+                          </div>
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Số tài khoản ngân hàng
+                            </div>
+                            <div className="mt-1 font-mono text-sm font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                              {sub.bank_account_no || '—'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                          <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                            Địa chỉ cư trú
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#11221E] dark:text-zinc-100">
+                            {sub.address || '—'}
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                          <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                            Liên hệ khẩn cấp
+                          </div>
+                          <div className="mt-1 text-sm font-medium text-[#11221E] dark:text-zinc-100">
+                            {sub.emergency_contact_name || '—'} ·{' '}
+                            <span className="font-mono tabular-nums">
+                              {sub.emergency_contact_phone || '—'}
+                            </span>{' '}
+                            · {sub.emergency_contact_relation || '—'}
+                          </div>
+                        </div>
+
+                        {(sub.id_card_file_name || sub.degree_file_name) && (
+                          <div className="rounded-lg border border-slate-100 bg-slate-50/70 px-3.5 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+                            <div className="text-[11px] font-medium text-slate-400 dark:text-zinc-400">
+                              Tệp đính kèm ứng viên đã tải lên
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-2">
+                              {sub.id_card_file_name && (
+                                <span className="inline-flex items-center rounded-md border border-[#C6D9D3] bg-white px-2.5 py-1 font-mono text-[11px] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                                  CCCD: {sub.id_card_file_name}
+                                </span>
+                              )}
+                              {sub.degree_file_name && (
+                                <span className="inline-flex items-center rounded-md border border-[#C6D9D3] bg-white px-2.5 py-1 font-mono text-[11px] text-[#11221E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                                  Bằng cấp: {sub.degree_file_name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="shrink-0 border-t border-[#C6D9D3] bg-[#FCFEFD] px-6 py-3.5 dark:border-zinc-800/80 dark:bg-[#121214]">
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setQuickUpdateInvite(null)}
+                      >
+                        Đóng
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={isNotSubmitted}
+                        onClick={() =>
+                          void handleSaveQuickUpdatePreboarding(true)
                         }
-                        maxLength={12}
-                        className="font-mono tabular-nums"
-                        placeholder="079097014582"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Ngày cấp CCCD
-                      </label>
-                      <Input
-                        type="date"
-                        value={quIssueDate}
-                        onChange={(e) => setQuIssueDate(e.target.value)}
-                        className="font-mono tabular-nums"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Nơi cấp CCCD
-                      </label>
-                      <Input
-                        value={quIssuePlace}
-                        onChange={(e) => setQuIssuePlace(e.target.value)}
-                      />
-                    </div>
+                      >
+                        Duyệt hồ sơ
+                      </Button>
+                    </DialogFooter>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Mã số thuế TNCN *
-                      </label>
-                      <Input
-                        value={quTaxCode}
-                        onChange={(e) => setQuTaxCode(e.target.value)}
-                        className="font-mono tabular-nums"
-                        placeholder="8462910384"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Mã số BHXH
-                      </label>
-                      <Input
-                        value={quBhxhNo}
-                        onChange={(e) => setQuBhxhNo(e.target.value)}
-                        className="font-mono tabular-nums"
-                        placeholder="7924819205"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Người phụ thuộc
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={10}
-                        value={quDependents}
-                        onChange={(e) => setQuDependents(e.target.value)}
-                        className="font-mono tabular-nums"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Ngân hàng nhận lương *
-                      </label>
-                      <Input
-                        value={quBankName}
-                        onChange={(e) => setQuBankName(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Số tài khoản ngân hàng *
-                      </label>
-                      <Input
-                        value={quBankAccount}
-                        onChange={(e) => setQuBankAccount(e.target.value)}
-                        className="font-mono tabular-nums"
-                        placeholder="0071001298456"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                      Địa chỉ cư trú
-                    </label>
-                    <Input
-                      value={quAddress}
-                      onChange={(e) => setQuAddress(e.target.value)}
-                      placeholder="Số nhà, đường, Phường/Xã, Quận/Huyện, Tỉnh/TP"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Liên hệ khẩn cấp
-                      </label>
-                      <Input
-                        value={quEmgName}
-                        onChange={(e) => setQuEmgName(e.target.value)}
-                        placeholder="Họ tên người thân"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        SĐT khẩn cấp
-                      </label>
-                      <Input
-                        value={quEmgPhone}
-                        onChange={(e) => setQuEmgPhone(e.target.value)}
-                        className="font-mono tabular-nums"
-                        placeholder="0908667788"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-medium text-[#415A54] dark:text-zinc-300">
-                        Quan hệ
-                      </label>
-                      <Input
-                        value={quEmgRelation}
-                        onChange={(e) => setQuEmgRelation(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </form>
-              </div>
-
-              <div className="shrink-0 border-t border-[#C6D9D3] bg-[#FCFEFD] px-6 py-3.5 dark:border-zinc-800/80 dark:bg-[#121214]">
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setQuickUpdateInvite(null)}
-                  >
-                    Hủy
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const formEl = document.getElementById(
-                        'hr-quick-update-preboarding-form'
-                      ) as HTMLFormElement | null;
-                      if (formEl && !formEl.reportValidity()) return;
-                      void handleSaveQuickUpdatePreboarding(false);
-                    }}
-                  >
-                    Lưu tạm
-                  </Button>
-                  <Button
-                    type="submit"
-                    form="hr-quick-update-preboarding-form"
-                    variant="primary"
-                    size="sm"
-                  >
-                    Duyệt hồ sơ
-                  </Button>
-                </DialogFooter>
-              </div>
-            </>
-          )}
+                </>
+              );
+            })()}
         </DialogContent>
       </Dialog>
 

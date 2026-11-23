@@ -169,7 +169,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Đánh giá & Thăng tiến",
     section: "Vận hành",
     icon: Activity,
-    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER", "EMPLOYEE"],
+    roles: ["SUPER_ADMIN"],
     badgeCount: 3,
     deliverableStep: "Bước 2",
     summary: "Đánh giá hiệu suất đa chu kỳ, lộ trình thăng tiến, điều chuyển và cảnh báo AI",

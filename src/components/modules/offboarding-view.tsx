@@ -383,18 +383,47 @@ export function OffboardingView() {
   // Resolve current logged-in actor
   const actorEmployee = useMemo(() => {
     const defaultProfile = ROLE_DEFAULT_PROFILES[role];
-    const codeHint = currentUserProfile?.employee_code || defaultProfile?.employee_code;
-    const emailHint = (currentUserEmail || defaultProfile?.email || '').toLowerCase();
-    const localHint = emailHint.includes('@') ? emailHint.split('@')[0] : '';
-
-    return (
-      employees.find(
-        (e) =>
-          (codeHint && e.employee_code === codeHint) ||
-          (emailHint && e.email.toLowerCase() === emailHint) ||
-          (localHint && e.email.split('@')[0].toLowerCase() === localHint)
-      ) ?? null
+    const explicitCode = currentUserProfile?.employee_code?.trim();
+    const hasExplicitCode = Boolean(
+      explicitCode && !explicitCode.toLowerCase().startsWith('uv-')
     );
+
+    if (hasExplicitCode && explicitCode) {
+      const codeNeedle = explicitCode.toLowerCase();
+      const byCode = employees.find(
+        (e) => e.employee_code.trim().toLowerCase() === codeNeedle
+      );
+      if (byCode) return byCode;
+    }
+
+    const emailHint = (
+      currentUserEmail ||
+      currentUserProfile?.email ||
+      (!hasExplicitCode ? defaultProfile?.email : '') ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+    if (emailHint) {
+      const byEmail = employees.find(
+        (e) =>
+          e.email.trim().toLowerCase() === emailHint ||
+          e.personal_email?.trim().toLowerCase() === emailHint
+      );
+      if (byEmail) return byEmail;
+    }
+
+    if (hasExplicitCode) {
+      return null;
+    }
+
+    const fallbackCode = defaultProfile?.employee_code;
+    if (fallbackCode) {
+      return employees.find((e) => e.employee_code === fallbackCode) ?? null;
+    }
+
+    return null;
   }, [employees, role, currentUserProfile, currentUserEmail]);
 
   const actorName =
@@ -484,7 +513,7 @@ export function OffboardingView() {
   const eligibleEmployeesForResignation = useMemo(() => {
     const nonResigned = employees.filter((e) => e.employment_status !== 'RESIGNED');
     if (role === 'EMPLOYEE') {
-      return actorEmployee ? [actorEmployee] : nonResigned.slice(0, 1);
+      return actorEmployee ? [actorEmployee] : [];
     }
     if (role === 'DEPT_MANAGER' && actorEmployee) {
       const deptKey = actorEmployee.department_id;

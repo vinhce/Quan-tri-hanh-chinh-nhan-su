@@ -37,8 +37,10 @@ import {
 import {
   HRM_RUNTIME_EVENT,
   getContracts,
+  getDailyAttendances,
   getExpiringProbationContracts,
   getLeaveBalances,
+  getMonthlyAttendances,
   getPayrollRecords,
   getResignations,
   mergeWithRuntimeCandidates,
@@ -276,12 +278,81 @@ export function DashboardView() {
     currentUserProfile?.employee_code ||
     ROLE_DEFAULT_PROFILES[role]?.employee_code ||
     'NV-2024-004';
-  const personalLeave =
-    annualLeaveBalances.find((b) => b.employee_code === currentEmployeeCode) ??
-    annualLeaveBalances[0];
-  const personalKpi =
-    kpiRecords.find((k) => k.employee_code === currentEmployeeCode) ??
-    kpiRecords[0];
+  const personalLeave = useMemo(() => {
+    const found = annualLeaveBalances.find(
+      (b) => b.employee_code === currentEmployeeCode
+    );
+    if (found) {
+      return {
+        ...found,
+        total_days: found.total_entitled_days,
+      };
+    }
+    return {
+      total_entitled_days: 12,
+      total_days: 12,
+      used_days: 0,
+      pending_days: 0,
+      remaining_days: 12,
+    };
+  }, [annualLeaveBalances, currentEmployeeCode]);
+
+  const personalKpi = useMemo(() => {
+    const found = kpiRecords.find(
+      (k) => k.employee_code === currentEmployeeCode
+    );
+    if (found) {
+      return {
+        kpi_score: found.kpi_score,
+        total_score: found.kpi_score,
+        grade: found.grade,
+        okr_completion_percent: found.okr_completion_percent,
+        okr_completion: found.okr_completion_percent,
+        hasRecord: true,
+      };
+    }
+    return {
+      kpi_score: 0,
+      total_score: 0,
+      grade: '-',
+      okr_completion_percent: 0,
+      okr_completion: 0,
+      hasRecord: false,
+    };
+  }, [kpiRecords, currentEmployeeCode]);
+
+  const personalAttendance = useMemo(() => {
+    const dailyRecs = getDailyAttendances('2026-11').filter(
+      (r) =>
+        r.employee_code === currentEmployeeCode &&
+        (r.status === 'PRESENT' ||
+          r.status === 'LATE' ||
+          r.status === 'HALF_DAY' ||
+          r.status === 'REMOTE_WORK')
+    );
+    if (dailyRecs.length > 0) {
+      const actualDays = dailyRecs.reduce(
+        (sum, r) => sum + (r.workday_value ?? (r.status === 'HALF_DAY' ? 0.5 : 1)),
+        0
+      );
+      return { actual_work_days: actualDays, standard_work_days: 22 };
+    }
+    const monthly = getMonthlyAttendances('2026-11').find(
+      (m) => m.employee_code === currentEmployeeCode
+    );
+    if (monthly && baseEmployees.some((e) => e.employee_code === currentEmployeeCode)) {
+      return {
+        actual_work_days: monthly.actual_work_days,
+        standard_work_days: monthly.standard_work_days || 22,
+      };
+    }
+    return { actual_work_days: 0, standard_work_days: 22 };
+  }, [currentEmployeeCode, baseEmployees, employees]);
+
+  const myLeaveRequests = useMemo(
+    () => leaveRequests.filter((r) => r.employee_code === currentEmployeeCode),
+    [leaveRequests, currentEmployeeCode]
+  );
 
   const handleSendToHr = (alert: BurnoutTurnoverAlert) => {
     if (sentAlertIds[alert.id]) return;
@@ -527,10 +598,7 @@ export function DashboardView() {
             </CardContent>
           </Card>
 
-          <Card
-            onClick={() => setActiveNav('performance')}
-            className="cursor-pointer border-l-4 border-l-rose-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-rose-400 dark:hover:bg-zinc-900/50"
-          >
+          <Card className="border-l-4 border-l-rose-500 transition-colors dark:border-l-rose-400">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
@@ -566,7 +634,7 @@ export function DashboardView() {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                  21/22
+                  {personalAttendance.actual_work_days}/{personalAttendance.standard_work_days}
                 </span>
                 <span className="text-xs text-[#5C7871] dark:text-zinc-400">công chuẩn</span>
               </div>
@@ -589,20 +657,17 @@ export function DashboardView() {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
-                  {personalLeave?.remaining_days ?? 8}
+                  {personalLeave.remaining_days}
                 </span>
                 <span className="text-xs text-[#5C7871] dark:text-zinc-400">ngày phép</span>
               </div>
               <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Đã dùng {personalLeave?.used_days ?? 4} / {personalLeave?.total_entitled_days ?? 12} ngày năm 2026
+                Đã dùng {personalLeave.used_days} / {personalLeave.total_entitled_days ?? personalLeave.total_days} ngày năm 2026
               </p>
             </CardContent>
           </Card>
 
-          <Card
-            onClick={() => setActiveNav('performance')}
-            className="cursor-pointer border-l-4 border-l-violet-500 transition-colors hover:bg-[#E8F3EF] dark:border-l-violet-400 dark:hover:bg-zinc-900/50"
-          >
+          <Card className="border-l-4 border-l-violet-500 transition-colors dark:border-l-violet-400">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
@@ -612,12 +677,12 @@ export function DashboardView() {
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-semibold tabular-nums text-violet-700 dark:text-violet-400">
-                  {personalKpi?.kpi_score ?? 91}
+                  {personalKpi.hasRecord ? personalKpi.kpi_score : 'Chưa đánh giá'}
                 </span>
-                <Badge variant="teal">Xếp loại {personalKpi?.grade ?? 'A'}</Badge>
+                <Badge variant="teal">Xếp loại {personalKpi.grade}</Badge>
               </div>
               <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Hoàn thành OKR: {personalKpi?.okr_completion_percent ?? 94}%
+                Hoàn thành OKR: {personalKpi.okr_completion_percent}%
               </p>
             </CardContent>
           </Card>
@@ -635,7 +700,7 @@ export function DashboardView() {
               </div>
               <div className="mt-2">
                 <span className="font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
-                  {leaveRequests.slice(0, 2).length}
+                  {myLeaveRequests.length}
                 </span>
               </div>
               <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
@@ -647,8 +712,9 @@ export function DashboardView() {
       )}
 
       {/* Chart + Quick Summary */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      {role !== 'EMPLOYEE' && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <div>
               <CardTitle>Biến động nhân sự 6 tháng gần nhất</CardTitle>
@@ -775,8 +841,6 @@ export function DashboardView() {
               </span>
             </div>
 
-            {role !== 'EMPLOYEE' && (
-              <>
                 <div
                   onClick={() => setActiveNav('onboarding')}
                   className="cursor-pointer rounded-lg border border-[#C6D9D3] bg-[#F2F7F5]/70 p-3 transition-colors hover:border-[#0F766E] hover:bg-[#E8F3EF] dark:border-zinc-800/80 dark:bg-transparent dark:hover:border-teal-400/50 dark:hover:bg-zinc-900/50"
@@ -819,8 +883,6 @@ export function DashboardView() {
                     <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </span>
                 </div>
-              </>
-            )}
 
             <div
               onClick={() => setActiveNav('ats')}
@@ -844,7 +906,8 @@ export function DashboardView() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
 
       {/* Burnout / Turnover Alerts Table */}
       {visibleAlerts.length > 0 && (

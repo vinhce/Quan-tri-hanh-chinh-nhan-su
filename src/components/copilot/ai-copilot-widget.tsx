@@ -221,7 +221,7 @@ export function AiCopilotWidget() {
     return {
       id: `msg-${Date.now()}`,
       userQuery: rawPrompt,
-      aiResponse: `Xin chào ${empName} (${empCode}). Hệ thống ghi nhận ${allEmployees.length} hồ sơ nhân sự, ${pendingReqs.length} đơn đang chờ duyệt${balance ? `, quỹ phép còn ${balance.remaining_days} ngày` : ''}${latestAttendance ? `, chấm công gần nhất ngày ${latestAttendance.date}: ${latestAttendance.workday_value} công (${latestAttendance.status})` : ''}. Bạn có thể hỏi cụ thể về "tồn phép", "phiếu lương / thuế", "đơn chờ duyệt" hoặc gõ "Xin nghỉ phép..." để lập đơn nhanh.`,
+      aiResponse: `Xin chào ${empName} (${empCode}). Hệ thống ghi nhận ${allEmployees.length} hồ sơ nhân sự, ${pendingReqs.length} đơn đang chờ duyệt${balance ? `, quỹ phép còn ${balance.remaining_days} ngày` : ''}${latestAttendance ? `, chấm công gần nhất ngày ${latestAttendance.date}: ${latestAttendance.workday_value} công (${latestAttendance.status === 'MISSING_PUNCH' ? 'Quên chấm công' : latestAttendance.status})` : ''}. Bạn có thể hỏi cụ thể về "tồn phép", "phiếu lương / thuế", "đơn chờ duyệt" hoặc gõ "Xin nghỉ phép..." để lập đơn nhanh.`,
       referencedPolicy: 'Trợ lý Dữ liệu Live Lạc Việt HRM v2.4',
     };
   };

@@ -23,7 +23,6 @@ import {
   Moon,
   Phone,
   RotateCcw,
-  Search,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -34,11 +33,13 @@ import {
 import { useApp } from '@/context/app-context';
 import {
   activateEmployeeAccountIfPreboardingVerified,
+  createPreboardingInvite,
   getAllRuntimeEmployees,
   getJobPostings,
   getNotificationsForActor,
   getOnboardingRecords,
   getPreboardingInvites,
+  getRuntimeDepartments,
   getSystemUsers,
   HRM_RUNTIME_EVENT,
   markAllNotificationsRead,
@@ -303,11 +304,6 @@ export default function CandidatePortalPage() {
   const [appliedStorageEmail, setAppliedStorageEmail] = useState<string | null>(null);
   const [runtimeEmployees, setRuntimeEmployees] = useState<Employee[]>([]);
   const pendingSelectIdRef = useRef<string | null>(null);
-  const [isLookupOpen, setIsLookupOpen] = useState(false);
-  const [lookupQuery, setLookupQuery] = useState('');
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [isLookingUp, setIsLookingUp] = useState(false);
-  const lookupInputRef = useRef<HTMLInputElement>(null);
   const setActiveCandidate = useCallback((cand: Candidate | null) => {
     setSelectedCandidateId(cand ? cand.id : null);
   }, []);
@@ -453,11 +449,29 @@ export default function CandidatePortalPage() {
     const emailLower = activeCandidate.email.trim().toLowerCase();
     const candToken = ext.preboarding_token?.trim();
 
-    const matchedInvite = preboardingInvites.find(
-      (inv) =>
-        (candToken && inv.token === candToken) ||
-        inv.personal_email.trim().toLowerCase() === emailLower
+    const nonExpiredInvites = preboardingInvites.filter(
+      (inv) => inv.status !== 'EXPIRED'
     );
+    const matchedInvite =
+      (candToken
+        ? nonExpiredInvites.find((inv) => inv.token === candToken)
+        : undefined) ??
+      nonExpiredInvites.find(
+        (inv) =>
+          inv.id !== 'pb-2026-001' &&
+          ((inv.candidate_id && inv.candidate_id === activeCandidate.id) ||
+            (inv.candidate_code && inv.candidate_code === activeCandidate.candidate_code))
+      ) ??
+      nonExpiredInvites.find(
+        (inv) =>
+          (!inv.candidate_id ||
+            inv.candidate_id === activeCandidate.id ||
+            inv.id === 'pb-2026-001') &&
+          (!inv.candidate_code ||
+            inv.candidate_code === activeCandidate.candidate_code ||
+            inv.id === 'pb-2026-001') &&
+          inv.personal_email.trim().toLowerCase() === emailLower
+      );
 
     const matchedEmp = runtimeEmployees.find(
       (emp) =>
@@ -742,10 +756,246 @@ export default function CandidatePortalPage() {
       if (!res.ok) return;
       const data = (await res.json()) as {
         success?: boolean;
+        bootEpoch?: string;
         stores?: Record<string, unknown>;
       };
       const stores = data?.stores;
       if (stores && typeof stores === 'object') {
+        const hasNonEmptyServerStore = Object.values(stores).some(
+          (v) => Array.isArray(v) && v.length > 0
+        );
+        if (
+          typeof data.bootEpoch === 'string' &&
+          data.bootEpoch.length > 0 &&
+          hasNonEmptyServerStore
+        ) {
+          window.localStorage.setItem('hrm_runtime_boot_epoch_v1', data.bootEpoch);
+        }
+
+        const readLocalArray = (storageKey: string): Record<string, unknown>[] => {
+          try {
+            const rawLocal = window.localStorage.getItem(storageKey);
+            if (!rawLocal) return [];
+            const parsed = JSON.parse(rawLocal);
+            return Array.isArray(parsed)
+              ? (parsed as Record<string, unknown>[])
+              : [];
+          } catch {
+            return [];
+          }
+        };
+
+        const normKey = (v: unknown): string =>
+          typeof v === 'string' ? v.trim().toLowerCase() : '';
+
+        const sameGenericRecord = (
+          a: Record<string, unknown>,
+          b: Record<string, unknown>
+        ): boolean => {
+          const aId = normKey(a.id);
+          const bId = normKey(b.id);
+          if (aId && bId && aId === bId) return true;
+          const aEmp = normKey(a.employee_code);
+          const bEmp = normKey(b.employee_code);
+          if (aEmp && bEmp && aEmp === bEmp) return true;
+          const aTok = normKey(a.token);
+          const bTok = normKey(b.token);
+          if (aTok && bTok && aTok === bTok) return true;
+          return false;
+        };
+
+        const parseMs = (rawTime: unknown): number => {
+          if (typeof rawTime !== 'string' || !rawTime.trim()) return 0;
+          const parsed = Date.parse(rawTime);
+          return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        const getRecordRecencyMs = (rec: Record<string, unknown>): number => {
+          let maxMs = Math.max(
+            parseMs(rec.updated_at),
+            parseMs(rec.verified_at),
+            parseMs(rec.submitted_at),
+            parseMs(rec.activated_at),
+            parseMs(rec.locked_at),
+            parseMs(rec.completed_at),
+            parseMs(rec.created_at)
+          );
+          if (rec.reschedule_request && typeof rec.reschedule_request === 'object') {
+            maxMs = Math.max(
+              maxMs,
+              parseMs(
+                (rec.reschedule_request as Record<string, unknown>).requested_at
+              )
+            );
+          }
+          if (rec.interview_schedule && typeof rec.interview_schedule === 'object') {
+            maxMs = Math.max(
+              maxMs,
+              parseMs(
+                (rec.interview_schedule as Record<string, unknown>).scheduled_at
+              )
+            );
+          }
+          if (Array.isArray(rec.checklist)) {
+            for (const item of rec.checklist) {
+              if (item && typeof item === 'object') {
+                maxMs = Math.max(
+                  maxMs,
+                  parseMs((item as Record<string, unknown>).completed_at)
+                );
+              }
+            }
+          }
+          if (Array.isArray(rec.activity_logs)) {
+            for (const log of rec.activity_logs) {
+              if (log && typeof log === 'object') {
+                maxMs = Math.max(
+                  maxMs,
+                  parseMs((log as Record<string, unknown>).created_at)
+                );
+              }
+            }
+          }
+          return maxMs;
+        };
+
+        const CAND_STAGE_RANK: Record<string, number> = {
+          APPLIED: 1,
+          AI_SCREENED: 2,
+          INTERVIEW: 3,
+          OFFER: 4,
+          ONBOARDED: 5,
+        };
+        const PREBOARDING_STATUS_RANK: Record<string, number> = {
+          PENDING: 1,
+          PENDING_SUBMISSION: 1,
+          SUBMITTED: 2,
+          VERIFIED: 3,
+          EXPIRED: 4,
+        };
+        const ACCOUNT_STATUS_RANK: Record<string, number> = {
+          INACTIVE: 1,
+          ACTIVE: 2,
+          LOCKED: 3,
+        };
+        const EMP_STATUS_RANK: Record<string, number> = {
+          PENDING_ONBOARD: 1,
+          PROBATION: 2,
+          ON_LEAVE: 3,
+          ACTIVE: 4,
+          OFFICIAL: 4,
+          NOTICE_PERIOD: 5,
+          RESIGNED: 6,
+        };
+        const GENERIC_STATUS_RANK: Record<string, number> = {
+          PENDING: 1,
+          IN_PROGRESS: 1,
+          SUBMITTED: 2,
+          ACTIVE: 3,
+          APPROVED: 3,
+          VERIFIED: 3,
+          COMPLETED: 3,
+          EXPIRED: 4,
+          LOCKED: 4,
+          REJECTED: 4,
+        };
+
+        const shouldPreferServerRecord = (
+          loc: Record<string, unknown>,
+          srv: Record<string, unknown>
+        ): boolean => {
+          const locMs = getRecordRecencyMs(loc);
+          const srvMs = getRecordRecencyMs(srv);
+          if (srvMs > locMs) return true;
+
+          const locStage = normKey(loc.stage).toUpperCase();
+          const srvStage = normKey(srv.stage).toUpperCase();
+          if (srvStage && srvStage !== locStage) {
+            if (srvStage === 'REJECTED') return true;
+            if (locStage === 'REJECTED') return srvMs > locMs;
+            const srvStageRank = CAND_STAGE_RANK[srvStage] ?? 0;
+            const locStageRank = CAND_STAGE_RANK[locStage] ?? 0;
+            if (srvStageRank > locStageRank) return true;
+            if (locStageRank > srvStageRank) return false;
+          }
+
+          const locPbStatus = normKey(loc.preboarding_status).toUpperCase();
+          const srvPbStatus = normKey(srv.preboarding_status).toUpperCase();
+          if (srvPbStatus && locPbStatus && srvPbStatus !== locPbStatus) {
+            const srvRank = PREBOARDING_STATUS_RANK[srvPbStatus] ?? 0;
+            const locRank = PREBOARDING_STATUS_RANK[locPbStatus] ?? 0;
+            if (srvRank > locRank) return true;
+            if (locRank > srvRank) return false;
+          }
+
+          const locAccStatus = normKey(loc.account_status).toUpperCase();
+          const srvAccStatus = normKey(srv.account_status).toUpperCase();
+          if (srvAccStatus && locAccStatus && srvAccStatus !== locAccStatus) {
+            const srvRank = ACCOUNT_STATUS_RANK[srvAccStatus] ?? 0;
+            const locRank = ACCOUNT_STATUS_RANK[locAccStatus] ?? 0;
+            if (srvRank > locRank) return true;
+            if (locRank > srvRank) return false;
+          }
+
+          const locEmpStatus = normKey(loc.employment_status).toUpperCase();
+          const srvEmpStatus = normKey(srv.employment_status).toUpperCase();
+          if (srvEmpStatus && locEmpStatus && srvEmpStatus !== locEmpStatus) {
+            const srvRank = EMP_STATUS_RANK[srvEmpStatus] ?? 0;
+            const locRank = EMP_STATUS_RANK[locEmpStatus] ?? 0;
+            if (srvRank > locRank) return true;
+            if (locRank > srvRank) return false;
+          }
+
+          const locStatus = normKey(loc.status).toUpperCase();
+          const srvStatus = normKey(srv.status).toUpperCase();
+          if (srvStatus && locStatus && srvStatus !== locStatus) {
+            const srvRank = GENERIC_STATUS_RANK[srvStatus] ?? 0;
+            const locRank = GENERIC_STATUS_RANK[locStatus] ?? 0;
+            if (srvRank > locRank) return true;
+            if (locRank > srvRank) return false;
+          }
+
+          if (locMs > srvMs) return false;
+
+          if (Array.isArray(loc.checklist) && Array.isArray(srv.checklist)) {
+            const countCompleted = (list: unknown[]) =>
+              list.filter(
+                (item) =>
+                  item &&
+                  typeof item === 'object' &&
+                  Boolean((item as Record<string, unknown>).completed)
+              ).length;
+            const locDone = countCompleted(loc.checklist);
+            const srvDone = countCompleted(srv.checklist);
+            if (srvDone !== locDone) return srvDone > locDone;
+          }
+
+          return true;
+        };
+
+        const mergeNotificationReadBy = (
+          storeKey: string,
+          base: Record<string, unknown>,
+          other: Record<string, unknown>
+        ): Record<string, unknown> => {
+          if (
+            storeKey === 'hrm_runtime_notifications_v1' &&
+            Array.isArray(base.read_by) &&
+            Array.isArray(other.read_by)
+          ) {
+            return {
+              ...base,
+              read_by: Array.from(
+                new Set([
+                  ...(base.read_by as unknown[]),
+                  ...(other.read_by as unknown[]),
+                ])
+              ),
+            };
+          }
+          return base;
+        };
+
         const keysToHydrate = [
           'hrm_runtime_candidates_v1',
           'hrm_runtime_onboarding_v1',
@@ -756,8 +1006,81 @@ export default function CandidatePortalPage() {
         ] as const;
         for (const key of keysToHydrate) {
           const val = stores[key];
-          if (Array.isArray(val)) {
-            window.localStorage.setItem(key, JSON.stringify(val));
+          if (!Array.isArray(val)) continue;
+
+          if (key === 'hrm_runtime_preboarding_v1') {
+            const serverInvites = val as PreboardingInvite[];
+            const localInvites = readLocalArray(key) as unknown as PreboardingInvite[];
+
+            const statusRank = (status?: string): number => {
+              if (status === 'EXPIRED') return 4;
+              if (status === 'VERIFIED') return 3;
+              if (status === 'SUBMITTED') return 2;
+              if (status === 'PENDING_SUBMISSION') return 1;
+              return 0;
+            };
+            const recencyMs = (inv?: PreboardingInvite): number => {
+              if (!inv) return 0;
+              return Math.max(
+                Date.parse(inv.verified_at || '') || 0,
+                Date.parse(inv.submitted_at || '') || 0,
+                Date.parse(inv.created_at || '') || 0
+              );
+            };
+            const sameInvite = (a: PreboardingInvite, b: PreboardingInvite) =>
+              (Boolean(a.token) && a.token === b.token) ||
+              (Boolean(a.id) && a.id === b.id) ||
+              (Boolean(a.employee_code) && a.employee_code === b.employee_code);
+
+            const merged: PreboardingInvite[] = serverInvites.map((srv) => {
+              const loc = localInvites.find((item) => sameInvite(item, srv));
+              if (
+                loc &&
+                (loc.status === 'VERIFIED' || loc.status === 'SUBMITTED')
+              ) {
+                const locRank = statusRank(loc.status);
+                const srvRank = statusRank(srv.status);
+                if (
+                  locRank > srvRank ||
+                  (locRank === srvRank && recencyMs(loc) > recencyMs(srv))
+                ) {
+                  return loc;
+                }
+              }
+              return srv;
+            });
+
+            for (const loc of localInvites) {
+              if (!merged.some((item) => sameInvite(item, loc))) {
+                merged.unshift(loc);
+              }
+            }
+
+            if (merged.length > 0) {
+              window.localStorage.setItem(key, JSON.stringify(merged));
+            }
+            continue;
+          }
+
+          const localItems = readLocalArray(key);
+          const serverItems = val as Record<string, unknown>[];
+          const mergedItems: Record<string, unknown>[] = [...localItems];
+          for (const srv of serverItems) {
+            if (!srv || typeof srv !== 'object') continue;
+            const matchIdx = mergedItems.findIndex((loc) =>
+              sameGenericRecord(loc, srv)
+            );
+            if (matchIdx < 0) {
+              mergedItems.push(srv);
+            } else {
+              const loc = mergedItems[matchIdx];
+              mergedItems[matchIdx] = shouldPreferServerRecord(loc, srv)
+                ? mergeNotificationReadBy(key, srv, loc)
+                : mergeNotificationReadBy(key, loc, srv);
+            }
+          }
+          if (mergedItems.length > 0) {
+            window.localStorage.setItem(key, JSON.stringify(mergedItems));
           }
         }
       }
@@ -767,253 +1090,6 @@ export default function CandidatePortalPage() {
       syncCandidateData();
     }
   }, [syncCandidateData]);
-
-  const openLookupBox = useCallback(() => {
-    setIsUserMenuOpen(false);
-    setLookupError(null);
-    setIsLookupOpen(true);
-    setTimeout(() => {
-      lookupInputRef.current?.focus();
-    }, 30);
-  }, []);
-
-  const handleCandidateLookup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLookingUp) return;
-
-    const rawQuery = lookupQuery.trim();
-    if (!rawQuery) {
-      setLookupError('Vui lòng nhập đầy đủ địa chỉ Email (có @) hoặc Số điện thoại (từ 9 chữ số).');
-      lookupInputRef.current?.focus();
-      return;
-    }
-
-    const isEmailQuery = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawQuery);
-    const rawDigits = rawQuery.replace(/\D/g, '');
-    const normPhoneQuery =
-      rawDigits.startsWith('84') && rawDigits.length >= 10
-        ? `0${rawDigits.slice(2)}`
-        : rawDigits;
-    const isPhoneQuery =
-      !rawQuery.includes('@') &&
-      normPhoneQuery.length >= 9 &&
-      /^[\d+\s().-]+$/.test(rawQuery);
-
-    if (!isEmailQuery && !isPhoneQuery) {
-      setLookupError(
-        'Vui lòng nhập đầy đủ địa chỉ Email (có @) hoặc Số điện thoại cá nhân (tối thiểu 9 chữ số) đã dùng khi nộp đơn.'
-      );
-      lookupInputRef.current?.focus();
-      return;
-    }
-
-    setIsLookingUp(true);
-    setLookupError(null);
-
-    try {
-      await pullLatestServerSync();
-      const { enrichedList, allEmps, invites, onbRecords, users } = buildEnrichedCandidates();
-      setCandidates(enrichedList);
-      setRuntimeEmployees(allEmps);
-      setPreboardingInvites(invites);
-      setOnboardingRecords(onbRecords);
-      setSystemUsers(users);
-
-      const lowerQuery = rawQuery.toLowerCase();
-
-      const matches = enrichedList.filter((cand) => {
-        if (isEmailQuery && cand.email.trim().toLowerCase() === lowerQuery) {
-          return true;
-        }
-        if (isPhoneQuery && cand.phone) {
-          const candDigits = cand.phone.replace(/\D/g, '');
-          const normCandPhone =
-            candDigits.startsWith('84') && candDigits.length >= 10
-              ? `0${candDigits.slice(2)}`
-              : candDigits;
-          if (normCandPhone === normPhoneQuery) return true;
-        }
-        return false;
-      });
-
-      if (matches.length === 0) {
-        setLookupError(
-          'Không tìm thấy hồ sơ ứng tuyển khớp với thông tin vừa nhập. Vui lòng kiểm tra lại Email hoặc Số điện thoại đã dùng trên trang Tuyển dụng.'
-        );
-        lookupInputRef.current?.focus();
-        return;
-      }
-
-      const sortedMatches = sortApplicationsByProgress(matches);
-      const matched = sortedMatches[0];
-
-      const matchedEmailLower = matched.email.trim().toLowerCase();
-      const matchedPhoneNorm = matched.phone
-        ? (() => {
-            const d = matched.phone.replace(/\D/g, '');
-            return d.startsWith('84') && d.length >= 10 ? `0${d.slice(2)}` : d;
-          })()
-        : '';
-
-      const linkedEmp = allEmps.find((emp) => {
-        if (
-          emp.email?.trim().toLowerCase() === matchedEmailLower ||
-          emp.personal_email?.trim().toLowerCase() === matchedEmailLower
-        ) {
-          return true;
-        }
-        if (matchedPhoneNorm.length >= 9 && emp.phone) {
-          const ed = emp.phone.replace(/\D/g, '');
-          const normEd =
-            ed.startsWith('84') && ed.length >= 10 ? `0${ed.slice(2)}` : ed;
-          if (normEd === matchedPhoneNorm) return true;
-        }
-        return false;
-      });
-
-      if (linkedEmp?.employment_status === 'RESIGNED') {
-        setLookupError(
-          'Hồ sơ này thuộc nhân sự đã hoàn tất thủ tục nghỉ việc — quyền tra cứu đã được thu hồi.'
-        );
-        lookupInputRef.current?.focus();
-        return;
-      }
-
-      const lockedSysUser = getSystemUsers().find(
-        (u) =>
-          u.account_status === 'LOCKED' &&
-          (u.email.trim().toLowerCase() === matchedEmailLower ||
-            (linkedEmp && u.employee_code === linkedEmp.employee_code))
-      );
-      if (lockedSysUser) {
-        setLookupError(
-          lockedSysUser.locked_reason ||
-            'Tài khoản liên kết với hồ sơ này đang bị khóa truy cập bởi Quản trị hệ thống.'
-        );
-        lookupInputRef.current?.focus();
-        return;
-      }
-
-      pendingSelectIdRef.current = matched.id;
-      setSelectedCandidateId(matched.id);
-
-      setAuthenticatedUser('CANDIDATE', matched.email, {
-        fullName: matched.full_name,
-        department: 'Ứng viên dự tuyển',
-        employee_code: matched.candidate_code,
-        title: matched.job_title,
-      });
-
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('lacviet_applied_candidate_email', matched.email);
-      }
-      setAppliedStorageEmail(matched.email.trim().toLowerCase());
-      setIsLookupOpen(false);
-      setLookupQuery('');
-      setLookupError(null);
-
-      showToast(
-        'Đã tìm thấy hồ sơ ứng tuyển',
-        `Đang hiển thị tiến trình của ${matched.full_name} (${matched.candidate_code}).`,
-        'success'
-      );
-    } finally {
-      setIsLookingUp(false);
-    }
-  };
-
-  const renderLookupCard = (showCloseButton: boolean) => (
-    <div
-      className="mt-6 rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90 sm:p-6"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && showCloseButton) {
-          setIsLookupOpen(false);
-          setLookupError(null);
-        }
-      }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#CBE8E2] text-[#0B4F4A] dark:bg-teal-950/70 dark:text-teal-300">
-            <Search className="h-4 w-4" />
-          </div>
-          <div>
-            <label
-              htmlFor="candidate-lookup-input"
-              className="block text-sm font-bold text-[#11221E] dark:text-zinc-100 cursor-pointer"
-            >
-              Tra cứu hồ sơ bằng Email / SĐT (không cần mật khẩu)
-            </label>
-            <p
-              id="candidate-lookup-hint"
-              className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400"
-            >
-              Nhập đầy đủ Email hoặc Số điện thoại cá nhân đã dùng khi nộp đơn tại trang Việc làm để xem ngay tiến trình Bước 1–5, mức lương Offer và đường dẫn Pre-boarding.
-            </p>
-          </div>
-        </div>
-
-        {showCloseButton && (
-          <button
-            type="button"
-            onClick={() => {
-              setIsLookupOpen(false);
-              setLookupError(null);
-            }}
-            aria-label="Đóng khung tra cứu hồ sơ"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#5C7871] hover:bg-[#EFF5F3] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      <form onSubmit={(e) => void handleCandidateLookup(e)} className="mt-4 flex flex-col gap-2.5 sm:flex-row">
-        <div className="relative flex-1">
-          <input
-            id="candidate-lookup-input"
-            ref={lookupInputRef}
-            type="text"
-            autoComplete="email"
-            value={lookupQuery}
-            onChange={(e) => {
-              setLookupQuery(e.target.value);
-              if (lookupError) setLookupError(null);
-            }}
-            placeholder="Nhập Email hoặc Số điện thoại (VD: kiet@gmail.com / 0904112299)"
-            aria-invalid={Boolean(lookupError)}
-            aria-describedby={lookupError ? 'candidate-lookup-error' : 'candidate-lookup-hint'}
-            className={cn(
-              'h-10 w-full rounded-lg border bg-[#FCFEFD] px-3.5 text-xs text-[#11221E] placeholder:text-[#5C7871]/75 focus:outline-none focus:ring-2 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500',
-              lookupError
-                ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-700'
-                : 'border-[#C6D9D3] focus:border-[#0F766E] focus:ring-[#0F766E]/20 dark:border-zinc-700 dark:focus:border-teal-400'
-            )}
-          />
-        </div>
-        <Button
-          type="submit"
-          variant="primary"
-          size="sm"
-          disabled={isLookingUp}
-          className="h-10 shrink-0 px-5 text-xs font-semibold"
-        >
-          <Search className="mr-1.5 h-3.5 w-3.5" />
-          <span>{isLookingUp ? 'Đang tra cứu...' : 'Tra cứu'}</span>
-        </Button>
-      </form>
-
-      {lookupError && (
-        <p
-          id="candidate-lookup-error"
-          role="alert"
-          className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400"
-        >
-          {lookupError}
-        </p>
-      )}
-    </div>
-  );
 
   useEffect(() => {
     syncCandidateData();
@@ -1222,10 +1298,128 @@ export default function CandidatePortalPage() {
 
   const handleOfferDecision = (decision: 'ACCEPT' | 'DECLINE') => {
     if (!currentCandidate) return;
+    if (currentCandidate.stage !== 'OFFER') return;
     const nextStage: AtsStage = decision === 'ACCEPT' ? 'ONBOARDED' : 'OFFER';
+
+    let nextPreboardingToken = currentCandidate.preboarding_token?.trim();
+    if (decision === 'ACCEPT') {
+      const nonExpiredInvites = getPreboardingInvites().filter(
+        (inv) => inv.status !== 'EXPIRED'
+      );
+      const candEmailLower = currentCandidate.email.trim().toLowerCase();
+      const candCode = currentCandidate.candidate_code?.trim();
+      const matchedFromMeta =
+        activeCandidateMeta.matchedInvite &&
+        activeCandidateMeta.matchedInvite.status !== 'EXPIRED' &&
+        (!activeCandidateMeta.matchedInvite.candidate_id ||
+          activeCandidateMeta.matchedInvite.candidate_id === currentCandidate.id) &&
+        (!activeCandidateMeta.matchedInvite.candidate_code ||
+          activeCandidateMeta.matchedInvite.candidate_code === candCode)
+          ? activeCandidateMeta.matchedInvite
+          : undefined;
+
+      const existingInvite =
+        (nextPreboardingToken
+          ? nonExpiredInvites.find((inv) => inv.token === nextPreboardingToken)
+          : undefined) ??
+        nonExpiredInvites.find(
+          (inv) =>
+            (inv.candidate_id && inv.candidate_id === currentCandidate.id) ||
+            (candCode && inv.candidate_code === candCode)
+        ) ??
+        matchedFromMeta ??
+        nonExpiredInvites.find(
+          (inv) =>
+            (!inv.candidate_id || inv.candidate_id === currentCandidate.id) &&
+            (!inv.candidate_code || inv.candidate_code === candCode) &&
+            inv.personal_email.trim().toLowerCase() === candEmailLower
+        );
+
+      if (!existingInvite) {
+        const departments = getRuntimeDepartments();
+        const matchedJob = getJobPostings().find(
+          (j) =>
+            j.id === currentCandidate.job_id ||
+            j.job_code === currentCandidate.job_code
+        );
+        const candDeptLower = (currentCandidate.department_name || '').trim().toLowerCase();
+        const candJobCodeUpper = (currentCandidate.job_code || '').trim().toUpperCase();
+        const matchedDept =
+          departments.find(
+            (d) =>
+              (matchedJob && d.id === matchedJob.department_id) ||
+              (candDeptLower && d.department_name.trim().toLowerCase() === candDeptLower)
+          ) ??
+          departments.find((d) => {
+            if (candJobCodeUpper.includes('AI') || candJobCodeUpper.includes('DATA')) {
+              return d.id === 'dept-tech-data';
+            }
+            if (candJobCodeUpper.includes('HR') || candJobCodeUpper.includes('CB')) {
+              return d.id === 'dept-hr';
+            }
+            if (candJobCodeUpper.includes('FIN')) {
+              return d.id === 'dept-fin';
+            }
+            if (candJobCodeUpper.includes('BIZ') || candJobCodeUpper.includes('SALE')) {
+              return d.id === 'dept-sales';
+            }
+            if (candJobCodeUpper.includes('SWE') || candJobCodeUpper.includes('FE')) {
+              return d.id === 'dept-tech-swe';
+            }
+            return false;
+          }) ??
+          departments[0];
+
+        const departmentId = matchedDept?.id ?? 'dept-tech-swe';
+        const departmentName =
+          matchedDept?.department_name ||
+          currentCandidate.department_name ||
+          'Phòng Kỹ thuật Phần mềm';
+        const managerId = matchedDept?.manager_id ?? 'emp-003';
+        const managerName =
+          matchedJob?.hiring_manager_name || matchedDept?.manager_name || 'Lê Hoàng Nam';
+
+        const officialSalaryVnd =
+          (typeof currentCandidate.offered_salary_vnd === 'number' &&
+          currentCandidate.offered_salary_vnd > 0
+            ? currentCandidate.offered_salary_vnd
+            : undefined) ??
+          (typeof activeCandidateMeta.approvedSalaryVnd === 'number' &&
+          activeCandidateMeta.approvedSalaryVnd > 0
+            ? activeCandidateMeta.approvedSalaryVnd
+            : undefined) ??
+          (currentCandidate.expected_salary_vnd > 0
+            ? currentCandidate.expected_salary_vnd
+            : 25000000);
+
+        const expectedStartDate = new Date(Date.now() + 7 * 86400000)
+          .toISOString()
+          .slice(0, 10);
+
+        const created = createPreboardingInvite({
+          candidate: currentCandidate,
+          fullName: currentCandidate.full_name,
+          personalEmail: currentCandidate.email,
+          phone: currentCandidate.phone,
+          departmentId,
+          departmentName,
+          positionName: currentCandidate.job_title || 'Chuyên viên',
+          managerId,
+          managerName,
+          expectedStartDate,
+          officialSalaryVnd,
+          actorName: currentCandidate.full_name,
+        });
+        nextPreboardingToken = created.invite.token;
+      } else {
+        nextPreboardingToken = existingInvite.token;
+      }
+    }
+
     const updated: Candidate = {
       ...currentCandidate,
       stage: nextStage,
+      ...(nextPreboardingToken ? { preboarding_token: nextPreboardingToken } : {}),
       current_company:
         decision === 'ACCEPT'
           ? `${currentCandidate.current_company} · Ứng viên đã chấp nhận Offer ngày ${new Date().toLocaleDateString('vi-VN')}`
@@ -1234,6 +1428,9 @@ export default function CandidatePortalPage() {
     saveRuntimeCandidate(updated);
     setActiveCandidate(updated);
     setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    if (decision === 'ACCEPT') {
+      syncCandidateData();
+    }
     setActionModal(null);
     setActionReason('');
     showToast(
@@ -1439,17 +1636,6 @@ export default function CandidatePortalPage() {
               {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </button>
 
-            <button
-              type="button"
-              onClick={openLookupBox}
-              aria-label="Tra cứu email khác"
-              title="Tra cứu hồ sơ bằng Email / SĐT khác"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 sm:px-3 text-xs font-semibold text-[#0F766E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-300 dark:hover:bg-zinc-700 cursor-pointer"
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Tra cứu email khác</span>
-            </button>
-
             <Link
               href="/careers"
               aria-label="Xem việc làm khác"
@@ -1488,15 +1674,6 @@ export default function CandidatePortalPage() {
                   </div>
 
                   <div className="pt-1 space-y-0.5">
-                    <button
-                      type="button"
-                      onClick={openLookupBox}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[#415A54] hover:bg-[#EFF5F3] hover:text-[#0F766E] dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-teal-400 transition-colors cursor-pointer"
-                    >
-                      <Search className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />
-                      <span>Tra cứu email khác</span>
-                    </button>
-
                     <Link
                       href="/login"
                       onClick={() => setIsUserMenuOpen(false)}
@@ -1572,9 +1749,6 @@ export default function CandidatePortalPage() {
             )}
           </div>
         </div>
-
-        {/* Inline Candidate Lookup Panel when toggled while viewing an existing profile */}
-        {currentCandidate && isLookupOpen && renderLookupCard(true)}
 
         {/* Current Active Application Card */}
         {currentCandidate ? (
@@ -2102,24 +2276,27 @@ export default function CandidatePortalPage() {
             </Card>
           </div>
         ) : (
-          <>
-            {renderLookupCard(false)}
-
-            <div className="mt-6 rounded-2xl border border-dashed border-[#C6D9D3] bg-[#FCFEFD] p-10 text-center dark:border-zinc-800 dark:bg-zinc-900">
-              <FileText className="mx-auto h-11 w-11 text-[#5C7871] opacity-60" />
-              <h3 className="mt-3 text-base font-semibold text-[#11221E] dark:text-zinc-100">
-                Chưa tìm thấy hồ sơ ứng tuyển gắn với phiên hiện tại
-              </h3>
-              <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
-                Nhập Email / SĐT ở ô tra cứu phía trên nếu bạn đã nộp CV, hoặc truy cập trang Tuyển dụng để ứng tuyển vị trí mới.
-              </p>
+          <div className="mt-6 rounded-2xl border border-dashed border-[#C6D9D3] bg-[#FCFEFD] p-10 text-center dark:border-zinc-800 dark:bg-zinc-900">
+            <FileText className="mx-auto h-11 w-11 text-[#5C7871] opacity-60" />
+            <h3 className="mt-3 text-base font-semibold text-[#11221E] dark:text-zinc-100">
+              Chưa tìm thấy hồ sơ ứng tuyển gắn với phiên hiện tại
+            </h3>
+            <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+              Vui lòng đăng nhập bằng tài khoản ứng viên hoặc truy cập trang Tuyển dụng để ứng tuyển vị trí mới.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
               <Link href="/careers">
-                <Button variant="primary" size="sm" className="mt-4 text-xs font-semibold">
+                <Button variant="primary" size="sm" className="text-xs font-semibold">
                   Khám phá việc làm ngay
                 </Button>
               </Link>
+              <Link href="/login">
+                <Button variant="outline" size="sm" className="text-xs font-semibold">
+                  Đăng nhập
+                </Button>
+              </Link>
             </div>
-          </>
+          </div>
         )}
       </main>
 

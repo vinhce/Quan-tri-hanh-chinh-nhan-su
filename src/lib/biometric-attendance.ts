@@ -356,30 +356,35 @@ export async function enrollCurrentDeviceBiometric(params: {
 
   let rawCred: Credential | null = null;
   try {
-    rawCred = await navigator.credentials.create({
-      publicKey: {
-        challenge: base64UrlToUint8Array(chData.challenge),
-        rp: {
-          name: 'Lạc Việt HRM — Chấm công Sinh trắc học',
-          id: chData.rpId || support.hostname,
-        },
-        user: {
-          id: userIdBytes,
-          name: params.employee.email || params.employee.employee_code,
-          displayName: `${params.employee.full_name} (${params.employee.employee_code})`,
-        },
-        pubKeyCredParams: [
-          { type: 'public-key', alg: -7 },
-          { type: 'public-key', alg: -257 },
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform',
-          userVerification: 'required',
-          residentKey: 'preferred',
-        },
-        timeout: 60000,
-        attestation: 'none',
+    const publicKey: PublicKeyCredentialCreationOptions & {
+      hints?: string[];
+    } = {
+      challenge: base64UrlToUint8Array(chData.challenge),
+      rp: {
+        name: 'Lạc Việt HRM — Chấm công Sinh trắc học',
+        id: chData.rpId || support.hostname,
       },
+      user: {
+        id: userIdBytes,
+        name: params.employee.email || params.employee.employee_code,
+        displayName: `${params.employee.full_name} (${params.employee.employee_code})`,
+      },
+      pubKeyCredParams: [
+        { type: 'public-key', alg: -7 },
+        { type: 'public-key', alg: -257 },
+      ],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        userVerification: 'required',
+        residentKey: 'discouraged',
+        requireResidentKey: false,
+      },
+      hints: ['client-device'],
+      timeout: 60000,
+      attestation: 'none',
+    };
+    rawCred = await navigator.credentials.create({
+      publicKey,
     });
   } catch (err) {
     const errName = err instanceof Error ? err.name : '';
@@ -578,18 +583,22 @@ export async function punchWithBiometricWifi(params: {
 
   let assertion: Credential | null = null;
   try {
+    const publicKey: PublicKeyCredentialRequestOptions & {
+      hints?: string[];
+    } = {
+      challenge: base64UrlToUint8Array(chData.challenge),
+      rpId: chData.rpId || support.hostname,
+      allowCredentials: byCodeIfEmpty.map((cred) => ({
+        type: 'public-key',
+        id: base64UrlToUint8Array(cred.credential_id),
+        transports: ['internal'],
+      })),
+      userVerification: 'required',
+      hints: ['client-device'],
+      timeout: 60000,
+    };
     assertion = await navigator.credentials.get({
-      publicKey: {
-        challenge: base64UrlToUint8Array(chData.challenge),
-        rpId: chData.rpId || support.hostname,
-        allowCredentials: byCodeIfEmpty.map((cred) => ({
-          type: 'public-key',
-          id: base64UrlToUint8Array(cred.credential_id),
-          transports: ['internal'],
-        })),
-        userVerification: 'required',
-        timeout: 60000,
-      },
+      publicKey,
     });
   } catch (err) {
     const errName = err instanceof Error ? err.name : '';

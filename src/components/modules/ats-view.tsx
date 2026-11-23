@@ -274,6 +274,43 @@ export const KANBAN_5_COLUMNS: AtsKanbanColumnDef[] = [
   },
 ];
 
+export interface AtsKanban3ColumnDef {
+  id: string;
+  label: string;
+  stages: AtsStage[];
+  defaultDropStage: AtsStage;
+  dotColor: string;
+  topBorder: string;
+  isNeutral?: boolean;
+}
+
+export const KANBAN_3_COLUMNS: AtsKanban3ColumnDef[] = [
+  {
+    id: 'col-intake-screen',
+    label: 'Tiếp nhận & Sàng lọc',
+    stages: ['APPLIED', 'AI_SCREENED'],
+    defaultDropStage: 'AI_SCREENED',
+    dotColor: 'bg-sky-500',
+    topBorder: 'border-t-2 border-t-sky-500',
+  },
+  {
+    id: 'col-interview-offer',
+    label: 'Phỏng vấn & Offer',
+    stages: ['INTERVIEW', 'OFFER'],
+    defaultDropStage: 'INTERVIEW',
+    dotColor: 'bg-amber-500',
+    topBorder: 'border-t-2 border-t-amber-500',
+  },
+  {
+    id: 'col-onboard-closed',
+    label: 'Nhận việc & Kết thúc',
+    stages: ['ONBOARDED', 'REJECTED'],
+    defaultDropStage: 'ONBOARDED',
+    dotColor: 'bg-emerald-500',
+    topBorder: 'border-t-2 border-t-emerald-500',
+  },
+];
+
 export const KANBAN_CARD_LIMIT = 8;
 
 export function getDaysInStage(cand: Candidate): number {
@@ -381,7 +418,8 @@ export function AtsView() {
     role === 'DIRECTOR' ||
     role === 'DEPT_MANAGER' ||
     role === 'HR_MANAGER';
-  const canPostJob = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+  const canPostJob =
+    role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
   const defaultProfile = ROLE_DEFAULT_PROFILES[role];
   const actorName = currentUserProfile?.fullName || defaultProfile.fullName;
   const actorCode = currentUserProfile?.employee_code || defaultProfile.employee_code;
@@ -405,7 +443,7 @@ export function AtsView() {
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [showJobCards, setShowJobCards] = useState(false);
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'requests'>('candidates');
-  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({ 'col-rejected': true });
+  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
   const [collapsedSubgroups, setCollapsedSubgroups] = useState<Record<string, boolean>>({});
   const [expandedLimits, setExpandedLimits] = useState<Record<string, boolean>>({});
   const [candidateSearch, setCandidateSearch] = useState<string>('');
@@ -2077,19 +2115,24 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
               </div>
             )}
 
-          {/* Kanban Board Container - Horizontally scrollable */}
-          <div className="overflow-x-auto pb-4 max-w-full">
-            <div className="flex flex-row gap-3 items-stretch min-h-[520px] w-max">
+          {/* Kanban Board Container - 3 Columns in 1 Row */}
+          <div className="pb-4 max-w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
               {(selectedStageFilter === 'ALL'
-                ? KANBAN_5_COLUMNS
-                : KANBAN_5_COLUMNS.filter((c) => c.stage === selectedStageFilter)
+                ? KANBAN_3_COLUMNS
+                : KANBAN_3_COLUMNS.filter((c) => c.stages.includes(selectedStageFilter))
               ).map((col) => {
-                const colCandidates = filteredCandidates.filter((c) => c.stage === col.stage);
+                const colCandidates = filteredCandidates.filter((c) =>
+                  selectedStageFilter === 'ALL'
+                    ? col.stages.includes(c.stage)
+                    : c.stage === selectedStageFilter
+                );
                 const isColCollapsed =
                   selectedStageFilter === 'ALL' && Boolean(collapsedCols[col.id]);
 
                 const renderCandidateCard = (cand: Candidate, forceCompact = false) => {
                   const isCompact = forceCompact || isCompactMode;
+                  const stageBadge = CANDIDATE_STAGE_BADGES[cand.stage];
                   const isInterviewConfirmed =
                     cand.stage === 'INTERVIEW' && cand.interview_schedule?.status === 'confirmed';
                   const isInterviewScheduled =
@@ -2112,7 +2155,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       }}
                       onClick={() => setSelectedCandidate(cand)}
                       className={cn(
-                        'group cursor-pointer rounded-xl border p-3 shadow-2xs transition-all relative',
+                        'group cursor-pointer rounded-xl border p-2.5 shadow-2xs transition-all relative',
                         isReschedulePending
                           ? 'border-amber-400 bg-amber-50/70 hover:border-amber-500 hover:bg-amber-100/70 dark:border-amber-600/70 dark:bg-amber-950/30 dark:hover:border-amber-500 ring-1 ring-amber-400/50'
                           : isInterviewConfirmed
@@ -2120,11 +2163,23 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                           : 'border-[#C6D9D3] bg-[#FCFEFD] hover:border-[#0F766E] hover:bg-[#E8F3EF]/60 dark:border-zinc-800 dark:bg-[#18181b] dark:hover:border-zinc-700 dark:hover:bg-[#202024]'
                       )}
                     >
-                      {/* Card Header: Code + Source + Overdue Badge */}
+                      {/* Card Header: Code + Stage Badge + Source + Overdue Badge */}
                       <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                        <span className="font-mono text-[11px] font-semibold text-[#5C7871] dark:text-zinc-400">
-                          {cand.candidate_code}
-                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-mono text-[11px] font-semibold text-[#5C7871] dark:text-zinc-400">
+                            {cand.candidate_code}
+                          </span>
+                          {stageBadge && (
+                            <span
+                              className={cn(
+                                'rounded px-1.5 py-0.2 text-[10px] font-semibold border whitespace-nowrap',
+                                stageBadge.className
+                              )}
+                            >
+                              {stageBadge.label}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1">
                           <span
                             className={cn(
@@ -2365,32 +2420,31 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       key={col.id}
                       onClick={() => toggleColCollapse(col.id)}
                       className={cn(
-                        'flex w-12 cursor-pointer flex-col items-center justify-between rounded-xl border border-[#C6D9D3] bg-[#E8F1EE]/80 py-4 hover:border-[#0F766E] dark:border-zinc-800/80 dark:bg-[#121214] transition-all shrink-0',
+                        'flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-xl border border-[#C6D9D3] bg-[#E8F1EE]/80 px-3 py-2.5 hover:border-[#0F766E] dark:border-zinc-800/80 dark:bg-[#121214] transition-all',
                         col.topBorder
                       )}
                       title={`Mở rộng cột: ${col.label} (${colCandidates.length} hồ sơ)`}
                       role="region"
                       aria-label={`Cột ${col.label} đang thu gọn, có ${colCandidates.length} hồ sơ`}
                     >
-                      <div className="flex flex-col items-center gap-2">
-                        <span className={cn('h-2.5 w-2.5 rounded-full', col.dotColor)} />
-                        <span className="rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
-                          {colCandidates.length}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={cn('h-2 w-2 shrink-0 rounded-full', col.dotColor)} />
+                        <span className="truncate text-xs font-semibold text-[#11221E] dark:text-zinc-200 select-none">
+                          {col.label}
                         </span>
                       </div>
-                      <div
-                        className="py-6 text-xs font-semibold tracking-wider text-[#415A54] dark:text-zinc-400 select-none whitespace-nowrap"
-                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-                      >
-                        {col.label}
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className="rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] font-medium text-[#415A54] dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-300">
+                          {colCandidates.length}
+                        </span>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-[#5C7871] hover:bg-[#D5E3DF] hover:text-[#11221E] dark:text-zinc-400 dark:hover:bg-zinc-800"
+                          aria-label={`Mở rộng cột ${col.label}`}
+                        >
+                          <PanelLeftOpen className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="text-[#5C7871] hover:text-[#11221E] dark:text-zinc-400"
-                        aria-label={`Mở rộng cột ${col.label}`}
-                      >
-                        <PanelLeftOpen className="h-4 w-4" />
-                      </button>
                     </div>
                   );
                 }
@@ -2401,8 +2455,8 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = 'move';
-                      if (dragOverColStage !== col.stage) {
-                        setDragOverColStage(col.stage);
+                      if (dragOverColStage !== col.defaultDropStage) {
+                        setDragOverColStage(col.defaultDropStage);
                       }
                     }}
                     onDragLeave={() => {
@@ -2414,29 +2468,30 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       const candId = e.dataTransfer.getData('text/plain');
                       const droppedCand = candidates.find((c) => c.id === candId);
                       if (!droppedCand) return;
-                      if (col.stage === 'INTERVIEW') {
+                      const targetStage = col.defaultDropStage;
+                      if (targetStage === 'INTERVIEW') {
                         if (!droppedCand.interview_schedule?.date) {
                           openInterviewScheduleModal(droppedCand);
                         } else if (droppedCand.stage !== 'INTERVIEW') {
                           handleMoveStage(droppedCand, 'INTERVIEW');
                         }
-                      } else if (col.stage === 'OFFER') {
+                      } else if (targetStage === 'OFFER') {
                         setOfferDialogCandidate(droppedCand);
-                      } else if (col.stage === 'ONBOARDED') {
+                      } else if (targetStage === 'ONBOARDED') {
                         openOnboardingInitDialog(droppedCand);
-                      } else if (col.stage === 'REJECTED') {
+                      } else if (targetStage === 'REJECTED') {
                         setRejectDialogCandidate(droppedCand);
-                      } else if (droppedCand.stage !== col.stage) {
-                        handleMoveStage(droppedCand, col.stage);
+                      } else if (droppedCand.stage !== targetStage) {
+                        handleMoveStage(droppedCand, targetStage);
                       }
                     }}
                     className={cn(
-                      'flex w-[280px] min-w-[280px] shrink-0 flex-col rounded-xl border p-3 transition-all',
+                      'flex w-full min-w-0 flex-col rounded-xl border p-3 transition-all',
                       col.topBorder,
                       col.isNeutral
                         ? 'border-zinc-300 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40'
                         : 'border-[#C6D9D3] bg-[#E8F1EE]/80 dark:border-zinc-800/80 dark:bg-[#121214]',
-                      dragOverColStage === col.stage &&
+                      dragOverColStage === col.defaultDropStage &&
                         'ring-2 ring-[#0F766E] bg-teal-50/80 dark:bg-teal-950/40 dark:ring-teal-400'
                     )}
                     role="region"
@@ -2467,7 +2522,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     </div>
 
                     {/* Column Body Cards */}
-                    <div className="flex-1 space-y-2.5">
+                    <div className="max-h-[420px] overflow-y-auto pr-1 space-y-2">
                       {colCandidates.length === 0 ? (
                         <div className="rounded-lg border border-dashed border-[#C6D9D3] bg-[#F2F7F5] p-4 text-center text-xs text-[#5C7871] dark:border-zinc-800/80 dark:bg-transparent dark:text-zinc-500">
                           Chưa có ứng viên

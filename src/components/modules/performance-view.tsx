@@ -270,6 +270,7 @@ function isMidMonthEffectiveDate(dateIso: string): boolean {
 export function PerformanceView() {
   const {
     role,
+    setActiveNav,
     currentUserEmail,
     currentUserProfile,
     navIntent,
@@ -384,33 +385,44 @@ export function PerformanceView() {
   const actorEmployee = useMemo(() => {
     if (employees.length === 0) return null;
 
-    if (currentUserProfile?.employee_code) {
-      const codeNeedle = currentUserProfile.employee_code.trim().toLowerCase();
+    const rawProfileCode = currentUserProfile?.employee_code?.trim();
+    const codeNeedle = rawProfileCode?.toLowerCase();
+    const hasExplicitEmployeeCode = Boolean(
+      codeNeedle && !codeNeedle.startsWith('uv-')
+    );
+
+    if (hasExplicitEmployeeCode && codeNeedle) {
       const byProfileCode = employees.find(
-        (e) => e.employee_code.toLowerCase() === codeNeedle
+        (e) => e.employee_code.trim().toLowerCase() === codeNeedle
       );
       if (byProfileCode) return byProfileCode;
     }
 
-    if (currentUserEmail) {
-      const emailNeedle = currentUserEmail.trim().toLowerCase();
-      const localPart = emailNeedle.split('@')[0];
+    const emailCandidate = (currentUserEmail || currentUserProfile?.email || '')
+      .trim()
+      .toLowerCase();
+    if (emailCandidate) {
+      const localPart = emailCandidate.split('@')[0];
       const byExactEmail = employees.find(
         (e) =>
-          e.email.toLowerCase() === emailNeedle ||
-          (e.personal_email && e.personal_email.toLowerCase() === emailNeedle)
+          e.email.trim().toLowerCase() === emailCandidate ||
+          e.personal_email?.trim().toLowerCase() === emailCandidate
       );
       if (byExactEmail) return byExactEmail;
 
       if (
-        emailNeedle.endsWith('@lacviethrm.vn') ||
-        emailNeedle.endsWith('@hrm-enterprise.vn')
+        emailCandidate.endsWith('@lacviethrm.vn') ||
+        emailCandidate.endsWith('@hrm-enterprise.vn')
       ) {
         const byCorporateSlug = employees.find(
           (e) => e.email.split('@')[0].toLowerCase() === localPart
         );
         if (byCorporateSlug) return byCorporateSlug;
       }
+    }
+
+    if (hasExplicitEmployeeCode) {
+      return null;
     }
 
     const fallbackCode = ROLE_DEFAULT_PROFILES[role]?.employee_code;
@@ -426,16 +438,20 @@ export function PerformanceView() {
 
   const actorIdentity = useMemo(() => {
     const fallbackProfile = ROLE_DEFAULT_PROFILES[role];
+    const resolvedCode =
+      currentUserProfile?.employee_code ||
+      actorEmployee?.employee_code ||
+      fallbackProfile.employee_code;
+    const resolvedName =
+      currentUserProfile?.fullName ||
+      actorEmployee?.full_name ||
+      fallbackProfile.fullName;
     return {
-      id: actorEmployee?.id ?? 'emp-002',
-      employeeCode:
-        actorEmployee?.employee_code ??
-        currentUserProfile?.employee_code ??
-        fallbackProfile.employee_code,
-      fullName:
-        actorEmployee?.full_name ??
-        currentUserProfile?.fullName ??
-        fallbackProfile.fullName,
+      id: actorEmployee?.id ?? currentUserProfile?.employee_code ?? 'emp-self',
+      code: resolvedCode,
+      name: resolvedName,
+      employeeCode: resolvedCode,
+      fullName: resolvedName,
       positionName:
         actorEmployee?.position_name ??
         currentUserProfile?.title ??
@@ -1440,6 +1456,34 @@ export function PerformanceView() {
     },
     [canViewAllSalaries, actorEmployee, actorIdentity.employeeCode]
   );
+
+  // Access control guard: Only SUPER_ADMIN can view Performance & Career Progression
+  const isSuperAdminOnlyAccess = (role as string) === 'SUPER_ADMIN';
+  if (!isSuperAdminOnlyAccess) {
+    return (
+      <Card className="border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-[#121214]">
+        <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#0F766E]/25 bg-[#E4EEEB] text-[#0F766E] dark:border-teal-400/20 dark:bg-teal-950/40 dark:text-teal-400">
+            <Lock className="h-5 w-5" strokeWidth={1.5} />
+          </div>
+          <p className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
+            Phân hệ Đánh giá &amp; Thăng tiến chỉ dành cho Quản trị viên hệ thống (Admin).
+          </p>
+          <p className="max-w-md text-xs text-[#5C7871] dark:text-zinc-400">
+            Tài khoản hiện tại không có quyền truy cập trực tiếp vào phân hệ này. Vui lòng quay về trang Tổng quan.
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            className="mt-1"
+            onClick={() => setActiveNav('dashboard')}
+          >
+            Quay về Tổng quan
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Loading & Error States (4 dynamic UI states compliance)
   if (isLoading) {

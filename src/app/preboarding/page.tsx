@@ -26,7 +26,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useApp, type UserProfileOverride } from '@/context/app-context';
-import { alertSwal, confirmSwal, escapeSwalHtml } from '@/lib/swal';
+import { alertSwal } from '@/lib/swal';
 import {
   activateEmployeeAccountIfPreboardingVerified,
   getAllRuntimeEmployees,
@@ -167,18 +167,62 @@ function resolvePreferredToken(
   return '';
 }
 
+function buildDefaultPreboardingFields(found: PreboardingInvite) {
+  const key = (found.employee_code || found.token || found.id || 'NV-2026-041').trim();
+  const isPrimaryDemo = key.toUpperCase() === 'NV-2026-041';
+
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) % 1_000_000_007;
+  }
+  const suffixDigits = parseInt(key.replace(/\D+/g, '').slice(-4) || '0', 10) || 0;
+  const seed = Math.abs(hash + suffixDigits * 97);
+
+  const nationalId = isPrimaryDemo
+    ? '079097014582'
+    : `079097${String(100000 + (seed % 899999)).padStart(6, '0')}`;
+  const taxCode = isPrimaryDemo
+    ? '8462910384'
+    : `84${String(10000000 + ((seed * 37 + 12345) % 89999999)).padStart(8, '0')}`;
+  const socialInsuranceNo = isPrimaryDemo
+    ? '7924819205'
+    : `79${String(10000000 + ((seed * 53 + 67890) % 89999999)).padStart(8, '0')}`;
+  const bankAccountNo = isPrimaryDemo
+    ? '0071001298456'
+    : `007100${String(1000000 + ((seed * 71 + 45678) % 8999999)).padStart(7, '0')}`;
+
+  return {
+    personalEmail: found.personal_email ?? '',
+    phone: found.phone || '0908654321',
+    gender: 'Nam' as const,
+    dateOfBirth: '1997-06-15',
+    nationalId,
+    nationalIdIssueDate: '2022-04-18',
+    nationalIdIssuePlace: 'Cục Cảnh sát QLHC về TTXH',
+    taxCode,
+    socialInsuranceNo,
+    dependentsCount: '1',
+    address: 'Số 42 Nguyễn Cơ Thạch, Phường An Lợi Đông, TP. Thủ Đức, TP.HCM',
+    bankName: 'Vietcombank',
+    bankAccountNo,
+    emergencyContactName: 'Nguyễn Thị Thu Hà',
+    emergencyContactPhone: '0908654321',
+    emergencyContactRelation: 'Vợ/Chồng',
+    idCardFileName: 'CCCD_2Mat_CongChung_2026.pdf',
+    degreeFileName: 'Bang_DaiHoc_CNTT_ChinhQuy.pdf',
+  };
+}
+
 function PreboardingPortalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
-    role,
     theme,
     toggleTheme,
     showToast,
     currentUserEmail,
     currentUserProfile,
     setAuthenticatedUser,
-    logout,
   } = useApp();
 
   const urlToken = (searchParams.get('token') ?? '').trim();
@@ -187,6 +231,7 @@ function PreboardingPortalContent() {
   const [runtimeEmployees, setRuntimeEmployees] = useState<Employee[]>([]);
   const [runtimeSystemUsers, setRuntimeSystemUsers] = useState<SystemUserAccount[]>([]);
   const [invite, setInvite] = useState<PreboardingInvite | null>(null);
+  const inviteRef = useRef<PreboardingInvite | null>(null);
   const [isManualUnlocked, setIsManualUnlocked] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -197,23 +242,31 @@ function PreboardingPortalContent() {
   const [phone, setPhone] = useState<string>('');
   const [gender, setGender] = useState<'Nam' | 'Nữ'>('Nam');
   const [dateOfBirth, setDateOfBirth] = useState<string>('1997-06-15');
-  const [nationalId, setNationalId] = useState<string>('');
+  const [nationalId, setNationalId] = useState<string>('079097014582');
   const [nationalIdIssueDate, setNationalIdIssueDate] = useState<string>('2022-04-18');
   const [nationalIdIssuePlace, setNationalIdIssuePlace] = useState<string>(
     'Cục Cảnh sát QLHC về TTXH'
   );
-  const [taxCode, setTaxCode] = useState<string>('');
-  const [socialInsuranceNo, setSocialInsuranceNo] = useState<string>('');
-  const [dependentsCount, setDependentsCount] = useState<string>('0');
-  const [address, setAddress] = useState<string>('');
+  const [taxCode, setTaxCode] = useState<string>('8462910384');
+  const [socialInsuranceNo, setSocialInsuranceNo] = useState<string>('7924819205');
+  const [dependentsCount, setDependentsCount] = useState<string>('1');
+  const [address, setAddress] = useState<string>(
+    'Số 42 Nguyễn Cơ Thạch, Phường An Lợi Đông, TP. Thủ Đức, TP.HCM'
+  );
   const [bankName, setBankName] = useState<string>('Vietcombank');
-  const [bankAccountNo, setBankAccountNo] = useState<string>('');
-  const [emergencyContactName, setEmergencyContactName] = useState<string>('');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState<string>('');
+  const [bankAccountNo, setBankAccountNo] = useState<string>('0071001298456');
+  const [emergencyContactName, setEmergencyContactName] = useState<string>(
+    'Nguyễn Thị Thu Hà'
+  );
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState<string>('0908654321');
   const [emergencyContactRelation, setEmergencyContactRelation] =
     useState<string>('Vợ/Chồng');
-  const [idCardFileName, setIdCardFileName] = useState<string>('');
-  const [degreeFileName, setDegreeFileName] = useState<string>('');
+  const [idCardFileName, setIdCardFileName] = useState<string>(
+    'CCCD_2Mat_CongChung_2026.pdf'
+  );
+  const [degreeFileName, setDegreeFileName] = useState<string>(
+    'Bang_DaiHoc_CNTT_ChinhQuy.pdf'
+  );
 
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormFieldKey, string>>>({});
   const firstErrorRef = useRef<HTMLInputElement | null>(null);
@@ -221,26 +274,35 @@ function PreboardingPortalContent() {
   const hydrateFormFromInvite = useCallback((found: PreboardingInvite | null) => {
     if (!found) return;
     const sub = found.submitted_data;
-    setPersonalEmail(sub?.personal_email ?? found.personal_email ?? '');
-    setPhone(sub?.phone ?? found.phone ?? '');
-    setGender(sub?.gender ?? 'Nam');
-    setDateOfBirth(sub?.date_of_birth ?? '1997-06-15');
-    setNationalId(sub?.national_id ?? '');
-    setNationalIdIssueDate(sub?.national_id_issue_date ?? '2022-04-18');
+    const defaults = buildDefaultPreboardingFields(found);
+    setPersonalEmail(sub?.personal_email || defaults.personalEmail);
+    setPhone(sub?.phone || defaults.phone);
+    setGender(sub?.gender || defaults.gender);
+    setDateOfBirth(sub?.date_of_birth || defaults.dateOfBirth);
+    setNationalId(sub?.national_id || defaults.nationalId);
+    setNationalIdIssueDate(sub?.national_id_issue_date || defaults.nationalIdIssueDate);
     setNationalIdIssuePlace(
-      sub?.national_id_issue_place ?? 'Cục Cảnh sát QLHC về TTXH'
+      sub?.national_id_issue_place || defaults.nationalIdIssuePlace
     );
-    setTaxCode(sub?.tax_code ?? '');
-    setSocialInsuranceNo(sub?.social_insurance_no ?? '');
-    setDependentsCount(String(sub?.dependents_count ?? 0));
-    setAddress(sub?.address ?? '');
-    setBankName(sub?.bank_name ?? 'Vietcombank');
-    setBankAccountNo(sub?.bank_account_no ?? '');
-    setEmergencyContactName(sub?.emergency_contact_name ?? '');
-    setEmergencyContactPhone(sub?.emergency_contact_phone ?? '');
-    setEmergencyContactRelation(sub?.emergency_contact_relation ?? 'Vợ/Chồng');
-    setIdCardFileName(sub?.id_card_file_name ?? '');
-    setDegreeFileName(sub?.degree_file_name ?? '');
+    setTaxCode(sub?.tax_code || defaults.taxCode);
+    setSocialInsuranceNo(sub?.social_insurance_no || defaults.socialInsuranceNo);
+    setDependentsCount(
+      sub?.dependents_count !== undefined && sub?.dependents_count !== null
+        ? String(sub.dependents_count)
+        : defaults.dependentsCount
+    );
+    setAddress(sub?.address || defaults.address);
+    setBankName(sub?.bank_name || defaults.bankName);
+    setBankAccountNo(sub?.bank_account_no || defaults.bankAccountNo);
+    setEmergencyContactName(sub?.emergency_contact_name || defaults.emergencyContactName);
+    setEmergencyContactPhone(
+      sub?.emergency_contact_phone || defaults.emergencyContactPhone
+    );
+    setEmergencyContactRelation(
+      sub?.emergency_contact_relation || defaults.emergencyContactRelation
+    );
+    setIdCardFileName(sub?.id_card_file_name || defaults.idCardFileName);
+    setDegreeFileName(sub?.degree_file_name || defaults.degreeFileName);
     setFieldErrors({});
   }, []);
 
@@ -267,6 +329,7 @@ function PreboardingPortalContent() {
       setRuntimeEmployees(getAllRuntimeEmployees());
       setRuntimeSystemUsers(getSystemUsers());
       const found = activeToken ? getPreboardingByToken(activeToken) : null;
+      inviteRef.current = found;
       setInvite(found);
       if (found && !preserveInputs) {
         hydrateFormFromInvite(found);
@@ -296,7 +359,9 @@ function PreboardingPortalContent() {
           return;
         }
       }
-      reloadStore(true);
+      const hadInviteBeforeSync = Boolean(inviteRef.current);
+      const nextInvite = activeToken ? getPreboardingByToken(activeToken) : null;
+      reloadStore(hadInviteBeforeSync || !nextInvite);
     };
     window.addEventListener(HRM_RUNTIME_EVENT, onRuntimeChange);
     window.addEventListener('storage', onRuntimeChange);
@@ -313,6 +378,7 @@ function PreboardingPortalContent() {
     setActiveToken(trimmed);
     setManualTokenInput(trimmed);
     const found = getPreboardingByToken(trimmed);
+    inviteRef.current = found;
     setInvite(found);
     hydrateFormFromInvite(found);
     router.replace(`/preboarding?token=${encodeURIComponent(trimmed)}`);
@@ -379,28 +445,13 @@ function PreboardingPortalContent() {
   const effectiveManualUnlocked = isManualUnlocked && canManualUnlockVerified;
 
   const handleEnterEmployeeWorkspace = () => {
-    if (!invite || !linkedEmployee || !isEmployeeActivated || isEnteringWorkspace) return;
-    const normalizedSessionEmail = (currentUserEmail || '').trim().toLowerCase();
-    const ownerEmails = [
-      invite.personal_email,
-      invite.email,
-      linkedEmployee.email,
-      linkedEmployee.personal_email,
-    ]
-      .filter((val): val is string => Boolean(val && val.trim()))
-      .map((val) => val.trim().toLowerCase());
-    const isAdminSession = role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
     if (
-      normalizedSessionEmail &&
-      !isAdminSession &&
-      ownerEmails.length > 0 &&
-      !ownerEmails.includes(normalizedSessionEmail)
+      !invite ||
+      invite.status !== 'VERIFIED' ||
+      !linkedEmployee ||
+      !isEmployeeActivated ||
+      isEnteringWorkspace
     ) {
-      showToast(
-        'Tài khoản phiên hiện tại không khớp hồ sơ',
-        'Vui lòng đăng xuất tài khoản hiện tại trước khi mở không gian Nhân viên của hồ sơ này.',
-        'error'
-      );
       return;
     }
 
@@ -548,16 +599,6 @@ function PreboardingPortalContent() {
 
     const parsedDependents = Math.max(0, Math.min(10, Number.parseInt(dependentsCount, 10) || 0));
 
-    const confirmed = await confirmSwal({
-      title: 'Xác nhận nộp hồ sơ Pre-boarding',
-      html: `Hồ sơ của <strong>${escapeSwalHtml(invite.full_name)}</strong> (<span class="font-mono">${escapeSwalHtml(invite.employee_code)}</span>) sẽ được đồng bộ trực tiếp vào phân hệ Core HR &amp; Onboarding để chuẩn bị Hợp đồng thử việc và tài khoản SSO.<br/><br/>Cam kết các thông tin CCCD (<span class="font-mono">${escapeSwalHtml(nationalId.trim())}</span>), MST (<span class="font-mono">${escapeSwalHtml(taxCode.trim())}</span>) và Ngân hàng (<strong>${escapeSwalHtml(bankName)}</strong> · <span class="font-mono">${escapeSwalHtml(bankAccountNo.trim())}</span>) là chính xác?`,
-      confirmText: 'Xác nhận gửi hồ sơ',
-      cancelText: 'Kiểm tra lại',
-      variant: 'primary',
-    });
-
-    if (!confirmed) return;
-
     setIsSubmitting(true);
     try {
       const payload: PreboardingSubmissionData = {
@@ -581,21 +622,347 @@ function PreboardingPortalContent() {
         degree_file_name: degreeFileName.trim() || undefined,
       };
 
+      const isExpiredTimestamp = (expiresAt?: string): boolean => {
+        if (!expiresAt || typeof expiresAt !== 'string') return false;
+        const parsed = Date.parse(expiresAt);
+        return Number.isFinite(parsed) && parsed <= Date.now();
+      };
+      const LOCKED_EMPLOYMENT_STATUSES = new Set([
+        'OFFICIAL',
+        'ACTIVE',
+        'RESIGNED',
+        'TERMINATED',
+      ]);
+
+      if (isExpiredTimestamp(invite.expires_at)) {
+        const expiredMsg =
+          'Liên kết Pre-boarding đã hết hạn, không thể nộp hồ sơ.';
+        showToast('Không thể gửi hồ sơ', expiredMsg, 'error');
+        await alertSwal({
+          title: 'Không thể gửi hồ sơ',
+          text: expiredMsg,
+          icon: 'error',
+        });
+        return;
+      }
+
+      if (
+        linkedEmployee &&
+        LOCKED_EMPLOYMENT_STATUSES.has(
+          String(linkedEmployee.employment_status || '').trim().toUpperCase()
+        )
+      ) {
+        const lockedMsg =
+          'Nhân sự đã ký hợp đồng chính thức hoặc đã nghỉ việc, không thể chỉnh sửa hồ sơ Pre-boarding.';
+        showToast('Không thể gửi hồ sơ', lockedMsg, 'error');
+        await alertSwal({
+          title: 'Không thể gửi hồ sơ',
+          text: lockedMsg,
+          icon: 'error',
+        });
+        return;
+      }
+
+      if (typeof fetch === 'function') {
+        const ensureInviteSyncedOnServer = async (): Promise<{
+          blockedError?: string;
+        }> => {
+          const syncController =
+            typeof AbortController !== 'undefined' ? new AbortController() : null;
+          const syncTimeoutId =
+            syncController && typeof window !== 'undefined'
+              ? window.setTimeout(() => syncController.abort(), 3000)
+              : null;
+          try {
+            const syncRes = await fetch('/api/hrm/sync', {
+              cache: 'no-store',
+              signal: syncController?.signal,
+            });
+            if (!syncRes.ok) return {};
+            const syncData = (await syncRes.json()) as {
+              stores?: Record<string, unknown>;
+            };
+            const stores =
+              syncData?.stores && typeof syncData.stores === 'object'
+                ? syncData.stores
+                : {};
+
+            const readStoreArr = <T,>(key: string): T[] => {
+              const raw = stores[key];
+              return Array.isArray(raw) ? (raw as T[]) : [];
+            };
+
+            const serverInvitesV1 = readStoreArr<PreboardingInvite>(
+              'hrm_runtime_preboarding_v1'
+            );
+            const serverLifecycleInvites = readStoreArr<PreboardingInvite>(
+              'hrm_runtime_preboarding_invites'
+            );
+            const serverEmployeesV1 = readStoreArr<Employee>(
+              'hrm_runtime_employees_v1'
+            );
+            const serverLifecycleEmployees = readStoreArr<Employee>(
+              'hrm_runtime_employees'
+            );
+
+            const matchByToken = (item: PreboardingInvite) => {
+              const record = item as unknown as Record<string, unknown>;
+              return (
+                item.token === activeToken ||
+                record.preboarding_token === activeToken ||
+                item.id === activeToken
+              );
+            };
+
+            const srvV1Invite = serverInvitesV1.find(matchByToken);
+            const srvLifecycleInvite = serverLifecycleInvites.find(matchByToken);
+            const authoritativeInvite =
+              srvLifecycleInvite ?? srvV1Invite ?? invite;
+
+            if (
+              srvV1Invite?.status === 'EXPIRED' ||
+              srvLifecycleInvite?.status === 'EXPIRED' ||
+              isExpiredTimestamp(srvV1Invite?.expires_at) ||
+              isExpiredTimestamp(srvLifecycleInvite?.expires_at) ||
+              isExpiredTimestamp(authoritativeInvite.expires_at)
+            ) {
+              return {
+                blockedError:
+                  'Liên kết Pre-boarding đã hết hạn, không thể nộp hồ sơ.',
+              };
+            }
+
+            if (
+              (srvV1Invite?.status === 'VERIFIED' ||
+                srvLifecycleInvite?.status === 'VERIFIED') &&
+              !effectiveManualUnlocked
+            ) {
+              return {
+                blockedError:
+                  'Hồ sơ Pre-boarding đã được Phòng Nhân sự xác minh. Vui lòng mở khóa chỉnh sửa nếu cần cập nhật.',
+              };
+            }
+
+            const matchEmployee = (emp: Employee) =>
+              emp.preboarding_token === activeToken ||
+              (authoritativeInvite.employee_id &&
+                emp.id === authoritativeInvite.employee_id) ||
+              (authoritativeInvite.employee_code &&
+                emp.employee_code === authoritativeInvite.employee_code);
+
+            const srvEmpV1 = serverEmployeesV1.find(matchEmployee);
+            const srvLifecycleEmp = serverLifecycleEmployees.find(matchEmployee);
+            const authoritativeEmp =
+              srvLifecycleEmp ?? srvEmpV1 ?? linkedEmployee;
+
+            if (
+              authoritativeEmp &&
+              LOCKED_EMPLOYMENT_STATUSES.has(
+                String(authoritativeEmp.employment_status || '')
+                  .trim()
+                  .toUpperCase()
+              )
+            ) {
+              return {
+                blockedError:
+                  'Nhân sự đã ký hợp đồng chính thức hoặc đã nghỉ việc, không thể chỉnh sửa hồ sơ Pre-boarding.',
+              };
+            }
+
+            const upsertInviteInArray = (
+              existing: PreboardingInvite[],
+              item: PreboardingInvite
+            ): PreboardingInvite[] => {
+              const itemRecord = item as unknown as Record<string, unknown>;
+              const itemToken =
+                item.token ||
+                (typeof itemRecord.preboarding_token === 'string'
+                  ? itemRecord.preboarding_token
+                  : '');
+              const idx = existing.findIndex((entry) => {
+                const entryRecord = entry as unknown as Record<string, unknown>;
+                return (
+                  (Boolean(item.id) && entry.id === item.id) ||
+                  (Boolean(itemToken) &&
+                    (entry.token === itemToken ||
+                      entryRecord.preboarding_token === itemToken))
+                );
+              });
+              if (idx >= 0) {
+                return existing.map((entry, i) => (i === idx ? item : entry));
+              }
+              return [item, ...existing];
+            };
+
+            const upsertEmployeeInArray = (
+              existing: Employee[],
+              emp: Employee
+            ): Employee[] => {
+              const idx = existing.findIndex(
+                (entry) =>
+                  (Boolean(emp.id) && entry.id === emp.id) ||
+                  (Boolean(emp.employee_code) &&
+                    entry.employee_code === emp.employee_code) ||
+                  (Boolean(emp.preboarding_token) &&
+                    entry.preboarding_token === emp.preboarding_token)
+              );
+              if (idx >= 0) {
+                return existing.map((entry, i) => (i === idx ? emp : entry));
+              }
+              return [emp, ...existing];
+            };
+
+            const fullSyncPayload: Record<string, unknown> = {};
+            if (!srvV1Invite) {
+              fullSyncPayload['hrm_runtime_preboarding_v1'] =
+                upsertInviteInArray(serverInvitesV1, invite);
+            }
+            if (!srvLifecycleInvite) {
+              fullSyncPayload['hrm_runtime_preboarding_invites'] =
+                upsertInviteInArray(
+                  serverLifecycleInvites,
+                  authoritativeInvite
+                );
+            }
+            if (authoritativeEmp) {
+              if (!srvEmpV1) {
+                fullSyncPayload['hrm_runtime_employees_v1'] =
+                  upsertEmployeeInArray(serverEmployeesV1, authoritativeEmp);
+              }
+              if (!srvLifecycleEmp) {
+                fullSyncPayload['hrm_runtime_employees'] =
+                  upsertEmployeeInArray(
+                    serverLifecycleEmployees,
+                    authoritativeEmp
+                  );
+              }
+            }
+
+            if (Object.keys(fullSyncPayload).length > 0) {
+              await fetch('/api/hrm/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullSync: fullSyncPayload }),
+                signal: syncController?.signal,
+              });
+            }
+            return {};
+          } catch {
+            return {};
+          } finally {
+            if (syncTimeoutId !== null && typeof window !== 'undefined') {
+              window.clearTimeout(syncTimeoutId);
+            }
+          }
+        };
+
+        const syncCheck = await ensureInviteSyncedOnServer();
+        if (syncCheck.blockedError) {
+          showToast('Không thể gửi hồ sơ', syncCheck.blockedError, 'error');
+          await alertSwal({
+            title: 'Không thể gửi hồ sơ',
+            text: syncCheck.blockedError,
+            icon: 'error',
+          });
+          return;
+        }
+
+        const controller =
+          typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId =
+          controller && typeof window !== 'undefined'
+            ? window.setTimeout(() => controller.abort(), 5000)
+            : null;
+        try {
+          const res = await fetch('/api/hrm/lifecycle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'submit_preboarding_info',
+              token: activeToken,
+              full_name: invite.full_name,
+              id_card_no: payload.national_id,
+              bhxh_no: payload.social_insurance_no ?? '',
+              tax_code: payload.tax_code,
+              bank_name: payload.bank_name,
+              bank_account_no: payload.bank_account_no,
+              emergency_contact_name: payload.emergency_contact_name,
+              emergency_contact_phone: payload.emergency_contact_phone,
+              emergency_contact_relation: payload.emergency_contact_relation ?? '',
+              submission: payload,
+            }),
+            signal: controller?.signal,
+          });
+
+          let resBody: {
+            success?: boolean;
+            error?: string;
+            message?: string;
+          } | null = null;
+          try {
+            resBody = (await res.json()) as {
+              success?: boolean;
+              error?: string;
+              message?: string;
+            };
+          } catch {
+            resBody = null;
+          }
+
+          if (!res.ok || resBody?.success === false) {
+            const fallbackByStatus =
+              res.status === 403
+                ? 'Bạn không có quyền gửi hoặc hồ sơ đã bị khóa chỉnh sửa.'
+                : res.status === 410
+                  ? 'Liên kết Pre-boarding đã hết hạn, không thể nộp hồ sơ.'
+                  : res.status === 422
+                    ? 'Thông tin khai báo Pre-boarding chưa hợp lệ theo quy định.'
+                    : res.status === 429
+                      ? 'Bạn gửi yêu cầu quá nhanh, vui lòng thử lại sau ít phút.'
+                      : 'Không thể đồng bộ hồ sơ Pre-boarding lên máy chủ.';
+            const serverError =
+              resBody?.error || resBody?.message || fallbackByStatus;
+            showToast('Không thể gửi hồ sơ', serverError, 'error');
+            await alertSwal({
+              title: 'Không thể gửi hồ sơ',
+              text: serverError,
+              icon: 'error',
+            });
+            return;
+          }
+        } finally {
+          if (timeoutId !== null && typeof window !== 'undefined') {
+            window.clearTimeout(timeoutId);
+          }
+        }
+      }
+
       const { invite: updatedInvite } = submitPreboardingInfo(activeToken, payload);
+      inviteRef.current = updatedInvite;
       setIsManualUnlocked(false);
       setInvite(updatedInvite);
       setRuntimeEmployees(getAllRuntimeEmployees());
 
-      if (typeof fetch === 'function') {
-        fetch('/api/hrm/lifecycle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'submit_preboarding_info',
-            token: activeToken,
-            submission: payload,
-          }),
-        }).catch(() => {});
+      const resolvedPersonalEmail = (
+        updatedInvite.personal_email ||
+        payload.personal_email ||
+        ''
+      )
+        .trim()
+        .toLowerCase();
+      if (
+        typeof window !== 'undefined' &&
+        !currentUserEmail &&
+        resolvedPersonalEmail
+      ) {
+        try {
+          window.localStorage.setItem(
+            'lacviet_applied_candidate_email',
+            resolvedPersonalEmail
+          );
+        } catch {
+          // Ignore storage quota errors
+        }
       }
 
       showToast(
@@ -604,19 +971,15 @@ function PreboardingPortalContent() {
         'success'
       );
 
-      const submittedTimeStr = new Date().toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      await alertSwal({
-        title: 'Hoàn tất khai báo Pre-boarding',
-        html: `Cảm ơn <strong>${escapeSwalHtml(updatedInvite.full_name)}</strong>! Hồ sơ nhận việc mã <span class="font-mono">${escapeSwalHtml(updatedInvite.employee_code)}</span> đã được ghi nhận lúc <span class="font-mono">${escapeSwalHtml(submittedTimeStr)}</span>.<br/><br/>Bộ phận CNTT &amp; Nhân sự đang chuẩn bị thẻ nhân viên, thiết bị và Hợp đồng thử việc cho ngày nhận việc <span class="font-mono">${escapeSwalHtml(formatDateVN(updatedInvite.expected_start_date))}</span>.`,
-        confirmText: 'Hoàn tất',
-        icon: 'success',
-      });
+      router.push('/candidate');
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : 'Không thể lưu thông tin Pre-boarding.';
+        err instanceof Error && err.name === 'AbortError'
+          ? 'Kết nối máy chủ quá thời gian chờ. Vui lòng thử lại.'
+          : err instanceof Error
+            ? err.message
+            : 'Không thể lưu thông tin Pre-boarding.';
+      showToast('Không thể gửi hồ sơ', msg, 'error');
       await alertSwal({
         title: 'Không thể gửi hồ sơ',
         text: msg,

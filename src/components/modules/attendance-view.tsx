@@ -5,6 +5,7 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowUpRight,
+  Building2,
   CalendarCheck,
   CheckCircle2,
   Clock,
@@ -13,8 +14,6 @@ import {
   Fingerprint,
   Laptop,
   Lock,
-  LogIn,
-  LogOut,
   Pencil,
   RefreshCw,
   Search,
@@ -66,7 +65,6 @@ import { fetchAttendanceMock } from '@/lib/mock-fetcher';
 import {
   HRM_RUNTIME_EVENT,
   STORAGE_MONTHLY_ATTENDANCE_KEY,
-  checkInOutToday,
   evaluateDailyPunch,
   getAllRuntimeEmployees,
   getBiometricCredentials,
@@ -75,6 +73,7 @@ import {
   getTodayDateVN,
   getWifiAttendancePolicy,
   importDailyAttendances,
+  isAttendanceNightLockWindow,
   recomputeMonthlyAttendance,
 } from '@/lib/runtime-store';
 import { alertSwal, choiceSwal, confirmSwal } from '@/lib/swal';
@@ -147,7 +146,7 @@ const DAILY_STATUS_CONFIG: Record<
   LATE: { label: 'Đi muộn', variant: 'warning' },
   HALF_DAY: { label: 'Nửa ngày (0.5)', variant: 'info' },
   WORKING: { label: 'Đang trong ca · Chờ Check-out', variant: 'teal' },
-  MISSING_PUNCH: { label: 'Quên chấm công', variant: 'error' },
+  MISSING_PUNCH: { label: 'Quên chấm công (Tự ngắt ca 22:00)', variant: 'error' },
   PAID_LEAVE: { label: 'Nghỉ phép năm', variant: 'teal' },
   UNPAID_LEAVE: { label: 'Nghỉ không lương', variant: 'muted' },
   SICK_LEAVE: { label: 'Nghỉ ốm / BHXH', variant: 'info' },
@@ -187,10 +186,13 @@ function formatCurrentHHmmss(date: Date): string {
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
+      hourCycle: 'h23',
       timeZone: 'Asia/Ho_Chi_Minh',
-    }).format(date);
+    })
+      .format(date)
+      .replace(/^24:/, '00:');
   } catch {
-    const h = String(date.getHours()).padStart(2, '0');
+    const h = String(date.getHours() % 24).padStart(2, '0');
     const m = String(date.getMinutes()).padStart(2, '0');
     const s = String(date.getSeconds()).padStart(2, '0');
     return `${h}:${m}:${s}`;
@@ -205,25 +207,31 @@ function resolveLoggedInEmployee(
 ): Employee | null {
   if (employees.length === 0) return null;
 
-  if (profile?.employee_code) {
+  const explicitCode = profile?.employee_code?.trim();
+  const hasExplicitNonCandidateCode = Boolean(
+    explicitCode && !explicitCode.toUpperCase().startsWith('UV-')
+  );
+  if (explicitCode) {
     const byCode = employees.find(
-      (e) => e.employee_code.toLowerCase() === profile.employee_code!.trim().toLowerCase()
+      (e) => e.employee_code.trim().toLowerCase() === explicitCode.toLowerCase()
     );
     if (byCode) return byCode;
+    if (hasExplicitNonCandidateCode) return null;
   }
 
   const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
   if (candidateEmail) {
-    const exactEmail = employees.find((e) => e.email.toLowerCase() === candidateEmail);
+    const exactEmail = employees.find(
+      (e) =>
+        e.email.trim().toLowerCase() === candidateEmail ||
+        e.personal_email?.trim().toLowerCase() === candidateEmail
+    );
     if (exactEmail) return exactEmail;
+    return null;
+  }
 
-    const localPart = candidateEmail.split('@')[0];
-    if (localPart) {
-      const byLocal = employees.find(
-        (e) => e.email.split('@')[0].toLowerCase() === localPart
-      );
-      if (byLocal) return byLocal;
-    }
+  if (hasExplicitNonCandidateCode || profile?.fullName?.trim()) {
+    return null;
   }
 
   const fallbackCode = ROLE_FALLBACK_CODE[role];
@@ -431,9 +439,17 @@ export function AttendanceView() {
   }, [currentUserEmail, currentUserProfile?.employee_code, role, syncFromRuntime]);
 
   useEffect(() => {
+    let lastKnownToday = getTodayDateVN();
     setClockText(formatCurrentHHmmss(new Date()));
+    setPunchDate(lastKnownToday);
     const timer = window.setInterval(() => {
-      setClockText(formatCurrentHHmmss(new Date()));
+      const now = new Date();
+      setClockText(formatCurrentHHmmss(now));
+      const todayVN = getTodayDateVN();
+      if (todayVN !== lastKnownToday) {
+        lastKnownToday = todayVN;
+        setPunchDate(todayVN);
+      }
     }, 1000);
     return () => {
       window.clearInterval(timer);
@@ -451,12 +467,20 @@ export function AttendanceView() {
     [employees, role, currentUserProfile, currentUserEmail]
   );
 
+  const hasExplicitCustomIdentity = Boolean(
+    currentUserProfile?.employee_code?.trim() ||
+      (currentUserEmail || currentUserProfile?.email || '').trim() ||
+      currentUserProfile?.fullName?.trim()
+  );
+
   const currentEmployeeCode =
-    currentEmp?.employee_code ??
-    currentUserProfile?.employee_code ??
-    ROLE_FALLBACK_CODE[role];
+    currentUserProfile?.employee_code?.trim() ||
+    currentEmp?.employee_code ||
+    (hasExplicitCustomIdentity ? 'NV-CUSTOM-SELF' : ROLE_FALLBACK_CODE[role]);
   const currentEmployeeName =
-    currentEmp?.full_name ?? currentUserProfile?.fullName ?? 'Phạm Minh Tuấn';
+    currentUserProfile?.fullName?.trim() ||
+    currentEmp?.full_name ||
+    'Phạm Minh Tuấn';
 
   const canSelectActingEmployee =
     role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
@@ -625,8 +649,18 @@ export function AttendanceView() {
   );
 
   const scopedDailyRecords = useMemo(() => {
-    return dailyRecords.filter((rec) =>
-      isEmployeeInScope(rec.employee_code, rec.department_name, rec.employee_id)
+    const map = new Map<string, DailyAttendanceRecord>();
+    for (const rec of dailyRecords) {
+      if (!isEmployeeInScope(rec.employee_code, rec.department_name, rec.employee_id)) {
+        continue;
+      }
+      const key = `${rec.employee_code.trim().toUpperCase()}::${rec.date.trim()}`;
+      map.set(key, rec);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      b.date === a.date
+        ? a.employee_code.localeCompare(b.employee_code)
+        : b.date.localeCompare(a.date)
     );
   }, [dailyRecords, isEmployeeInScope]);
 
@@ -862,35 +896,15 @@ export function AttendanceView() {
         });
         return null;
       }
-
-      if (!hasCustomTime) {
-        let dur = outMin - inMin;
-        if (inMin <= 720 && outMin >= 780) {
-          dur = Math.max(0, dur - currentEmpShift.break_minutes);
-        }
-        if (dur < 210) {
-          const choice = await choiceSwal({
-            title: 'Chưa đủ thời lượng ca làm việc',
-            html: `Giờ vào hiện tại là <b>${myTodayRecord.check_in}</b>, giờ thực tế hiện tại là <b>${rawEffectiveTime}</b> (mới làm <b>${Math.max(0, dur)} phút</b> &lt; 3.5 giờ nên nếu chốt giờ thực sẽ tính <b>0.0 công</b>).<br/><br/>Bạn muốn chốt theo <b>Đủ ca chuẩn (${currentEmpShift.start_time} → ${currentEmpShift.end_time} · 1.0 công)</b> để kiểm thử nghiệp vụ hay giữ nguyên giờ thực?`,
-            confirmText: 'Chốt đủ ca chuẩn (1.0 công)',
-            denyText: `Giữ giờ thực (${rawEffectiveTime})`,
-            cancelText: 'Hủy',
-            variant: 'primary',
-          });
-          if (choice === 'cancel') return null;
-          if (choice === 'confirm') {
-            return {
-              effectiveAction: 'CHECK_OUT',
-              effectiveTime: currentEmpShift.end_time,
-              checkInTimeOverride: currentEmpShift.start_time,
-            };
-          }
-        }
-      }
     }
 
     return { effectiveAction: 'CHECK_OUT', effectiveTime: rawEffectiveTime };
   };
+
+  const isBiometricBusy = isPunchingBiometric || isEnrollingDevice;
+  const isNightAttendanceLocked = isAttendanceNightLockWindow(
+    clockText.slice(0, 5)
+  );
 
   const handleBiometricPunch = async (
     action: 'CHECK_IN' | 'CHECK_OUT',
@@ -900,6 +914,26 @@ export function AttendanceView() {
       checkInTimeOverride?: string;
     }
   ) => {
+    if (isBiometricBusy && !resolvedOverride) return;
+
+    if (isNightAttendanceLocked) {
+      await alertSwal({
+        title: 'Khung giờ khóa chấm công (22:00 – 06:00)',
+        text: 'Hệ thống tạm khóa chấm công từ 22:00 đến 06:00 sáng hôm sau. Vui lòng thực hiện lại sau 06:00 hoặc gửi giải trình công nếu cần.',
+        icon: 'warning',
+      });
+      return;
+    }
+
+    const todayVN = getTodayDateVN();
+    const effectivePunchDate =
+      punchDate && punchDate !== getDefaultPunchDate() && customPunchTime.trim()
+        ? punchDate
+        : todayVN;
+    if (effectivePunchDate !== punchDate) {
+      setPunchDate(effectivePunchDate);
+    }
+
     if (!activeEmployee) {
       await alertSwal({
         title: 'Không tìm thấy hồ sơ chấm công',
@@ -919,7 +953,7 @@ export function AttendanceView() {
     }
 
     const rawEffectiveTime =
-      customPunchTime.trim() || clockText.slice(0, 5) || '08:30';
+      customPunchTime.trim() || formatCurrentHHmmss(new Date()).slice(0, 5) || '08:30';
     const timing =
       resolvedOverride ?? (await resolveCheckoutTiming(action, rawEffectiveTime));
     if (!timing) return;
@@ -929,8 +963,11 @@ export function AttendanceView() {
       const res = await punchWithBiometricWifi({
         employee: activeEmployee,
         action: timing.effectiveAction,
-        date: punchDate,
-        timeHHmm: timing.effectiveTime,
+        date: effectivePunchDate,
+        timeHHmm:
+          !canSelectActingEmployee || !customPunchTime.trim()
+            ? undefined
+            : timing.effectiveTime,
         checkInTimeOverride: timing.checkInTimeOverride,
         note: punchNote.trim() || undefined,
       });
@@ -940,20 +977,22 @@ export function AttendanceView() {
 
       showToast(
         timing.effectiveAction === 'CHECK_IN'
-          ? `Vân tay Check-in ca ${res.record.shift_code} lúc ${res.record.check_in}`
-          : `Vân tay Check-out ca ${res.record.shift_code} lúc ${res.record.check_out}`,
+          ? `Đã chấm công vào lúc ${res.record.check_in} · Ca ${res.record.shift_code}`
+          : `Đã chấm công ra lúc ${res.record.check_out} · Ca ${res.record.shift_code}`,
         `${res.credential.device_label} · WiFi ${res.wifi.verifiedIp} · ${
           res.record.status === 'WORKING'
-            ? 'Đã ghi nhận vào ca · Chờ Check-out cuối ngày.'
+            ? `Giờ vào: ${res.record.check_in} · Đang trong ca (Tự động ngắt ca sau 22:00 nếu chưa chấm ra).`
             : res.record.status === 'MISSING_PUNCH'
-              ? 'Tạm ghi nhận 0.0 công (chờ đủ Check-out).'
-              : `${res.record.workday_value.toFixed(1)} công${
-                  res.record.late_minutes > 0 ? ` · Muộn ${res.record.late_minutes}p` : ''
+              ? 'Quên chấm công ra (Đã tự động ngắt ca lúc 22:00 · Tạm tính 0.0 công).'
+              : `Vào ${res.record.check_in} — Ra ${res.record.check_out} · ${res.record.workday_value.toFixed(1)} công${
+                  res.record.late_minutes > 0 ? ` · Đi muộn ${res.record.late_minutes}p` : ' · Đúng giờ'
                 }`
         }`,
-        res.record.status === 'WORKING' || res.record.status === 'MISSING_PUNCH'
+        res.record.status === 'WORKING'
           ? 'info'
-          : 'success'
+          : res.record.status === 'MISSING_PUNCH'
+            ? 'error'
+            : 'success'
       );
     } catch (err) {
       if (err instanceof BiometricFlowError) {
@@ -995,66 +1034,6 @@ export function AttendanceView() {
       }
     } finally {
       setIsPunchingBiometric(false);
-    }
-  };
-
-  const handleDirectPunch = async (action: 'CHECK_IN' | 'CHECK_OUT') => {
-    if (!activeEmployee) {
-      await alertSwal({
-        title: 'Không tìm thấy hồ sơ chấm công',
-        text: 'Không xác định được mã nhân viên hiện tại trong danh sách nhân sự.',
-        icon: 'error',
-      });
-      return;
-    }
-
-    if (isPunchDateLocked) {
-      await alertSwal({
-        title: 'Kỳ công đã khóa sổ',
-        text: 'Bảng công tháng 11/2026 đã được chốt khóa, không thể ghi nhận thêm chấm công mới.',
-        icon: 'warning',
-      });
-      return;
-    }
-
-    const rawEffectiveTime =
-      customPunchTime.trim() || clockText.slice(0, 5) || '08:30';
-    const timing = await resolveCheckoutTiming(action, rawEffectiveTime);
-    if (!timing) return;
-
-    try {
-      const saved = checkInOutToday({
-        employeeId: activeEmployee.id,
-        date: punchDate,
-        action: timing.effectiveAction,
-        timeHHmm: timing.effectiveTime,
-        checkInTimeOverride: timing.checkInTimeOverride,
-        note: punchNote.trim() || undefined,
-      });
-      syncFromRuntime();
-      setPunchNote('');
-
-      showToast(
-        timing.effectiveAction === 'CHECK_IN'
-          ? `Đã Check-in ca ${saved.shift_code} lúc ${saved.check_in}`
-          : `Đã Check-out ca ${saved.shift_code} lúc ${saved.check_out}`,
-        saved.status === 'WORKING'
-          ? 'Đã ghi nhận vào ca · Chờ Check-out cuối ngày.'
-          : saved.status === 'MISSING_PUNCH'
-            ? `Tạm ghi nhận 0.0 công (chờ đủ Check-in & Check-out để tính công).`
-            : `Công ngày ${formatDateVN(saved.date)}: ${saved.workday_value.toFixed(1)} công${
-                saved.late_minutes > 0 ? ` · Đi muộn ${saved.late_minutes} phút` : ''
-              }`,
-        saved.status === 'WORKING' || saved.status === 'MISSING_PUNCH'
-          ? 'info'
-          : 'success'
-      );
-    } catch (err) {
-      await alertSwal({
-        title: 'Lỗi ghi nhận chấm công',
-        text: err instanceof Error ? err.message : 'Vui lòng thử lại.',
-        icon: 'error',
-      });
     }
   };
 
@@ -1114,7 +1093,7 @@ export function AttendanceView() {
     showToast(
       `Đã import ${result.importedCount} bản ghi chấm công`,
       result.missingPunchCount > 0
-        ? `Phát hiện ${result.missingPunchCount} ca quên chấm công (MISSING_PUNCH · 0.0 công) cần giải trình.`
+        ? `Phát hiện ${result.missingPunchCount} ca Quên chấm công (0.0 công) cần giải trình.`
         : 'Toàn bộ ca chấm công đã được quy đổi công và đồng bộ bảng tháng.',
       result.missingPunchCount > 0 ? 'warning' : 'success'
     );
@@ -1123,7 +1102,7 @@ export function AttendanceView() {
       title: 'Đồng bộ dữ liệu chấm công hoàn tất',
       html: `Đã nạp thành công <b>${result.importedCount}</b> dòng nhật ký chấm công và tính lại bảng tổng hợp tháng.<br/>${
         result.missingPunchCount > 0
-          ? `<span style="color:#B91C1C">Phát hiện <b>${result.missingPunchCount}</b> ca thiếu giờ vào/ra (<b>MISSING_PUNCH</b>) tạm tính <b>0.0 công</b> — nhân sự có thể gửi đơn Giải trình chấm công ngay trên dòng cảnh báo.</span>`
+          ? `<span style="color:#B91C1C">Phát hiện <b>${result.missingPunchCount}</b> ca thiếu giờ vào/ra (<b>Quên chấm công</b>) tạm tính <b>0.0 công</b> — nhân sự có thể gửi đơn Giải trình chấm công ngay trên dòng cảnh báo.</span>`
           : 'Không phát sinh ca thiếu đầu chấm công.'
       }`,
       icon: result.missingPunchCount > 0 ? 'warning' : 'success',
@@ -1149,7 +1128,7 @@ export function AttendanceView() {
       title: 'Xác nhận chốt bảng công tháng 11/2026?',
       html: `Sau khi chốt sổ, toàn bộ <b>${monthlyRecords.length}</b> bản ghi công tháng 11/2026 sẽ chuyển sang trạng thái <b>LOCKED</b> để phục vụ tính lương C&amp;B.${
         needsReviewRows > 0 || missingPunchCount > 0
-          ? `<br/><br/><span style="color:#B45309">Lưu ý: Hiện còn <b>${missingPunchCount}</b> ca quên chấm công (MISSING_PUNCH) và <b>${needsReviewRows}</b> nhân sự trạng thái Cần rà soát.</span>`
+          ? `<br/><br/><span style="color:#B45309">Lưu ý: Hiện còn <b>${missingPunchCount}</b> ca Quên chấm công và <b>${needsReviewRows}</b> nhân sự trạng thái Cần rà soát.</span>`
           : ''
       }`,
       confirmText: 'Chốt bảng công tháng',
@@ -1297,7 +1276,7 @@ export function AttendanceView() {
             Chấm công &amp; Quản lý Ca làm việc
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            Check-in/Check-out trực tuyến, đồng bộ máy vân tay, phát hiện quên chấm công (MISSING_PUNCH) và chốt công tháng 11/2026.
+            Check-in/Check-out trực tuyến, đồng bộ máy vân tay, phát hiện Quên chấm công và chốt công tháng 11/2026.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1335,320 +1314,203 @@ export function AttendanceView() {
       </div>
 
       {/* Live Check-in / Check-out Widget */}
-      <Card className="overflow-hidden rounded-[12px] border border-[#C6D9D3] border-l-4 border-l-[#0F766E] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800 dark:border-l-teal-400 dark:bg-[#121214]">
-        <CardContent className="p-5">
-          {canSelectActingEmployee && (
-            <div className="mb-4 flex flex-col gap-2 rounded-lg border border-[#C6D9D3]/80 bg-[#F2F7F5]/75 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-900/60">
-              <label
-                htmlFor="att-acting-emp-select"
-                className="flex items-center gap-1.5 text-xs font-medium text-[#415A54] dark:text-zinc-300"
+      <div className="space-y-4">
+        {/* Hero Check-in Card */}
+        <Card className="relative overflow-hidden rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800 dark:bg-[#121214] dark:shadow-none">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-24 h-56 bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.12),transparent_68%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(16,185,129,0.16),transparent_68%)]"
+          />
+          <CardContent className="relative p-5 sm:p-6">
+            {canSelectActingEmployee && (
+              <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[#C6D9D3]/80 bg-[#F2F7F5]/75 p-3 lg:flex-row lg:items-end lg:justify-between dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="flex-1 space-y-1">
+                  <label
+                    htmlFor="att-acting-emp-select"
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                  >
+                    <Users className="h-3.5 w-3.5 shrink-0 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
+                    <span>Chấm công &amp; Vân tay cho nhân sự</span>
+                  </label>
+                  <div className="w-full lg:max-w-sm">
+                    <Select
+                      id="att-acting-emp-select"
+                      aria-label="Chọn nhân sự chấm công"
+                      value={activeEmployee?.id ?? ''}
+                      onValueChange={(val) => setActingEmployeeId(val)}
+                      className="h-9 text-xs"
+                      options={activeEligibleEmployees.map((emp) => ({
+                        value: emp.id,
+                        label: `${emp.employee_code} · ${emp.full_name} (${emp.department_name})`,
+                      }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:flex lg:items-end">
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="punch-date-input"
+                      className="block text-[11px] font-medium text-[#415A54] dark:text-zinc-400"
+                    >
+                      Ngày chấm công
+                    </label>
+                    <Input
+                      id="punch-date-input"
+                      type="date"
+                      value={punchDate}
+                      onChange={(e) => setPunchDate(e.target.value)}
+                      className="h-9 w-full font-mono text-xs tabular-nums sm:w-36"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="punch-time-input"
+                      className="block text-[11px] font-medium text-[#415A54] dark:text-zinc-400"
+                    >
+                      Giờ ghi nhận (trống = giờ thực)
+                    </label>
+                    <Input
+                      id="punch-time-input"
+                      type="time"
+                      value={customPunchTime}
+                      onChange={(e) => setCustomPunchTime(e.target.value)}
+                      className="h-9 w-full font-mono text-xs tabular-nums sm:w-36"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col items-center text-center">
+              {/* Live Digital Clock */}
+              <div
+                aria-live="off"
+                className="font-mono text-4xl font-bold tabular-nums tracking-wider text-ink sm:text-5xl"
               >
-                <Users className="h-3.5 w-3.5 shrink-0 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                <span>Chấm công &amp; Vân tay cho nhân sự:</span>
-              </label>
-              <div className="w-full sm:w-80">
-                <Select
-                  id="att-acting-emp-select"
-                  aria-label="Chọn nhân sự chấm công"
-                  value={activeEmployee?.id ?? ''}
-                  onValueChange={(val) => setActingEmployeeId(val)}
-                  className="h-8 text-xs"
-                  options={activeEligibleEmployees.map((emp) => ({
-                    value: emp.id,
-                    label: `${emp.employee_code} · ${emp.full_name} (${emp.department_name})`,
-                  }))}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            {/* Left: Employee & Shift Info + Live Clock */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="teal" className="font-mono tabular-nums">
-                  {activeEmployeeCode}
-                </Badge>
-                <span className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                  {activeEmployeeName}
-                </span>
-                <span className="text-xs text-[#415A54] dark:text-zinc-400">
-                  · {activeEmployee?.department_name ?? 'Khối Công nghệ'}
-                </span>
-                <Badge variant="outline" className="font-mono tabular-nums">
-                  {currentEmpShift.shift_code} ({currentEmpShift.start_time} -{' '}
-                  {currentEmpShift.end_time} · Ân hạn{' '}
-                  {currentEmpShift.late_grace_minutes}p)
-                </Badge>
+                {clockText}
               </div>
 
-              <div className="flex flex-wrap items-baseline gap-3">
-                <span className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-[#0F766E] dark:text-teal-400">
-                  {clockText}
-                </span>
-                <span className="text-xs text-[#5C7871] dark:text-zinc-400">
-                  Chấm công Vân tay Laptop / Điện thoại chung WiFi · Tự động quy đổi{' '}
-                  <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-200">
-                    1.0 / 0.5 / 0.0
-                  </span>{' '}
-                  công
-                </span>
-              </div>
+              {/* Vietnamese Weekday & Date */}
+              <p className="mt-1.5 text-sm font-medium text-ink-secondary">
+                {(() => {
+                  const parsed = new Date(`${punchDate}T12:00:00+07:00`);
+                  if (Number.isNaN(parsed.getTime())) return formatDateVN(punchDate);
+                  const weekdays = [
+                    'Chủ Nhật',
+                    'Thứ Hai',
+                    'Thứ Ba',
+                    'Thứ Tư',
+                    'Thứ Năm',
+                    'Thứ Sáu',
+                    'Thứ Bảy',
+                  ];
+                  const day = parsed.getDate();
+                  const month = parsed.getMonth() + 1;
+                  const year = parsed.getFullYear();
+                  return `${weekdays[parsed.getDay()]}, ${day} Tháng ${month} ${year}`;
+                })()}
+              </p>
 
-              {/* Live WiFi & Biometric Status Strip */}
-              <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              {/* Compact WiFi & Device Connection Status Pill */}
+              <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
                 {wifiStatus ? (
                   <Badge
                     variant={wifiStatus.allowed ? 'success' : 'error'}
-                    className="gap-1.5"
+                    className="gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
                   >
                     {wifiStatus.allowed ? (
-                      <Wifi className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <Wifi className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
                     ) : (
-                      <WifiOff className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <WifiOff className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
                     )}
-                    <span>
+                    <span className="truncate max-w-[260px] sm:max-w-none">
                       {wifiStatus.allowed
-                        ? `Chung WiFi (${hostWifiDetails?.ssid || wifiPolicy.wifi_ssid_label})${hostWifiDetails?.signalPercent != null ? ` · Sóng ${hostWifiDetails.signalPercent}%` : ''} · ${wifiStatus.verifiedIp}`
-                        : `Khác WiFi / Đã khóa chấm công (${wifiStatus.verifiedIp})`}
+                        ? `Chung WiFi · ${hostWifiDetails?.ssid || wifiPolicy.wifi_ssid_label}`
+                        : `Khác WiFi · Đã khóa chấm công (${wifiStatus.verifiedIp})`}
                     </span>
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="gap-1.5">
-                    <Wifi className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    <span>Đang kiểm tra mạng WiFi...</span>
+                  <Badge variant="outline" className="gap-1.5 rounded-full px-3 py-1 text-xs">
+                    <Wifi className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                    <span>Đang kiểm tra kết nối WiFi...</span>
                   </Badge>
                 )}
-
-                <Badge
-                  variant={myCurrentDeviceCreds.length > 0 ? 'teal' : 'warning'}
-                  className="gap-1.5"
-                >
-                  <Fingerprint className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  <span>
-                    {myCurrentDeviceCreds.length > 0
-                      ? `Đã liên kết ${myCurrentDeviceCreds[0].device_label} (${myRegisteredCreds.length} máy)`
-                      : 'Chưa đăng ký vân tay máy này'}
-                  </span>
-                </Badge>
 
                 <button
                   type="button"
                   disabled={isCheckingWifi}
                   onClick={() => void refreshWifiAndBiometric(true)}
-                  className="inline-flex items-center gap-1 rounded-md border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 text-[11px] font-medium text-[#415A54] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  aria-label="Kiểm tra lại kết nối WiFi"
+                  title="Kiểm tra lại kết nối WiFi"
+                  className="inline-flex h-7 items-center gap-1 rounded-full border border-[#C6D9D3] bg-[#FCFEFD] px-2.5 text-[11px] font-medium text-[#415A54] transition-colors hover:bg-[#E8F3EF] disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   <RefreshCw
                     className={`h-3 w-3 ${isCheckingWifi ? 'animate-spin' : ''}`}
-                    strokeWidth={1.5}
+                    strokeWidth={1.75}
                   />
-                  Kiểm tra WiFi
+                  <span>Làm mới</span>
                 </button>
+              </div>
 
+              {/* Optional Security / WiFi / Night Lock Warnings */}
+              {(biometricSupport?.insecureWarning ||
+                (wifiStatus && !wifiStatus.allowed) ||
+                isNightAttendanceLocked) && (
+                <div className="mt-3 w-full max-w-xl space-y-2 text-left">
+                  {biometricSupport?.insecureWarning && (
+                    <div className="rounded-xl border border-amber-500/35 bg-amber-50/70 px-3.5 py-2 text-xs text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+                      {biometricSupport.insecureWarning}
+                    </div>
+                  )}
+                  {wifiStatus && !wifiStatus.allowed && (
+                    <div className="rounded-xl border border-rose-500/35 bg-rose-50/70 px-3.5 py-2 text-xs text-rose-900 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
+                      {wifiStatus.reason}
+                    </div>
+                  )}
+                  {isNightAttendanceLocked && (
+                    <div className="rounded-xl border border-amber-500/35 bg-amber-50/70 px-3.5 py-2 text-xs text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+                      Hệ thống khóa chấm công trong khung giờ đêm (22:00 – 06:00 sáng hôm sau).
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Primary Biometric Punch Action */}
+              <div className="mt-5 flex w-full flex-col items-center justify-center gap-2.5 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => setIsBiometricModalOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-md border border-[#0F766E]/35 bg-[#E8F3EF] px-2 py-0.5 text-[11px] font-medium text-[#0B4F4A] transition-colors hover:bg-[#CBE8E2] dark:border-teal-500/35 dark:bg-teal-950/50 dark:text-teal-300 dark:hover:bg-teal-900/60"
-                >
-                  <ShieldCheck className="h-3 w-3" strokeWidth={1.5} />
-                  Thiết bị vân tay ({myRegisteredCreds.length})
-                </button>
-              </div>
-
-              {biometricSupport?.insecureWarning && (
-                <div className="rounded-lg border border-amber-500/35 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
-                  {biometricSupport.insecureWarning}
-                </div>
-              )}
-
-              {wifiStatus && !wifiStatus.allowed && (
-                <div className="rounded-lg border border-rose-500/35 bg-rose-50/70 px-3 py-2 text-xs text-rose-900 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
-                  {wifiStatus.reason}
-                </div>
-              )}
-
-              {/* Recorded Metrics for Selected Date */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 pt-1 text-xs">
-                <span className="text-[#415A54] dark:text-zinc-400">
-                  Giờ vào:{' '}
-                  <strong className="font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
-                    {myTodayRecord?.check_in ?? '--:--'}
-                  </strong>
-                </span>
-                <span className="text-[#415A54] dark:text-zinc-400">
-                  Giờ ra:{' '}
-                  <strong className="font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
-                    {myTodayRecord?.check_out ?? '--:--'}
-                  </strong>
-                </span>
-                <span className="text-[#415A54] dark:text-zinc-400">
-                  Đi muộn / Về sớm:{' '}
-                  <strong
-                    className={`font-mono tabular-nums ${
-                      (myTodayRecord?.late_minutes ?? 0) > 0 ||
-                      (myTodayRecord?.early_leave_minutes ?? 0) > 0
-                        ? 'text-amber-700 dark:text-amber-400'
-                        : 'text-[#11221E] dark:text-zinc-100'
-                    }`}
-                  >
-                    {myTodayRecord?.late_minutes ?? 0}p /{' '}
-                    {myTodayRecord?.early_leave_minutes ?? 0}p
-                  </strong>
-                </span>
-                <span className="text-[#415A54] dark:text-zinc-400">
-                  Công ghi nhận:{' '}
-                  <strong className="font-mono tabular-nums text-[#0F766E] dark:text-teal-400">
-                    {myTodayRecord
-                      ? `${myTodayRecord.workday_value.toFixed(1)} công`
-                      : 'Chưa chấm'}
-                  </strong>
-                </span>
-                {myTodayRecord && (
-                  <Badge variant={DAILY_STATUS_CONFIG[myTodayRecord.status].variant}>
-                    {DAILY_STATUS_CONFIG[myTodayRecord.status].label}
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Controls & Check-in / Check-out Buttons */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-              <div className="space-y-1">
-                <label
-                  htmlFor="punch-date-input"
-                  className="block text-[11px] font-medium text-[#415A54] dark:text-zinc-400"
-                >
-                  Ngày chấm công
-                </label>
-                <Input
-                  id="punch-date-input"
-                  type="date"
-                  value={punchDate}
-                  onChange={(e) => setPunchDate(e.target.value)}
-                  className="h-9 w-full font-mono text-xs tabular-nums sm:w-36"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label
-                  htmlFor="punch-time-input"
-                  className="block text-[11px] font-medium text-[#415A54] dark:text-zinc-400"
-                >
-                  Giờ ghi nhận (trống = giờ thực)
-                </label>
-                <Input
-                  id="punch-time-input"
-                  type="time"
-                  value={customPunchTime}
-                  onChange={(e) => setCustomPunchTime(e.target.value)}
-                  className="h-9 w-full font-mono text-xs tabular-nums sm:w-36"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {(() => {
-                  const isWaitingCheckout = Boolean(
-                    myTodayRecord?.check_in && !myTodayRecord?.check_out
-                  );
-                  const isCompletedShift = Boolean(
-                    myTodayRecord?.check_in && myTodayRecord?.check_out
-                  );
-                  const isPunchBlocked =
-                    isPunchDateLocked || Boolean(wifiStatus && !wifiStatus.allowed);
-
-                  if (wifiPolicy.require_biometric_for_punch) {
-                    return (
-                      <>
-                        <Button
-                          variant={
-                            isWaitingCheckout || isCompletedShift
-                              ? 'outline'
-                              : 'primary'
-                          }
-                          disabled={isPunchBlocked || isPunchingBiometric}
-                          onClick={() => void handleBiometricPunch('CHECK_IN')}
-                        >
-                          <Fingerprint className="h-4 w-4" strokeWidth={1.5} />
-                          {isPunchingBiometric
-                            ? 'Đang quét vân tay...'
-                            : myTodayRecord?.check_in
-                              ? `Đã vào ca (${myTodayRecord.check_in})`
-                              : 'Vân tay Check-in'}
-                        </Button>
-                        <Button
-                          variant={isWaitingCheckout ? 'primary' : 'outline'}
-                          disabled={isPunchBlocked || isPunchingBiometric}
-                          onClick={() => void handleBiometricPunch('CHECK_OUT')}
-                        >
-                          <Fingerprint className="h-4 w-4" strokeWidth={1.5} />
-                          {isWaitingCheckout
-                            ? 'Vân tay Check-out ngay'
-                            : myTodayRecord?.check_out
-                              ? `Cập nhật giờ ra (${myTodayRecord.check_out})`
-                              : 'Vân tay Check-out'}
-                        </Button>
-                      </>
-                    );
+                  disabled={
+                    isPunchDateLocked ||
+                    isNightAttendanceLocked ||
+                    Boolean(wifiStatus && !wifiStatus.allowed) ||
+                    isBiometricBusy
                   }
+                  title={
+                    myTodayRecord?.check_in
+                      ? 'Quét vân tay để ghi nhận giờ ra ca'
+                      : 'Quét vân tay để ghi nhận giờ vào ca'
+                  }
+                  onClick={() =>
+                    void handleBiometricPunch(
+                      myTodayRecord?.check_in ? 'CHECK_OUT' : 'CHECK_IN'
+                    )
+                  }
+                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-600 px-7 py-3 text-sm font-semibold text-white shadow-sm shadow-emerald-600/20 transition-all hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:min-w-[260px] dark:focus-visible:ring-offset-zinc-950"
+                >
+                  <Fingerprint className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                  <span>
+                    {isBiometricBusy
+                      ? 'Đang quét vân tay...'
+                      : 'Chấm công bằng vân tay'}
+                  </span>
+                </button>
 
-                  return (
-                    <>
-                      <Button
-                        variant={
-                          isWaitingCheckout || isCompletedShift
-                            ? 'outline'
-                            : 'primary'
-                        }
-                        disabled={isPunchBlocked}
-                        onClick={() => void handleDirectPunch('CHECK_IN')}
-                      >
-                        <LogIn className="h-4 w-4" strokeWidth={1.5} />
-                        {myTodayRecord?.check_in
-                          ? `Đã vào ca (${myTodayRecord.check_in})`
-                          : 'Check-in'}
-                      </Button>
-                      <Button
-                        variant={isWaitingCheckout ? 'primary' : 'outline'}
-                        disabled={isPunchBlocked}
-                        onClick={() => void handleDirectPunch('CHECK_OUT')}
-                      >
-                        <LogOut className="h-4 w-4" strokeWidth={1.5} />
-                        {isWaitingCheckout
-                          ? 'Check-out ngay'
-                          : myTodayRecord?.check_out
-                            ? `Cập nhật giờ ra (${myTodayRecord.check_out})`
-                            : 'Check-out'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={isPunchBlocked || isPunchingBiometric}
-                        title={
-                          myTodayRecord?.check_in
-                            ? 'Quét vân tay Check-out'
-                            : 'Quét vân tay Check-in'
-                        }
-                        className="h-9 px-2.5 text-xs text-[#415A54] hover:bg-[#E8F3EF] hover:text-[#0F766E] dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-teal-300"
-                        onClick={() =>
-                          void handleBiometricPunch(
-                            myTodayRecord?.check_in ? 'CHECK_OUT' : 'CHECK_IN'
-                          )
-                        }
-                      >
-                        <Fingerprint className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        {isPunchingBiometric
-                          ? 'Đang quét...'
-                          : 'Chấm bằng vân tay'}
-                      </Button>
-                    </>
-                  );
-                })()}
                 {myTodayRecord?.status === 'MISSING_PUNCH' && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-rose-500/40 text-rose-700 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                    className="min-h-[40px] w-full rounded-xl border-rose-500/40 text-rose-700 hover:bg-rose-50 sm:w-auto dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-950/30"
                     onClick={() => handleNavigateExplanation(myTodayRecord)}
                   >
                     <ArrowUpRight className="h-4 w-4" strokeWidth={1.5} />
@@ -1657,9 +1519,155 @@ export function AttendanceView() {
                 )}
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Bottom 2 Compact Info Cards: HÔM NAY & VĂN PHÒNG */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Left Card: HÔM NAY */}
+          <Card className="rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800 dark:bg-[#121214] dark:shadow-none">
+            <CardContent className="flex h-full flex-col justify-between p-5">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                    <Clock className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.75} />
+                    Hôm nay
+                  </span>
+                  {myTodayRecord && (
+                    <span className="font-mono text-xs font-medium tabular-nums text-[#0F766E] dark:text-teal-400">
+                      {myTodayRecord.workday_value.toFixed(1)} công
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3.5 divide-y divide-[#D5E3DF]/80 dark:divide-zinc-800/80">
+                  <div className="flex items-center justify-between py-2.5 text-sm">
+                    <span className="text-ink-secondary">Giờ vào</span>
+                    <span
+                      className={`font-mono text-base font-semibold tabular-nums ${
+                        myTodayRecord?.check_in
+                          ? 'text-[#0F766E] dark:text-teal-400'
+                          : 'text-ink-muted'
+                      }`}
+                    >
+                      {myTodayRecord?.check_in || '—'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2.5 text-sm">
+                    <span className="text-ink-secondary">Giờ ra</span>
+                    <span
+                      className={`font-mono text-base font-semibold tabular-nums ${
+                        myTodayRecord?.status === 'MISSING_PUNCH'
+                          ? 'text-xs font-medium text-rose-600 dark:text-rose-400'
+                          : myTodayRecord?.check_out
+                            ? 'text-[#0F766E] dark:text-teal-400'
+                            : 'text-ink-muted'
+                      }`}
+                    >
+                      {myTodayRecord?.check_out ||
+                        (myTodayRecord?.status === 'MISSING_PUNCH'
+                          ? 'Quên chấm ra'
+                          : '—')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3.5 pt-1">
+                {!myTodayRecord ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C6D9D3] bg-[#F2F7F5] px-3 py-1 text-xs font-medium text-ink-secondary dark:border-zinc-700/80 dark:bg-zinc-900 dark:text-zinc-300">
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                    Chưa check-in
+                  </span>
+                ) : myTodayRecord.status === 'WORKING' ? (
+                  <Badge variant="teal" className="rounded-full px-3 py-1 text-xs font-medium">
+                    Đã chấm công vào lúc {myTodayRecord.check_in || '--:--'} · Đang trong ca
+                  </Badge>
+                ) : myTodayRecord.status === 'MISSING_PUNCH' ? (
+                  <Badge variant="error" className="rounded-full px-3 py-1 text-xs font-medium">
+                    Quên chấm công ra (Tự ngắt ca 22:00)
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant={DAILY_STATUS_CONFIG[myTodayRecord.status].variant}
+                    className="rounded-full px-3 py-1 text-xs font-medium"
+                  >
+                    Hoàn thành ca · {DAILY_STATUS_CONFIG[myTodayRecord.status].label}
+                    {((myTodayRecord.late_minutes ?? 0) > 0 ||
+                      (myTodayRecord.early_leave_minutes ?? 0) > 0) &&
+                      ` (Muộn ${myTodayRecord.late_minutes ?? 0}p · Sớm ${myTodayRecord.early_leave_minutes ?? 0}p)`}
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Right Card: VĂN PHÒNG */}
+          <Card className="rounded-2xl border border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800 dark:bg-[#121214] dark:shadow-none">
+            <CardContent className="flex h-full flex-col justify-between p-5">
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                    <Building2 className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.75} />
+                    Văn phòng
+                  </span>
+                  <span className="font-mono text-[11px] font-medium text-ink-muted">
+                    {activeEmployeeCode}
+                  </span>
+                </div>
+
+                <div className="mt-3.5 space-y-2.5">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">
+                      Lạc Việt HRM
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      {activeEmployee?.department_name ?? 'Khối Công nghệ'} · {activeEmployeeName}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 border-t border-[#D5E3DF]/80 pt-2.5 text-xs dark:border-zinc-800/80">
+                    <span className="text-ink-secondary">Ca làm việc</span>
+                    <span className="font-mono font-semibold tabular-nums text-ink">
+                      {currentEmpShift.start_time} – {currentEmpShift.end_time}
+                      <span className="ml-1.5 font-sans font-normal text-ink-muted">
+                        ({currentEmpShift.shift_name})
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#D5E3DF]/80 pt-3 dark:border-zinc-800/80">
+                <span
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                    myCurrentDeviceCreds.length > 0
+                      ? 'text-[#0F766E] dark:text-teal-400'
+                      : 'text-amber-700 dark:text-amber-400'
+                  }`}
+                >
+                  <Fingerprint className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  <span>
+                    {myCurrentDeviceCreds.length > 0
+                      ? 'Đã đăng ký vân tay'
+                      : 'Chưa đăng ký vân tay'}
+                  </span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBiometricModalOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#0F766E]/30 bg-[#E8F3EF] px-2.5 py-1 text-[11px] font-medium text-[#0B4F4A] transition-colors hover:bg-[#CBE8E2] dark:border-teal-500/30 dark:bg-teal-950/50 dark:text-teal-300 dark:hover:bg-teal-900/60"
+                >
+                  <ShieldCheck className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+                  <span>Quản lý ({myRegisteredCreds.length})</span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* 4 KPI Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1690,7 +1698,7 @@ export function AttendanceView() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                Quên chấm công (MISSING_PUNCH)
+                Quên chấm công (Tự ngắt ca 22:00)
               </span>
               <AlertTriangle
                 className="h-4 w-4 text-rose-600 dark:text-rose-400"
@@ -1862,7 +1870,7 @@ export function AttendanceView() {
                         { value: 'ALL', label: 'Mọi trạng thái ngày' },
                         {
                           value: 'MISSING_PUNCH',
-                          label: 'Quên chấm công (MISSING_PUNCH)',
+                          label: 'Quên chấm công (Tự ngắt ca 22:00)',
                         },
                         { value: 'LATE', label: 'Đi muộn' },
                         { value: 'PRESENT', label: 'Đúng giờ (1.0 công)' },
@@ -2006,11 +2014,11 @@ export function AttendanceView() {
                                 </span>
                               ) : rec.status === 'WORKING' ? (
                                 <span className="font-medium text-[#0F766E] dark:text-teal-400">
-                                  Chờ Check-out
+                                  Đang trong ca (Tự ngắt 22:00)
                                 </span>
                               ) : isMissing ? (
                                 <span className="font-semibold text-rose-700 dark:text-rose-400">
-                                  Thiếu ra
+                                  Quên chấm ra (Ngắt ca 22:00)
                                 </span>
                               ) : (
                                 <span className="text-[#5C7871] dark:text-zinc-500">
@@ -2081,8 +2089,10 @@ export function AttendanceView() {
                                     />
                                   )}
                                   {isMissing
-                                    ? 'MISSING_PUNCH · Quên chấm công'
-                                    : statusCfg.label}
+                                    ? 'Quên chấm công (Tự ngắt ca 22:00)'
+                                    : rec.status === 'WORKING' && rec.check_in
+                                      ? `Đã chấm vào ${rec.check_in} · Đang trong ca`
+                                      : statusCfg.label}
                                 </Badge>
 
                                 {rec.explanation_request_id && (
@@ -2392,8 +2402,8 @@ export function AttendanceView() {
                 employee_code,date,check_in,check_out,shift_code,overtime_hours,note
               </span>
               . Hệ thống tự động gắn cờ{' '}
-              <span className="font-mono font-semibold text-rose-700 dark:text-rose-400">
-                MISSING_PUNCH
+              <span className="font-semibold text-rose-700 dark:text-rose-400">
+                Quên chấm công (Tự ngắt ca 22:00)
               </span>{' '}
               nếu thiếu giờ vào hoặc ra.
             </DialogDescription>
@@ -2468,7 +2478,7 @@ export function AttendanceView() {
                       )}
                       {parsedImportPreview.missingCount > 0 && (
                         <Badge variant="error">
-                          {parsedImportPreview.missingCount} MISSING_PUNCH
+                          {parsedImportPreview.missingCount} quên chấm công
                         </Badge>
                       )}
                     </div>
@@ -2921,7 +2931,7 @@ export function AttendanceView() {
               </p>
               <ul className="mt-1.5 list-disc space-y-1 pl-4">
                 <li>
-                  <b>Trên Laptop:</b> Truy cập <span className="font-mono">http://localhost:3000</span> rồi bấm <b>Vân tay Check-in</b> để dùng cảm biến Windows Hello / Touch ID.
+                  <b>Trên Laptop:</b> Truy cập <span className="font-mono">http://localhost:3000</span> rồi bấm <b>Chấm công bằng vân tay</b> để dùng cảm biến Windows Hello / Touch ID.
                 </li>
                 <li>
                   <b>Trên Điện thoại:</b> Kết nối <b>cùng bộ phát WiFi</b> với Laptop (tắt 4G/5G), mở đường link <b>HTTPS DevTunnel</b> (vd <span className="font-mono">https://...-3000.jpe1.devtunnels.ms</span>) rồi đăng ký vân tay / Face ID trên điện thoại. Hệ thống tự đối chiếu trùng Public WiFi IPv4 giữa điện thoại và Laptop trước khi cho quét vân tay.

@@ -14,8 +14,6 @@ import {
   FilePlus2,
   FileSpreadsheet,
   Fingerprint,
-  LogIn,
-  LogOut,
   Mail,
   Phone,
   RefreshCw,
@@ -35,11 +33,11 @@ import {
   punchWithBiometricWifi,
 } from '@/lib/biometric-attendance';
 import {
-  checkInOutToday,
   getAllRuntimeEmployees,
   getBiometricCredentials,
   getCareerHistories,
   getContracts,
+  getCurrentHHmmVN,
   getDailyAttendances,
   getLeaveBalances,
   getMonthlyAttendances,
@@ -48,15 +46,13 @@ import {
   getWifiAttendancePolicy,
   handleRequestLifecycleChange,
   HRM_RUNTIME_EVENT,
+  isAttendanceNightLockWindow,
   mergeWithRuntimeRequests,
   pushNotification,
 } from '@/lib/runtime-store';
-import { alertSwal, choiceSwal, confirmSwal } from '@/lib/swal';
+import { alertSwal, confirmSwal } from '@/lib/swal';
 import { formatDateVN } from '@/lib/utils';
-import {
-  MOCK_LEAVE_OVERTIME_REQUESTS,
-  MOCK_WORK_SHIFTS,
-} from '@/mock/attendance';
+import { MOCK_LEAVE_OVERTIME_REQUESTS } from '@/mock/attendance';
 import {
   calculateProgressivePitVnd,
   MOCK_PAYROLL_FORMULA,
@@ -113,11 +109,14 @@ function formatVnd(amount: number, masked: boolean): string {
 
 function formatTimeNow(date: Date): string {
   return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
-  }).format(date);
+    hourCycle: 'h23',
+  })
+    .format(date)
+    .replace(/^24:/, '00:');
 }
 
 const ROLE_DEFAULT_EMPLOYEE_CODE: Record<RoleCode, string> = {
@@ -388,10 +387,15 @@ function resolveLoggedInEmployee(
 ): Employee | null {
   if (allEmployees.length === 0) return null;
 
-  const profileCode = currentUserProfile?.employee_code?.trim().toLowerCase();
-  if (profileCode && !profileCode.startsWith('uv-')) {
+  const rawProfileCode = currentUserProfile?.employee_code?.trim();
+  const profileCode = rawProfileCode?.toLowerCase();
+  const hasExplicitEmployeeCode = Boolean(
+    profileCode && !profileCode.startsWith('uv-')
+  );
+
+  if (hasExplicitEmployeeCode && profileCode) {
     const byCode = allEmployees.find(
-      (e) => e.employee_code.toLowerCase() === profileCode
+      (e) => e.employee_code.trim().toLowerCase() === profileCode
     );
     if (byCode) return byCode;
   }
@@ -402,18 +406,72 @@ function resolveLoggedInEmployee(
   if (emailCandidate) {
     const exactByEmail = allEmployees.find(
       (e) =>
-        e.email.toLowerCase() === emailCandidate ||
-        e.personal_email?.toLowerCase() === emailCandidate
+        e.email.trim().toLowerCase() === emailCandidate ||
+        e.personal_email?.trim().toLowerCase() === emailCandidate
     );
     if (exactByEmail) return exactByEmail;
+  }
 
-    if (emailCandidate.includes('@')) {
-      const localPart = emailCandidate.split('@')[0];
-      const byLocalPart = allEmployees.find(
-        (e) => e.email.split('@')[0].toLowerCase() === localPart
-      );
-      if (byLocalPart) return byLocalPart;
-    }
+  if (hasExplicitEmployeeCode && rawProfileCode) {
+    const fullName = currentUserProfile?.fullName?.trim() || rawProfileCode;
+    const words = fullName.split(/\s+/).filter(Boolean);
+    const initials =
+      words.length >= 2
+        ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+        : fullName.slice(0, 2).toUpperCase();
+
+    return {
+      id: `emp-dynamic-${rawProfileCode.toLowerCase()}`,
+      employee_code: rawProfileCode,
+      full_name: fullName,
+      email:
+        currentUserProfile?.email ||
+        currentUserEmail ||
+        `${rawProfileCode.toLowerCase()}@lacviethrm.vn`,
+      personal_email: currentUserEmail || currentUserProfile?.email,
+      phone: '-',
+      gender: 'Nam',
+      date_of_birth: '1998-01-01',
+      national_id: '-',
+      tax_code: '-',
+      social_insurance_no: '-',
+      department_id: currentUserProfile?.department_id || 'dept-tech',
+      department_name: currentUserProfile?.department || 'Khối Công nghệ',
+      position_id: 'pos-dynamic',
+      position_name: currentUserProfile?.title || 'Nhân viên mới',
+      manager_id: 'emp-003',
+      manager_name: 'Lê Hoàng Nam',
+      role_code: role,
+      join_date: '2026-11-22',
+      employment_status: 'PROBATION',
+      contract_type: 'PROBATION_2M',
+      contract_start_date: '2026-11-22',
+      contract_end_date: '2027-01-22',
+      contract_status: 'ACTIVE',
+      base_salary_vnd: 0,
+      allowance_meal_vnd: 0,
+      allowance_transport_vnd: 0,
+      allowance_position_vnd: 0,
+      dependents_count: 0,
+      bank_account_no: '-',
+      bank_name: 'Vietcombank',
+      work_shift_code: 'HC-08:30',
+      kpi_completion_rate: 85,
+      burnout_risk_score: 15,
+      burnout_risk_level: 'LOW',
+      turnover_risk_score: 10,
+      turnover_risk_level: 'LOW',
+      ai_retention_note: 'Nhân sự mới nhận việc đang trong giai đoạn thử việc.',
+      avatar_initials: initials || 'NV',
+    };
+  }
+
+  if (emailCandidate && emailCandidate.includes('@')) {
+    const localPart = emailCandidate.split('@')[0];
+    const byLocalPart = allEmployees.find(
+      (e) => e.email.split('@')[0].toLowerCase() === localPart
+    );
+    if (byLocalPart) return byLocalPart;
   }
 
   const profileName = currentUserProfile?.fullName?.trim();
@@ -590,6 +648,9 @@ export function PayslipSelfView() {
   }, []);
 
   const todayIso = useMemo(() => getTodayDateVN(now), [now]);
+  const isNightAttendanceLocked = isAttendanceNightLockWindow(
+    getCurrentHHmmVN(now)
+  );
 
   const todayAttendance = useMemo(() => {
     return empAttendances.find((d) => d.date === todayIso) ?? null;
@@ -680,68 +741,38 @@ export function PayslipSelfView() {
     effectiveAction: 'CHECK_IN' | 'CHECK_OUT';
     timeHHmm?: string;
     checkInTimeOverride?: string;
+    cancelled: boolean;
+    checkInOverride?: string;
+    checkOutOverride?: string;
   } | null> => {
     if (action !== 'CHECK_OUT') {
-      return { effectiveAction: action };
+      return {
+        effectiveAction: action,
+        timeHHmm: undefined,
+        cancelled: false,
+        checkInOverride: undefined,
+        checkOutOverride: undefined,
+      };
     }
 
     if (!todayAttendance?.check_in) {
-      const wantCheckIn = await confirmSwal({
-        title: 'Chưa có giờ Check-in hôm nay',
-        html: `Bạn chưa Check-in vào ca ngày <b>${formatDateVN(todayIso)}</b>. Bạn có muốn chuyển sang <b>Check-in vào ca</b> trước không?`,
-        confirmText: 'Check-in vào ca ngay',
-        cancelText: 'Hủy',
-        variant: 'primary',
-      });
-      if (!wantCheckIn) return null;
-      return { effectiveAction: 'CHECK_IN' };
+      return {
+        effectiveAction: 'CHECK_IN',
+        timeHHmm: undefined,
+        cancelled: false,
+        checkInOverride: undefined,
+        checkOutOverride: undefined,
+      };
     }
 
-    const toMin = (hhmm: string): number | null => {
-      if (!hhmm.includes(':')) return null;
-      const [h, m] = hhmm.trim().split(':').map(Number);
-      return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m;
+    return {
+      effectiveAction: 'CHECK_OUT',
+      timeHHmm: undefined,
+      checkInTimeOverride: undefined,
+      cancelled: false,
+      checkInOverride: undefined,
+      checkOutOverride: undefined,
     };
-
-    const empShift =
-      MOCK_WORK_SHIFTS.find(
-        (s) => s.shift_code === (employee?.work_shift_code || 'HC-08:30')
-      ) ?? MOCK_WORK_SHIFTS[0];
-    const nowHHmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const inMin = toMin(todayAttendance.check_in);
-    const outMin = toMin(nowHHmm);
-
-    if (inMin !== null && outMin !== null) {
-      let dur = outMin - inMin;
-      if (inMin <= 720 && outMin >= 780) {
-        dur = Math.max(0, dur - empShift.break_minutes);
-      }
-      if (dur < 210) {
-        const choice = await choiceSwal({
-          title: 'Chưa đủ thời lượng ca làm việc',
-          html: `Giờ vào hiện tại là <b>${todayAttendance.check_in}</b>, giờ thực tế hiện tại là <b>${nowHHmm}</b> (mới làm <b>${Math.max(0, dur)} phút</b> &lt; 3.5 giờ nên nếu chốt giờ thực sẽ tính <b>0.0 công</b>).<br/><br/>Bạn muốn chốt theo <b>Đủ ca chuẩn (${empShift.start_time} → ${empShift.end_time} · 1.0 công)</b> để kiểm thử nghiệp vụ hay giữ nguyên giờ thực?`,
-          confirmText: 'Chốt đủ ca chuẩn (1.0 công)',
-          denyText: `Giữ giờ thực (${nowHHmm})`,
-          cancelText: 'Hủy',
-          variant: 'primary',
-        });
-        if (choice === 'cancel') return null;
-        if (choice === 'confirm') {
-          const shiftStartMin = toMin(empShift.start_time) ?? 480;
-          const outsideShiftStart =
-            inMin < shiftStartMin - 90 || inMin > shiftStartMin + 120;
-          return {
-            effectiveAction: 'CHECK_OUT',
-            timeHHmm: empShift.end_time,
-            checkInTimeOverride: outsideShiftStart
-              ? empShift.start_time
-              : undefined,
-          };
-        }
-      }
-    }
-
-    return { effectiveAction: 'CHECK_OUT' };
   };
 
   const handleBiometricEssPunch = async (
@@ -753,6 +784,14 @@ export function PayslipSelfView() {
     }
   ) => {
     if (!employee) return;
+    if (isNightAttendanceLocked) {
+      await alertSwal({
+        title: 'Khung giờ khóa chấm công (22:00 – 06:00)',
+        text: 'Hệ thống tạm khóa chấm công từ 22:00 đến 06:00 sáng hôm sau. Vui lòng thực hiện lại sau 06:00 hoặc gửi giải trình công nếu cần.',
+        icon: 'warning',
+      });
+      return;
+    }
     const timing =
       resolvedOverride ?? (await resolveEssCheckoutTiming(action));
     if (!timing) return;
@@ -766,9 +805,10 @@ export function PayslipSelfView() {
           timing.effectiveAction === 'CHECK_OUT'
             ? todayAttendance?.date || todayIso
             : todayIso,
-        timeHHmm: timing.timeHHmm,
+        timeHHmm: undefined,
         checkInTimeOverride: timing.checkInTimeOverride,
       });
+      setNow(new Date());
       syncFromRuntimeStore();
       setWifiStatus(res.wifi);
       showToast(
@@ -820,64 +860,6 @@ export function PayslipSelfView() {
       }
     } finally {
       setIsPunchingBiometric(false);
-    }
-  };
-
-  const handleCheckIn = () => {
-    if (!employee) return;
-    try {
-      const saved = checkInOutToday({
-        employeeId: employee.id,
-        date: todayIso,
-        action: 'CHECK_IN',
-      });
-      syncFromRuntimeStore();
-      showToast(
-        'Check-in trực tuyến thành công',
-        `Đã ghi nhận giờ vào ca ${saved.shift_code} lúc ${saved.check_in} (${saved.date}).`,
-        'success'
-      );
-    } catch (err) {
-      void alertSwal({
-        title: 'Không thể thực hiện Check-in',
-        text: err instanceof Error ? err.message : 'Đã xảy ra lỗi khi lưu chấm công.',
-        icon: 'error',
-      });
-    }
-  };
-
-  const handleCheckOut = async () => {
-    if (!employee) return;
-    const timing = await resolveEssCheckoutTiming('CHECK_OUT');
-    if (!timing) return;
-
-    try {
-      const saved = checkInOutToday({
-        employeeId: employee.id,
-        date:
-          timing.effectiveAction === 'CHECK_OUT'
-            ? todayAttendance?.date || todayIso
-            : todayIso,
-        action: timing.effectiveAction,
-        timeHHmm: timing.timeHHmm,
-        checkInTimeOverride: timing.checkInTimeOverride,
-      });
-      syncFromRuntimeStore();
-      showToast(
-        timing.effectiveAction === 'CHECK_IN'
-          ? 'Check-in trực tuyến thành công'
-          : 'Check-out hoàn tất ca làm việc',
-        saved.status === 'WORKING'
-          ? `Giờ vào ${saved.check_in} — Đang trong ca, chờ Check-out cuối ngày.`
-          : `Giờ ra ${saved.check_out} — Ghi nhận ${saved.workday_value} công (${DAILY_STATUS_BADGE[saved.status].label}).`,
-        saved.status === 'WORKING' ? 'info' : 'success'
-      );
-    } catch (err) {
-      void alertSwal({
-        title: 'Không thể thực hiện Check-out',
-        text: err instanceof Error ? err.message : 'Đã xảy ra lỗi khi lưu chấm công.',
-        icon: 'error',
-      });
     }
   };
 
@@ -1128,7 +1110,7 @@ export function PayslipSelfView() {
               <p className="font-semibold">
                 Phát hiện{' '}
                 <span className="font-mono tabular-nums">{missingPunchRecords.length}</span> ngày
-                thiếu dữ liệu chấm công (MISSING_PUNCH · tạm tính 0 công)
+                quên chấm công (tạm tính 0 công)
               </p>
               <p className="mt-0.5 text-xs text-red-900/80 dark:text-red-300/80">
                 Ngày gần nhất:{' '}
@@ -1247,6 +1229,12 @@ export function PayslipSelfView() {
               </div>
             )}
 
+            {isNightAttendanceLocked && (
+              <div className="rounded-lg border border-amber-500/35 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-500/25 dark:bg-amber-950/30 dark:text-amber-200">
+                Hệ thống khóa chấm công trong khung giờ đêm (22:00 – 06:00 sáng hôm sau).
+              </div>
+            )}
+
             <div className="space-y-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-3.5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="min-w-0">
@@ -1277,78 +1265,26 @@ export function PayslipSelfView() {
                   </Button>
                 )}
                 {(() => {
-                  const isWaitingCheckout = Boolean(
-                    todayAttendance?.check_in && !todayAttendance?.check_out
-                  );
+                  const nextBiometricAction: 'CHECK_IN' | 'CHECK_OUT' =
+                    todayAttendance?.check_in ? 'CHECK_OUT' : 'CHECK_IN';
                   return (
-                    <>
-                      <Button
-                        size="sm"
-                        variant={todayAttendance?.check_in ? 'outline' : 'primary'}
-                        className="min-h-[40px] shrink-0 sm:min-h-[36px]"
-                        onClick={() => void handleBiometricEssPunch('CHECK_IN')}
-                        disabled={
-                          isResigned ||
-                          isPunchingBiometric ||
-                          Boolean(wifiStatus && !wifiStatus.allowed)
-                        }
-                      >
-                        <Fingerprint className="h-4 w-4" strokeWidth={1.5} />
-                        {isPunchingBiometric
-                          ? 'Đang quét...'
-                          : todayAttendance?.check_in
-                            ? `Đã vào (${todayAttendance.check_in})`
-                            : 'Vân tay Check-in'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={isWaitingCheckout ? 'primary' : 'outline'}
-                        className="min-h-[40px] shrink-0 sm:min-h-[36px]"
-                        onClick={() => void handleBiometricEssPunch('CHECK_OUT')}
-                        disabled={
-                          isResigned ||
-                          isPunchingBiometric ||
-                          Boolean(wifiStatus && !wifiStatus.allowed)
-                        }
-                      >
-                        <Fingerprint className="h-4 w-4" strokeWidth={1.5} />
-                        {isWaitingCheckout
-                          ? 'Vân tay Check-out ngay'
-                          : todayAttendance?.check_out
-                            ? `Cập nhật giờ ra (${todayAttendance.check_out})`
-                            : 'Vân tay Check-out'}
-                      </Button>
-                      {!wifiPolicy.require_biometric_for_punch && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant={todayAttendance?.check_in ? 'ghost' : 'outline'}
-                            className="min-h-[40px] shrink-0 sm:min-h-[36px]"
-                            onClick={handleCheckIn}
-                            disabled={
-                              isResigned ||
-                              Boolean(wifiStatus && !wifiStatus.allowed)
-                            }
-                          >
-                            <LogIn className="h-4 w-4" strokeWidth={1.5} />
-                            Web In
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={isWaitingCheckout ? 'primary' : 'ghost'}
-                            className="min-h-[40px] shrink-0 sm:min-h-[36px]"
-                            onClick={() => void handleCheckOut()}
-                            disabled={
-                              isResigned ||
-                              Boolean(wifiStatus && !wifiStatus.allowed)
-                            }
-                          >
-                            <LogOut className="h-4 w-4" strokeWidth={1.5} />
-                            Web Out
-                          </Button>
-                        </>
-                      )}
-                    </>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="min-h-[40px] shrink-0 sm:min-h-[36px]"
+                      onClick={() => void handleBiometricEssPunch(nextBiometricAction)}
+                      disabled={
+                        isResigned ||
+                        isPunchingBiometric ||
+                        isNightAttendanceLocked ||
+                        Boolean(wifiStatus && !wifiStatus.allowed)
+                      }
+                    >
+                      <Fingerprint className="h-4 w-4" strokeWidth={1.5} />
+                      {isPunchingBiometric
+                        ? 'Đang quét...'
+                        : 'Chấm công bằng vân tay'}
+                    </Button>
                   );
                 })()}
               </div>
@@ -2057,7 +1993,7 @@ export function PayslipSelfView() {
                 options={[
                   { label: 'Nghỉ phép năm (hưởng nguyên lương)', value: 'ANNUAL_LEAVE' },
                   { label: 'Đăng ký làm thêm giờ (OT)', value: 'OVERTIME' },
-                  { label: 'Giải trình bổ sung chấm công (MISSING_PUNCH)', value: 'LATE_EXPLANATION' },
+                  { label: 'Giải trình bổ sung quên chấm công', value: 'LATE_EXPLANATION' },
                 ]}
               />
             </div>

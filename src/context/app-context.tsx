@@ -153,13 +153,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const authCheck = findSystemUserForLogin(
           parsedProfile?.employee_code || savedEmail
         );
-        if (!authCheck.canLogin) {
+        const isMissingRuntimeEmployee =
+          savedRole !== 'CANDIDATE' && !authCheck.user && !authCheck.employee;
+        if (!authCheck.canLogin || isMissingRuntimeEmployee) {
+          window.localStorage.removeItem(STORAGE_ROLE_KEY);
           window.localStorage.removeItem(STORAGE_EMAIL_KEY);
           window.localStorage.removeItem(STORAGE_PROFILE_KEY);
+          window.localStorage.removeItem('lacviet_applied_candidate_email');
           if (typeof document !== 'undefined') {
             document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
             document.cookie = 'hrm_token=; path=/; max-age=0; SameSite=Lax';
-            document.cookie = 'hrm_active=0; path=/; max-age=60; SameSite=Lax';
+            document.cookie = isMissingRuntimeEmployee
+              ? 'hrm_active=; path=/; max-age=0; SameSite=Lax'
+              : 'hrm_active=0; path=/; max-age=60; SameSite=Lax';
+          }
+          if (isMissingRuntimeEmployee && window.location.pathname.startsWith('/app')) {
+            window.location.assign('/login');
+            return;
           }
         } else {
           setCurrentUserEmail(savedEmail);
@@ -359,12 +369,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!currentUserEmail) return;
 
     const handleRuntimeAuthSync = () => {
+      if (typeof window !== 'undefined') {
+        const persistedProfile = window.localStorage.getItem(STORAGE_PROFILE_KEY);
+        const persistedEmail = window.localStorage.getItem(STORAGE_EMAIL_KEY);
+        if ((!persistedProfile && !persistedEmail) || (currentUserProfile && !persistedProfile)) {
+          logout();
+          if (
+            window.location.pathname.startsWith('/app') ||
+            window.location.pathname.startsWith('/candidate')
+          ) {
+            window.location.assign('/login');
+          }
+          return;
+        }
+      }
+
       const lookupKey = currentUserProfile?.employee_code || currentUserEmail;
       if (!lookupKey) return;
 
       const check = findSystemUserForLogin(lookupKey);
-      if (!check.canLogin) {
+      const isMissingRuntimeEmployee =
+        role !== 'CANDIDATE' && !check.user && !check.employee;
+      if (!check.canLogin || isMissingRuntimeEmployee) {
         logout();
+        if (isMissingRuntimeEmployee) {
+          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/app')) {
+            window.location.assign('/login');
+          }
+          return;
+        }
         if (typeof document !== 'undefined') {
           document.cookie = 'hrm_active=0; path=/; max-age=30; SameSite=Lax';
         }

@@ -158,7 +158,23 @@ function writeStorageArray<T>(key: string, items: T[]): void {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, items }),
-      }).catch(() => {});
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (
+            data &&
+            typeof data.bootEpoch === 'string' &&
+            data.bootEpoch.length > 0 &&
+            !window.localStorage.getItem(STORAGE_BOOT_EPOCH_KEY)
+          ) {
+            try {
+              window.localStorage.setItem(STORAGE_BOOT_EPOCH_KEY, data.bootEpoch);
+            } catch {
+              // Ignore storage errors
+            }
+          }
+        })
+        .catch(() => {});
     }
   } catch {
     // Ignore storage quota or restricted mode errors
@@ -1118,7 +1134,7 @@ export function initiateCandidateOnboarding(params: {
   const inviteToken =
     existingInvite?.token ||
     params.candidate.preboarding_token ||
-    `pb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    generateSecurePreboardingToken();
 
   // 1. Update candidate stage to ONBOARDED with offered_salary_vnd & preboarding_token
   const updatedCandidate: Candidate = {
@@ -2293,6 +2309,20 @@ export function getPreboardingByToken(token: string): PreboardingInvite | null {
   return all.find((item) => item.token === clean || item.id === clean) ?? null;
 }
 
+function generateSecurePreboardingToken(): string {
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    cryptoObj.getRandomValues(bytes);
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    return `pb-${hex}`;
+  }
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    return `pb-${cryptoObj.randomUUID().replace(/-/g, '')}`;
+  }
+  throw new Error('CSPRNG không khả dụng để tạo token Pre-boarding an toàn.');
+}
+
 export function createPreboardingInvite(params: {
   candidate?: Candidate;
   fullName?: string;
@@ -2323,14 +2353,118 @@ export function createPreboardingInvite(params: {
   const personalEmail = (
     params.personalEmail ||
     params.candidate?.email ||
-    `${normalizeEmailSlug(fullName)}@gmail.com`
+    ''
   ).trim();
   const phone = (params.phone || params.candidate?.phone || '0901234567').trim();
+
+  const personalEmailLower = personalEmail.toLowerCase();
+  const hasCandidateId = Boolean(params.candidate?.id);
+  const hasCandidateCode = Boolean(params.candidate?.candidate_code);
+  const hasCandidateIdentity = hasCandidateId || hasCandidateCode;
+  const matchingInvites = getPreboardingInvites().filter((inv) => {
+    if (inv.status === 'EXPIRED') {
+      return false;
+    }
+    if (hasCandidateIdentity) {
+      if (hasCandidateId && inv.candidate_id === params.candidate!.id) {
+        return true;
+      }
+      if (
+        hasCandidateCode &&
+        inv.candidate_code === params.candidate!.candidate_code
+      ) {
+        return true;
+      }
+      return false;
+    }
+    const invPersonalLower = (inv.personal_email || '').trim().toLowerCase();
+    const invEmailLower = (inv.email || '').trim().toLowerCase();
+    return Boolean(
+      personalEmailLower &&
+        (invPersonalLower === personalEmailLower ||
+          invEmailLower === personalEmailLower)
+    );
+  });
+
+  if (matchingInvites.length > 0) {
+    const allEmployees = getAllRuntimeEmployees();
+    const allOnboarding = getOnboardingRecords();
+    const allUsers = getSystemUsers();
+
+    for (const existingInvite of matchingInvites) {
+      const matchedEmployee = allEmployees.find(
+        (e) =>
+          (existingInvite.employee_id && e.id === existingInvite.employee_id) ||
+          (existingInvite.employee_code &&
+            e.employee_code === existingInvite.employee_code) ||
+          (existingInvite.token && e.preboarding_token === existingInvite.token)
+      );
+      if (
+        !matchedEmployee ||
+        matchedEmployee.employment_status === 'RESIGNED' ||
+        String(matchedEmployee.employment_status) === 'TERMINATED'
+      ) {
+        continue;
+      }
+      const matchedOnboarding = allOnboarding.find(
+        (o) =>
+          (existingInvite.token && o.preboarding_token === existingInvite.token) ||
+          (existingInvite.employee_id &&
+            o.employee_id === existingInvite.employee_id) ||
+          (existingInvite.employee_code &&
+            o.employee_code === existingInvite.employee_code)
+      );
+
+      if (matchedOnboarding) {
+        const matchedUser =
+          allUsers.find(
+            (u) =>
+              (matchedEmployee.id && u.employee_id === matchedEmployee.id) ||
+              u.employee_code === matchedEmployee.employee_code ||
+              emailsMatchInternalAlias(u.email, matchedEmployee.email)
+          ) ??
+          setUserActiveByEmployee({
+            employeeId: matchedEmployee.id,
+            employeeCode: matchedEmployee.employee_code,
+            email: matchedEmployee.email,
+            fullName: matchedEmployee.full_name,
+            departmentName: matchedEmployee.department_name,
+            positionName: matchedEmployee.position_name,
+            roleCode: matchedEmployee.role_code,
+            isActive: false,
+            targetStatus: 'INACTIVE',
+            reason: 'Chờ hoàn tất Pre-boarding và IT cấp quyền SSO',
+          });
+
+        if (
+          params.candidate &&
+          (params.candidate.preboarding_token !== existingInvite.token ||
+            params.candidate.stage !== 'ONBOARDED')
+        ) {
+          saveRuntimeCandidate({
+            ...params.candidate,
+            stage: 'ONBOARDED',
+            preboarding_token: existingInvite.token,
+          });
+        }
+
+        return {
+          invite: existingInvite,
+          employee: matchedEmployee,
+          user: matchedUser,
+          onboarding: matchedOnboarding,
+        };
+      }
+    }
+  }
+
+  const token = generateSecurePreboardingToken();
 
   if (params.candidate) {
     saveRuntimeCandidate({
       ...params.candidate,
       stage: 'ONBOARDED',
+      preboarding_token: token,
     });
   }
 
@@ -2340,7 +2474,6 @@ export function createPreboardingInvite(params: {
     (params.officialSalaryVnd * salaryPercent) / 100
   );
   const probationEndDate = addTwoMonthsIso(params.expectedStartDate);
-  const token = `pb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const deptRef = getRuntimeDepartments().find((d) => d.id === params.departmentId);
   const shiftCode = params.departmentId.startsWith('dept-tech')
     ? 'HC-08:30'
@@ -3273,6 +3406,11 @@ export function convertProbationToOfficial(params: {
   if (!emp) {
     throw new Error('Không tìm thấy hồ sơ nhân sự thử việc cần chuyển chính thức.');
   }
+  if (emp.employment_status !== 'PROBATION') {
+    throw new Error(
+      'Chỉ nhân sự đang thử việc (PROBATION) mới có thể chuyển chính thức.'
+    );
+  }
 
   const existingPassReview = getPerformanceReviews(emp.id).find(
     (r) => r.cycle === 'PROBATION' && r.result === 'PASS'
@@ -3395,12 +3533,21 @@ export function convertProbationToOfficial(params: {
 
   // Initialize AnnualLeaveBalance (12 days)
   const yearNum = Number.parseInt(officialDate.slice(0, 4), 10) || 2026;
-  const existingBalances = getLeaveBalances(yearNum);
-  const foundBalance = existingBalances.find(
-    (b) => b.employee_id === emp.id || b.employee_code === emp.employee_code
-  );
+  const storedBalances =
+    readStorageArray<AnnualLeaveBalance>(STORAGE_LEAVE_BALANCES_KEY) ?? [];
+  const foundBalance =
+    storedBalances.find(
+      (b) =>
+        b.year === yearNum &&
+        (b.employee_id === emp.id || b.employee_code === emp.employee_code)
+    ) ??
+    MOCK_ANNUAL_LEAVE_BALANCES.find(
+      (b) =>
+        b.year === yearNum &&
+        (b.employee_id === emp.id || b.employee_code === emp.employee_code)
+    );
   const leaveBalance: AnnualLeaveBalance = foundBalance ?? {
-    id: `alb-rt-${Date.now()}`,
+    id: `alb-rt-${Date.now()}-${yearNum}`,
     employee_id: emp.id,
     employee_code: emp.employee_code,
     full_name: emp.full_name,
@@ -3509,7 +3656,10 @@ export function getCurrentHHmmVN(now: Date = new Date()): string {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-    }).format(now);
+      hourCycle: 'h23',
+    })
+      .format(now)
+      .replace(/^24:/, '00:');
     const match = formatted.match(/^(\d{2}):(\d{2})$/);
     if (match) return formatted;
   } catch {
@@ -3521,13 +3671,30 @@ export function getCurrentHHmmVN(now: Date = new Date()): string {
   return `${h}:${m}`;
 }
 
+const DAILY_AUTO_CUTOFF_MINUTES = 22 * 60; // 22:00 (10 giờ đêm)
+const DAILY_AUTO_CUTOFF_NOTE =
+  'Quá 22:00 chưa chấm công ra — Tự động ngắt ca (Quên chấm công)';
+
+function normalizeHHmm(hhmm: string | null | undefined): string | null {
+  if (!hhmm || !hhmm.includes(':')) return hhmm ?? null;
+  return hhmm.trim().replace(/^24:/, '00:');
+}
+
 function parseHHmmToMinutes(hhmm: string | null | undefined): number | null {
-  if (!hhmm || !hhmm.includes(':')) return null;
-  const [hStr, mStr] = hhmm.trim().split(':');
+  const normalized = normalizeHHmm(hhmm);
+  if (!normalized || !normalized.includes(':')) return null;
+  const [hStr, mStr] = normalized.split(':');
   const h = Number.parseInt(hStr, 10);
   const m = Number.parseInt(mStr, 10);
   if (Number.isNaN(h) || Number.isNaN(m)) return null;
   return h * 60 + m;
+}
+
+export function isAttendanceNightLockWindow(hhmm?: string): boolean {
+  const time = (hhmm || getCurrentHHmmVN()).slice(0, 5);
+  const minutes = parseHHmmToMinutes(time);
+  if (minutes === null) return false;
+  return minutes >= 22 * 60 || minutes < 6 * 60;
 }
 
 export function evaluateDailyPunch(params: {
@@ -3536,6 +3703,7 @@ export function evaluateDailyPunch(params: {
   checkOut: string | null;
   date?: string;
   todayDate?: string;
+  nowHHmm?: string;
 }): {
   late_minutes: number;
   early_leave_minutes: number;
@@ -3561,7 +3729,27 @@ export function evaluateDailyPunch(params: {
 
   if (inMin !== null && outMin === null) {
     const refToday = params.todayDate ?? getTodayDateVN();
-    if (params.date && params.date >= refToday) {
+    if (params.date && params.date > refToday) {
+      const lateMinutes =
+        inMin > startMin + shift.late_grace_minutes ? inMin - startMin : 0;
+      return {
+        late_minutes: lateMinutes,
+        early_leave_minutes: 0,
+        workday_value: 0,
+        status: 'WORKING',
+      };
+    }
+    if (params.date && params.date === refToday) {
+      const nowMin = parseHHmmToMinutes(params.nowHHmm ?? getCurrentHHmmVN()) ?? 0;
+      // Ca ban ngày (< 22:00) nhưng hiện tại đã quá 22:00 mà chưa check-out -> tự động ngắt ca
+      if (inMin < DAILY_AUTO_CUTOFF_MINUTES && nowMin >= DAILY_AUTO_CUTOFF_MINUTES) {
+        return {
+          late_minutes: 0,
+          early_leave_minutes: 0,
+          workday_value: 0,
+          status: 'MISSING_PUNCH',
+        };
+      }
       const lateMinutes =
         inMin > startMin + shift.late_grace_minutes ? inMin - startMin : 0;
       return {
@@ -3766,6 +3954,40 @@ const SEED_DAILY_ATTENDANCES_2026_11: DailyAttendanceRecord[] = [
   },
 ];
 
+type DailyAttendanceWithMeta = DailyAttendanceRecord & { updated_at?: string };
+
+function getDailyRecordUpdatedMs(rec: DailyAttendanceRecord): number {
+  const raw = (rec as DailyAttendanceWithMeta).updated_at;
+  if (!raw) return 0;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function deduplicateDailyAttendances(
+  records: DailyAttendanceRecord[]
+): DailyAttendanceRecord[] {
+  const byKey = new Map<string, DailyAttendanceRecord>();
+  for (const rec of records) {
+    const key =
+      rec.employee_code && rec.date
+        ? `${rec.employee_code}__${rec.date}`
+        : rec.id;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, rec);
+      continue;
+    }
+    const prevTs = getDailyRecordUpdatedMs(prev);
+    const nextTs = getDailyRecordUpdatedMs(rec);
+    if (nextTs > prevTs) {
+      byKey.set(key, rec);
+    } else if (nextTs === prevTs && !prev.check_out && rec.check_out) {
+      byKey.set(key, rec);
+    }
+  }
+  return Array.from(byKey.values());
+}
+
 export function getDailyAttendances(
   periodMonth?: string,
   employeeIdOrCode?: string
@@ -3773,14 +3995,52 @@ export function getDailyAttendances(
   const stored = readStorageArray<DailyAttendanceRecord>(
     STORAGE_DAILY_ATTENDANCE_KEY
   );
-  const all = stored ?? cloneJson(SEED_DAILY_ATTENDANCES_2026_11);
+  const all = deduplicateDailyAttendances(
+    stored ?? cloneJson(SEED_DAILY_ATTENDANCES_2026_11)
+  );
   const todayVN = getTodayDateVN();
+  const nowMin = parseHHmmToMinutes(getCurrentHHmmVN()) ?? 0;
+
   return all
-    .map((rec) =>
-      rec.status === 'WORKING' && rec.date < todayVN
-        ? { ...rec, status: 'MISSING_PUNCH' as const, late_minutes: 0 }
-        : rec
-    )
+    .map((rec) => {
+      const normalizedCheckIn = normalizeHHmm(rec.check_in);
+      const normalizedCheckOut = normalizeHHmm(rec.check_out);
+      const baseRec =
+        normalizedCheckIn !== rec.check_in || normalizedCheckOut !== rec.check_out
+          ? { ...rec, check_in: normalizedCheckIn, check_out: normalizedCheckOut }
+          : rec;
+
+      if (baseRec.check_in && !baseRec.check_out) {
+        if (baseRec.date < todayVN && baseRec.status === 'WORKING') {
+          return {
+            ...baseRec,
+            status: 'MISSING_PUNCH' as const,
+            late_minutes: 0,
+            workday_value: 0 as const,
+          };
+        }
+        if (baseRec.date === todayVN && baseRec.status === 'WORKING') {
+          const inMin = parseHHmmToMinutes(baseRec.check_in);
+          if (
+            inMin !== null &&
+            inMin < DAILY_AUTO_CUTOFF_MINUTES &&
+            nowMin >= DAILY_AUTO_CUTOFF_MINUTES
+          ) {
+            return {
+              ...baseRec,
+              status: 'MISSING_PUNCH' as const,
+              late_minutes: 0,
+              workday_value: 0 as const,
+              note:
+                baseRec.note && baseRec.note.includes('Quá 22:00')
+                  ? baseRec.note
+                  : DAILY_AUTO_CUTOFF_NOTE,
+            };
+          }
+        }
+      }
+      return baseRec;
+    })
     .filter((rec) => {
       if (periodMonth && !rec.date.startsWith(periodMonth)) return false;
       if (
@@ -3798,18 +4058,19 @@ export function getDailyAttendances(
 function upsertDailyAttendanceInternal(
   record: DailyAttendanceRecord
 ): DailyAttendanceRecord {
-  const current = getDailyAttendances();
-  const idx = current.findIndex(
+  const stamped: DailyAttendanceWithMeta = {
+    ...record,
+    updated_at: new Date().toISOString(),
+  };
+  const current = deduplicateDailyAttendances(getDailyAttendances());
+  const remaining = current.filter(
     (r) =>
-      r.id === record.id ||
-      (r.employee_code === record.employee_code && r.date === record.date)
+      r.id !== stamped.id &&
+      !(r.employee_code === stamped.employee_code && r.date === stamped.date)
   );
-  const updated =
-    idx >= 0
-      ? current.map((item, i) => (i === idx ? record : item))
-      : [record, ...current];
+  const updated = deduplicateDailyAttendances([stamped, ...remaining]);
   writeStorageArray(STORAGE_DAILY_ATTENDANCE_KEY, updated);
-  return record;
+  return stamped;
 }
 
 export function checkInOutToday(params: {
@@ -3818,6 +4079,7 @@ export function checkInOutToday(params: {
   action: 'CHECK_IN' | 'CHECK_OUT';
   timeHHmm?: string;
   checkInTimeOverride?: string;
+  allowPastDate?: boolean;
   note?: string;
   source?: DailyAttendanceRecord['source'];
   authMethod?: DailyAttendanceRecord['auth_method'];
@@ -3833,29 +4095,65 @@ export function checkInOutToday(params: {
   }
 
   const now = new Date();
-  const dateStr = params.date ?? getTodayDateVN(now);
-  const defaultHHmm = getCurrentHHmmVN(now);
-  const timeStr = params.timeHHmm ?? defaultHHmm;
+  const todayVN = getTodayDateVN(now);
+  const isRealtimePunch =
+    !params.timeHHmm &&
+    !params.allowPastDate &&
+    params.source !== 'REQUEST_SYNC';
+  const dateStr = isRealtimePunch
+    ? params.date && params.date >= todayVN
+      ? params.date
+      : todayVN
+    : params.date ?? todayVN;
+  const liveHHmm = getCurrentHHmmVN(now);
+  const timeStr = normalizeHHmm(params.timeHHmm ?? liveHHmm) ?? liveHHmm;
 
-  const existing = getDailyAttendances().find(
+  if (params.source !== 'REQUEST_SYNC' && isAttendanceNightLockWindow(timeStr)) {
+    throw new Error(
+      'Ngoài khung giờ chấm công (Hệ thống tạm khóa chấm công từ 22:00 tối đến 06:00 sáng).'
+    );
+  }
+
+  const existing = deduplicateDailyAttendances(getDailyAttendances()).find(
     (r) => r.employee_code === emp.employee_code && r.date === dateStr
   );
 
+  // Chế độ thời gian thực: nếu đã có check_in trong ngày thì bấm chấm công lại luôn cập nhật check_out = liveHHmm mới nhất
+  const effectiveAction: 'CHECK_IN' | 'CHECK_OUT' =
+    isRealtimePunch && Boolean(existing?.check_in)
+      ? 'CHECK_OUT'
+      : params.action;
+
   const nextCheckIn =
-    params.action === 'CHECK_IN'
+    effectiveAction === 'CHECK_IN'
       ? timeStr
-      : params.checkInTimeOverride ?? existing?.check_in ?? null;
+      : normalizeHHmm(params.checkInTimeOverride ?? existing?.check_in ?? null);
   const nextCheckOut =
-    params.action === 'CHECK_OUT' ? timeStr : existing?.check_out ?? null;
+    effectiveAction === 'CHECK_OUT'
+      ? isRealtimePunch
+        ? liveHHmm
+        : timeStr
+      : normalizeHHmm(existing?.check_out ?? null);
   const evalResult = evaluateDailyPunch({
     shiftCode: emp.work_shift_code || 'HC-08:00',
     checkIn: nextCheckIn,
     checkOut: nextCheckOut,
     date: dateStr,
+    todayDate: todayVN,
+    nowHHmm: timeStr,
   });
 
   const resolvedSource = params.source ?? 'WEB_CLOCK';
-  const isBiometric = resolvedSource === 'BIOMETRIC_FINGERPRINT' || params.authMethod === 'WEBAUTHN_FINGERPRINT';
+  const isBiometric =
+    resolvedSource === 'BIOMETRIC_FINGERPRINT' ||
+    params.authMethod === 'WEBAUTHN_FINGERPRINT';
+  const autoCutoffNote =
+    evalResult.status === 'MISSING_PUNCH' &&
+    nextCheckIn &&
+    !nextCheckOut &&
+    dateStr === todayVN
+      ? DAILY_AUTO_CUTOFF_NOTE
+      : undefined;
 
   const saved = upsertDailyAttendanceInternal({
     id: existing?.id ?? `datt-${dateStr.replace(/-/g, '')}-${emp.employee_code.slice(-3)}`,
@@ -3872,9 +4170,11 @@ export function checkInOutToday(params: {
     workday_value: evalResult.workday_value,
     overtime_hours: existing?.overtime_hours ?? 0,
     status: evalResult.status,
-    note: params.note ?? existing?.note,
+    note: params.note ?? autoCutoffNote ?? existing?.note,
     source: resolvedSource,
-    auth_method: params.authMethod ?? (isBiometric ? 'WEBAUTHN_FINGERPRINT' : existing?.auth_method ?? 'MANUAL_WEB'),
+    auth_method:
+      params.authMethod ??
+      (isBiometric ? 'WEBAUTHN_FINGERPRINT' : existing?.auth_method ?? 'MANUAL_WEB'),
     biometric_device_label: params.biometricDeviceLabel ?? existing?.biometric_device_label,
     verified_network_ip: params.verifiedNetworkIp ?? existing?.verified_network_ip,
     wifi_match_mode: params.wifiMatchMode ?? existing?.wifi_match_mode,
@@ -3889,8 +4189,8 @@ export function checkInOutToday(params: {
     action: isBiometric ? 'BIOMETRIC_CHECK_IN_OUT' : 'CHECK_IN_OUT',
     target: `${emp.employee_code} · ${dateStr}`,
     detail: isBiometric
-      ? `Chấm công vân tay ${params.action === 'CHECK_IN' ? 'Check-in' : 'Check-out'} lúc ${timeStr} qua [${params.biometricDeviceLabel || 'Thiết bị sinh trắc học'}] · WiFi IP ${params.verifiedNetworkIp || 'Nội bộ'} (${params.wifiMatchMode || 'SAME_WIFI'}) -> ${saved.status} (${saved.workday_value} công).`
-      : `Thực hiện ${params.action === 'CHECK_IN' ? 'Check-in' : 'Check-out'} lúc ${timeStr} -> trạng thái ${saved.status} (${saved.workday_value} công).`,
+      ? `Chấm công vân tay ${effectiveAction === 'CHECK_IN' ? 'Check-in' : 'Check-out'} lúc ${timeStr} qua [${params.biometricDeviceLabel || 'Thiết bị sinh trắc học'}] · WiFi IP ${params.verifiedNetworkIp || 'Nội bộ'} (${params.wifiMatchMode || 'SAME_WIFI'}) -> ${saved.status} (${saved.workday_value} công).`
+      : `Thực hiện ${effectiveAction === 'CHECK_IN' ? 'Check-in' : 'Check-out'} lúc ${timeStr} -> trạng thái ${saved.status} (${saved.workday_value} công).`,
   });
 
   return saved;
@@ -4197,7 +4497,83 @@ export function getLeaveBalances(year = 2026): AnnualLeaveBalance[] {
       !baseEmpCodes.has(rt.employee_code)
   );
 
-  return [...brandNew, ...mergedBase];
+  const allEmployees = getAllRuntimeEmployees();
+  const empById = new Map<string, Employee>();
+  const empByCode = new Map<string, Employee>();
+  for (const emp of allEmployees) {
+    if (emp.id) empById.set(emp.id, emp);
+    if (emp.employee_code) empByCode.set(emp.employee_code, emp);
+  }
+
+  const existing = [...brandNew, ...mergedBase].filter((b) => {
+    const emp =
+      (b.employee_id ? empById.get(b.employee_id) : undefined) ??
+      (b.employee_code ? empByCode.get(b.employee_code) : undefined);
+    if (!emp) return false;
+    return (
+      isOfficialEmployeeStatus(emp.employment_status) ||
+      emp.employment_status === 'NOTICE_PERIOD' ||
+      emp.employment_status === 'ON_LEAVE'
+    );
+  });
+  const coveredEmpIds = new Set(
+    existing.map((b) => b.employee_id).filter(Boolean)
+  );
+  const coveredEmpCodes = new Set(
+    existing.map((b) => b.employee_code).filter(Boolean)
+  );
+
+  const officialFallbacks: AnnualLeaveBalance[] = [];
+  for (const emp of allEmployees) {
+    if (!isOfficialEmployeeStatus(emp.employment_status)) continue;
+    if (coveredEmpIds.has(emp.id) || coveredEmpCodes.has(emp.employee_code)) {
+      continue;
+    }
+
+    const nearestRuntime = runtimeList
+      .filter(
+        (rt) =>
+          rt.employee_id === emp.id || rt.employee_code === emp.employee_code
+      )
+      .sort(
+        (a, b) =>
+          Math.abs(a.year - year) - Math.abs(b.year - year) || b.year - a.year
+      )[0];
+
+    const fallbackRecord: AnnualLeaveBalance = nearestRuntime
+      ? {
+          ...nearestRuntime,
+          id: `alb-rt-${emp.employee_code || emp.id}-${year}`,
+          employee_id: emp.id,
+          employee_code: emp.employee_code,
+          full_name: emp.full_name,
+          department_name: emp.department_name,
+          year,
+          carried_over_days: 0,
+          used_days: 0,
+          pending_days: 0,
+          remaining_days: nearestRuntime.total_entitled_days,
+        }
+      : {
+          id: `alb-rt-${emp.employee_code || emp.id}-${year}`,
+          employee_id: emp.id,
+          employee_code: emp.employee_code,
+          full_name: emp.full_name,
+          department_name: emp.department_name,
+          year,
+          total_entitled_days: 12,
+          carried_over_days: 0,
+          used_days: 0,
+          pending_days: 0,
+          remaining_days: 12,
+        };
+
+    coveredEmpIds.add(emp.id);
+    coveredEmpCodes.add(emp.employee_code);
+    officialFallbacks.push(fallbackRecord);
+  }
+
+  return [...existing, ...officialFallbacks];
 }
 
 export function saveLeaveBalance(
@@ -6970,6 +7346,8 @@ export function checkCandidateRehireWarning(params: {
 // Demo Reset & Cross-Device Sync Registry
 // ---------------------------------------------------------------------------
 
+export const STORAGE_BOOT_EPOCH_KEY = 'hrm_runtime_boot_epoch_v1';
+
 export const ALL_RUNTIME_SYNC_KEYS = [
   STORAGE_NOTIFICATIONS_KEY,
   STORAGE_REQUESTS_KEY,
@@ -7122,6 +7500,85 @@ export function saveWifiAttendancePolicy(
   return next;
 }
 
+function clearStaleRuntimeAuthSession(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const savedRole = (window.localStorage.getItem('lacviet_hrm_role') || '').trim();
+    const savedProfileRaw = window.localStorage.getItem('lacviet_hrm_profile');
+    const savedEmail = (window.localStorage.getItem('lacviet_hrm_email') || '')
+      .trim()
+      .toLowerCase();
+    const appliedCandidateEmail = window.localStorage.getItem('lacviet_applied_candidate_email');
+
+    if (!savedRole && !savedProfileRaw && !savedEmail && !appliedCandidateEmail) {
+      return;
+    }
+
+    let parsedProfile: { employee_code?: string; email?: string } | null = null;
+    if (savedProfileRaw) {
+      try {
+        parsedProfile = JSON.parse(savedProfileRaw) as {
+          employee_code?: string;
+          email?: string;
+        };
+      } catch {
+        parsedProfile = null;
+      }
+    }
+
+    const empCode = (parsedProfile?.employee_code || '').trim().toUpperCase();
+    const profileEmail = (parsedProfile?.email || savedEmail).trim().toLowerCase();
+
+    const matchedMockEmp =
+      empCode.length > 0 && profileEmail.length > 0
+        ? MOCK_EMPLOYEES.find(
+            (e) =>
+              e.employee_code.trim().toUpperCase() === empCode &&
+              e.email.trim().toLowerCase() === profileEmail &&
+              e.employment_status === 'ACTIVE'
+          )
+        : undefined;
+
+    const matchedMockUser =
+      empCode.length > 0 && profileEmail.length > 0
+        ? MOCK_SYSTEM_USERS.find(
+            (u) =>
+              u.employee_code.trim().toUpperCase() === empCode &&
+              u.email.trim().toLowerCase() === profileEmail &&
+              u.account_status === 'ACTIVE'
+          )
+        : undefined;
+
+    const isLockedMockUser =
+      (empCode.length > 0 || profileEmail.length > 0) &&
+      MOCK_SYSTEM_USERS.some(
+        (u) =>
+          (empCode.length > 0 && u.employee_code.trim().toUpperCase() === empCode) ||
+          (profileEmail.length > 0 && u.email.trim().toLowerCase() === profileEmail)
+      ) &&
+      !matchedMockUser;
+
+    const isValidActiveMockSession =
+      savedRole !== 'CANDIDATE' &&
+      !isLockedMockUser &&
+      Boolean(matchedMockEmp || matchedMockUser);
+
+    if (!isValidActiveMockSession) {
+      window.localStorage.removeItem('lacviet_hrm_role');
+      window.localStorage.removeItem('lacviet_hrm_email');
+      window.localStorage.removeItem('lacviet_hrm_profile');
+      window.localStorage.removeItem('lacviet_applied_candidate_email');
+      if (typeof document !== 'undefined') {
+        document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'hrm_token=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'hrm_active=; path=/; max-age=0; SameSite=Lax';
+      }
+    }
+  } catch {
+    // Ignore storage or cookie errors
+  }
+}
+
 export function resetAllDemoRuntimeData(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -7131,6 +7588,7 @@ export function resetAllDemoRuntimeData(): void {
       lastLocalWriteAt[key] = now;
       window.localStorage.removeItem(key);
     }
+    clearStaleRuntimeAuthSession();
     if (typeof fetch === 'function') {
       const resetPayload: Record<string, unknown[]> = Object.create(null);
       for (const key of ALL_RUNTIME_SYNC_KEYS) {
@@ -7142,7 +7600,18 @@ export function resetAllDemoRuntimeData(): void {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullSync: resetPayload, resetStore: true }),
-      }).catch(() => {});
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && typeof data.bootEpoch === 'string' && data.bootEpoch.length > 0) {
+            try {
+              window.localStorage.setItem(STORAGE_BOOT_EPOCH_KEY, data.bootEpoch);
+            } catch {
+              // Ignore storage errors
+            }
+          }
+        })
+        .catch(() => {});
     }
     window.dispatchEvent(new CustomEvent(HRM_RUNTIME_EVENT));
     window.dispatchEvent(new CustomEvent('hrm-audit-updated'));
@@ -7199,14 +7668,59 @@ export function initRuntimeSync(): () => void {
 
   const ALL_SYNC_KEYS = ALL_RUNTIME_SYNC_KEYS;
 
-  const doSync = async () => {
+  const doSync = async (): Promise<boolean> => {
     try {
       const res = await fetch('/api/hrm/sync');
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const data = await res.json();
-      if (data?.stores && typeof data.stores === 'object') {
+      const serverStores =
+        data?.stores && typeof data.stores === 'object'
+          ? (data.stores as Record<string, unknown>)
+          : null;
+
+      if (typeof data?.bootEpoch === 'string' && data.bootEpoch.length > 0) {
+        const storedEpoch = window.localStorage.getItem(STORAGE_BOOT_EPOCH_KEY);
+        if (storedEpoch !== data.bootEpoch) {
+          const serverHasNonEmptyData =
+            Boolean(serverStores) &&
+            Object.values(serverStores as Record<string, unknown>).some(
+              (v) => Array.isArray(v) && v.length > 0
+            );
+          const hasRecentLocalWrite = Object.values(lastLocalWriteAt).some(
+            (ts) => Date.now() - ts < 5 * 60 * 1000
+          );
+          const shouldResetClientStore =
+            Boolean(storedEpoch) || (!serverHasNonEmptyData && !hasRecentLocalWrite);
+
+          if (!shouldResetClientStore) {
+            window.localStorage.setItem(STORAGE_BOOT_EPOCH_KEY, data.bootEpoch);
+          } else {
+            const keysToRemove = [...ALL_RUNTIME_SYNC_KEYS, 'hrm_audit_logs_v1'];
+            for (const key of keysToRemove) {
+              window.localStorage.removeItem(key);
+            }
+            for (const k of Object.keys(lastLocalWriteAt)) {
+              delete lastLocalWriteAt[k];
+            }
+            clearStaleRuntimeAuthSession();
+            window.localStorage.setItem(STORAGE_BOOT_EPOCH_KEY, data.bootEpoch);
+            if (serverStores) {
+              for (const [key, items] of Object.entries(serverStores)) {
+                if (Array.isArray(items) && items.length > 0) {
+                  window.localStorage.setItem(key, JSON.stringify(items));
+                }
+              }
+            }
+            emitRuntimeUpdated();
+            window.dispatchEvent(new CustomEvent('hrm-audit-updated'));
+            return true;
+          }
+        }
+      }
+
+      if (serverStores) {
         let changed = false;
-        for (const [key, items] of Object.entries(data.stores)) {
+        for (const [key, items] of Object.entries(serverStores)) {
           if (Date.now() - (lastLocalWriteAt[key] || 0) < 4000) {
             continue;
           }
@@ -7225,20 +7739,26 @@ export function initRuntimeSync(): () => void {
           emitRuntimeUpdated();
         }
       }
+      return false;
     } catch {
       // Ignore network errors
+      return false;
     }
   };
 
-  // 1. Initial pull
-  doSync();
-
-  // 2. Initial push if server has empty store
+  // 1. Helper: push local items to server only when bootEpoch matches
   const pushIfServerEmpty = async () => {
     try {
       const res = await fetch('/api/hrm/sync');
       if (!res.ok) return;
       const data = await res.json();
+      if (
+        typeof data?.bootEpoch === 'string' &&
+        data.bootEpoch.length > 0 &&
+        !window.localStorage.getItem(STORAGE_BOOT_EPOCH_KEY)
+      ) {
+        window.localStorage.setItem(STORAGE_BOOT_EPOCH_KEY, data.bootEpoch);
+      }
       const serverStores = data?.stores || {};
       const pushPayload: Record<string, unknown> = {};
       for (const k of ALL_SYNC_KEYS) {
@@ -7254,13 +7774,34 @@ export function initRuntimeSync(): () => void {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fullSync: pushPayload }),
-        }).catch(() => {});
+        })
+          .then((postRes) => (postRes.ok ? postRes.json() : null))
+          .then((postData) => {
+            if (
+              postData &&
+              typeof postData.bootEpoch === 'string' &&
+              postData.bootEpoch.length > 0
+            ) {
+              try {
+                window.localStorage.setItem(STORAGE_BOOT_EPOCH_KEY, postData.bootEpoch);
+              } catch {
+                // Ignore storage errors
+              }
+            }
+          })
+          .catch(() => {});
       }
     } catch {
       // Ignore errors
     }
   };
-  pushIfServerEmpty();
+
+  // 2. Initial pull sequentially before deciding whether to push local store
+  void doSync().then((epochChanged) => {
+    if (!epochChanged) {
+      void pushIfServerEmpty();
+    }
+  });
 
   // 3. Periodic polling every 3s + sync on focus/visibilitychange
   const timer = setInterval(doSync, 3000);

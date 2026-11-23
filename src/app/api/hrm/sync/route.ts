@@ -5,6 +5,8 @@ import path from 'path';
 declare global {
   // eslint-disable-next-line no-var
   var _hrmSyncStore: Record<string, unknown> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmBootEpoch: string | undefined;
 }
 
 const DATA_DIR = path.join(process.cwd(), '.data');
@@ -49,15 +51,31 @@ function createNullProtoStore(source?: unknown): Record<string, unknown> {
   return target;
 }
 
+function createBootEpoch(): string {
+  return `boot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
 function getStore(): Record<string, unknown> {
   if (globalThis._hrmSyncStore && Object.keys(globalThis._hrmSyncStore).length > 0) {
+    if (!globalThis._hrmBootEpoch) {
+      globalThis._hrmBootEpoch = createBootEpoch();
+    }
     return globalThis._hrmSyncStore;
   }
   try {
     if (fs.existsSync(DATA_FILE)) {
       const content = fs.readFileSync(DATA_FILE, 'utf-8');
       const parsed = JSON.parse(content) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const rawEpoch = (parsed as Record<string, unknown>)._bootEpoch;
+        if (typeof rawEpoch === 'string' && rawEpoch.trim().length > 0) {
+          globalThis._hrmBootEpoch = rawEpoch.trim();
+        }
+      }
       globalThis._hrmSyncStore = createNullProtoStore(parsed);
+      if (!globalThis._hrmBootEpoch) {
+        globalThis._hrmBootEpoch = createBootEpoch();
+      }
       return globalThis._hrmSyncStore;
     }
   } catch {
@@ -66,7 +84,20 @@ function getStore(): Record<string, unknown> {
   if (!globalThis._hrmSyncStore) {
     globalThis._hrmSyncStore = Object.create(null) as Record<string, unknown>;
   }
+  if (!globalThis._hrmBootEpoch) {
+    globalThis._hrmBootEpoch = createBootEpoch();
+  }
   return globalThis._hrmSyncStore;
+}
+
+function getBootEpoch(): string {
+  if (!globalThis._hrmBootEpoch) {
+    getStore();
+  }
+  if (!globalThis._hrmBootEpoch) {
+    globalThis._hrmBootEpoch = createBootEpoch();
+  }
+  return globalThis._hrmBootEpoch;
 }
 
 function persistStore(): void {
@@ -74,7 +105,11 @@ function persistStore(): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(globalThis._hrmSyncStore || {}, null, 2), 'utf-8');
+    const payload = {
+      _bootEpoch: getBootEpoch(),
+      ...(globalThis._hrmSyncStore || {}),
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
   } catch {
     // ignore file write errors in restricted environments
   }
@@ -215,7 +250,7 @@ function mergeArrayById(
 
 export async function GET() {
   const stores = getStore();
-  return NextResponse.json({ ok: true, success: true, stores });
+  return NextResponse.json({ ok: true, success: true, bootEpoch: getBootEpoch(), stores });
 }
 
 export async function POST(req: Request) {
@@ -259,6 +294,27 @@ export async function POST(req: Request) {
     const allowReset = body.resetStore === true || resetStore === true;
     const store = getStore();
 
+    if (allowReset) {
+      globalThis._hrmSyncStore = Object.create(null) as Record<string, unknown>;
+      if (fullSync && typeof fullSync === 'object' && !Array.isArray(fullSync)) {
+        for (const [syncKey, syncVal] of Object.entries(fullSync as Record<string, unknown>)) {
+          if (!isAllowedSyncKey(syncKey) || !Array.isArray(syncVal)) {
+            continue;
+          }
+          globalThis._hrmSyncStore[syncKey] = mergeArrayById(
+            [],
+            syncVal,
+            syncKey,
+            allowRollback,
+            true
+          );
+        }
+      }
+      globalThis._hrmBootEpoch = createBootEpoch();
+      persistStore();
+      return NextResponse.json({ ok: true, success: true, bootEpoch: getBootEpoch() });
+    }
+
     if (fullSync && typeof fullSync === 'object' && !Array.isArray(fullSync)) {
       for (const [syncKey, syncVal] of Object.entries(fullSync as Record<string, unknown>)) {
         if (!isAllowedSyncKey(syncKey) || !Array.isArray(syncVal)) {
@@ -285,7 +341,7 @@ export async function POST(req: Request) {
     }
 
     persistStore();
-    return NextResponse.json({ ok: true, success: true });
+    return NextResponse.json({ ok: true, success: true, bootEpoch: getBootEpoch() });
   } catch {
     return NextResponse.json(
       { ok: false, success: false, error: 'Lỗi đồng bộ dữ liệu nội bộ' },

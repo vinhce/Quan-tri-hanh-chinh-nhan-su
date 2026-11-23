@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  ROLE_DEFAULT_PROFILES,
   useApp,
   type RoleCode,
   type UserProfileOverride,
@@ -142,6 +143,34 @@ const ROLE_ACTOR_DEFAULT: Record<
   },
 };
 
+function isExplicitCustomIdentity(
+  role: RoleCode,
+  profile: UserProfileOverride | null,
+  email: string | null
+): boolean {
+  const explicitCode = profile?.employee_code?.trim().toLowerCase() || '';
+  const defaultCode = ROLE_ACTOR_DEFAULT[role].code.trim().toLowerCase();
+  const defaultProfileCode =
+    ROLE_DEFAULT_PROFILES[role]?.employee_code?.trim().toLowerCase() || '';
+
+  if (
+    explicitCode &&
+    explicitCode !== defaultCode &&
+    explicitCode !== defaultProfileCode
+  ) {
+    return true;
+  }
+
+  const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
+  const defaultEmail =
+    ROLE_DEFAULT_PROFILES[role]?.email?.trim().toLowerCase() || '';
+  if (candidateEmail && candidateEmail !== defaultEmail) {
+    return true;
+  }
+
+  return false;
+}
+
 function resolveLoggedInEmployee(
   employees: Employee[],
   role: RoleCode,
@@ -150,11 +179,10 @@ function resolveLoggedInEmployee(
 ): Employee | null {
   if (employees.length === 0) return null;
 
-  if (profile?.employee_code) {
+  const explicitCode = profile?.employee_code?.trim().toLowerCase() || '';
+  if (explicitCode) {
     const byCode = employees.find(
-      (e) =>
-        e.employee_code.toLowerCase() ===
-        profile.employee_code!.trim().toLowerCase()
+      (e) => e.employee_code.trim().toLowerCase() === explicitCode
     );
     if (byCode) return byCode;
   }
@@ -162,10 +190,18 @@ function resolveLoggedInEmployee(
   const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
   if (candidateEmail) {
     const exactEmail = employees.find(
-      (e) => e.email.toLowerCase() === candidateEmail
+      (e) => e.email.trim().toLowerCase() === candidateEmail
     );
     if (exactEmail) return exactEmail;
+  }
 
+  // Nếu người dùng đăng nhập bằng mã nhân viên hoặc email riêng (không phải tài khoản demo mặc định của vai trò),
+  // tuyệt đối không fallback sang nhân viên mẫu ROLE_ACTOR_DEFAULT[role] (vd NV-2024-004).
+  if (isExplicitCustomIdentity(role, profile, email)) {
+    return null;
+  }
+
+  if (candidateEmail) {
     const localPart = candidateEmail.split('@')[0];
     if (localPart) {
       const byLocal = employees.find(
@@ -176,11 +212,7 @@ function resolveLoggedInEmployee(
   }
 
   const fallbackCode = ROLE_ACTOR_DEFAULT[role].code;
-  return (
-    employees.find((e) => e.employee_code === fallbackCode) ??
-    employees[0] ??
-    null
-  );
+  return employees.find((e) => e.employee_code === fallbackCode) ?? null;
 }
 
 function getEffectiveStatus(req: LeaveOvertimeRequest): MultiStepRequestStatus {
@@ -497,16 +529,23 @@ export function RequestsView() {
   );
 
   const actorFallback = ROLE_ACTOR_DEFAULT[role];
+  const hasCustomIdentity = isExplicitCustomIdentity(
+    role,
+    currentUserProfile,
+    currentUserEmail
+  );
   const currentEmployeeCode =
     currentEmp?.employee_code ??
-    currentUserProfile?.employee_code ??
-    actorFallback.code;
+    currentUserProfile?.employee_code?.trim() ??
+    (hasCustomIdentity ? '' : actorFallback.code);
   const currentEmployeeName =
-    currentEmp?.full_name ?? currentUserProfile?.fullName ?? actorFallback.name;
+    currentEmp?.full_name ??
+    currentUserProfile?.fullName?.trim() ??
+    (hasCustomIdentity ? currentUserEmail?.trim() || '' : actorFallback.name);
   const currentDepartment =
     currentEmp?.department_name ??
-    currentUserProfile?.department ??
-    actorFallback.dept;
+    currentUserProfile?.department?.trim() ??
+    (hasCustomIdentity ? '' : actorFallback.dept);
 
   // Keep formEmployeeCode synced to logged-in employee when not explicitly overridden
   useEffect(() => {
@@ -600,10 +639,12 @@ export function RequestsView() {
   }, [canSelectRequester, formEmployeeCode, employees, currentEmp]);
 
   const myLeaveBalance = useMemo(() => {
+    if (!currentEmployeeCode && !currentEmp) return null;
     return (
       leaveBalances.find(
         (b) =>
-          b.employee_code === currentEmployeeCode ||
+          (Boolean(currentEmployeeCode) &&
+            b.employee_code === currentEmployeeCode) ||
           (currentEmp && b.employee_id === currentEmp.id)
       ) ?? null
     );
@@ -613,10 +654,12 @@ export function RequestsView() {
     const targetCode =
       targetRequesterEmp?.employee_code ?? currentEmployeeCode;
     const targetId = targetRequesterEmp?.id;
+    if (!targetCode && !targetId) return null;
     return (
       leaveBalances.find(
         (b) =>
-          b.employee_code === targetCode || (targetId && b.employee_id === targetId)
+          (Boolean(targetCode) && b.employee_code === targetCode) ||
+          (targetId && b.employee_id === targetId)
       ) ?? null
     );
   }, [leaveBalances, targetRequesterEmp, currentEmployeeCode]);
@@ -699,9 +742,10 @@ export function RequestsView() {
     // EMPLOYEE (also sees any pending requests explicitly re-assigned to them via current_approver_id)
     return requests.filter(
       (r) =>
-        r.employee_code === currentEmployeeCode ||
+        (Boolean(currentEmployeeCode) &&
+          r.employee_code === currentEmployeeCode) ||
         (currentEmp && r.employee_id === currentEmp.id) ||
-        r.full_name === currentEmployeeName ||
+        (Boolean(currentEmployeeName) && r.full_name === currentEmployeeName) ||
         Boolean(currentEmp && r.current_approver_id === currentEmp.id)
     );
   }, [
@@ -844,7 +888,8 @@ export function RequestsView() {
       const eff = getEffectiveStatus(req);
       if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
       return (
-        req.employee_code === currentEmployeeCode ||
+        (Boolean(currentEmployeeCode) &&
+          req.employee_code === currentEmployeeCode) ||
         Boolean(currentEmp && req.employee_id === currentEmp.id)
       );
     },
@@ -873,7 +918,7 @@ export function RequestsView() {
         const mult = req.ot_multiplier ?? 1.5;
         sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động cộng <b>+${hrs} giờ OT (${mult.toFixed(1)}x)</b> vào bảng tổng hợp công tháng.</span>`;
       } else if (req.request_category === 'LATE_EXPLANATION') {
-        sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động xóa trạng thái <b>MISSING_PUNCH (0.0 công)</b> ngày <b>${formatDateVN(
+        sideEffectHtml = `<br/><span style="color:#0F766E">• Tự động xóa trạng thái <b>Quên chấm công (0.0 công)</b> ngày <b>${formatDateVN(
           req.target_date || req.start_datetime
         )}</b> và khôi phục công hợp lệ.</span>`;
       } else {
@@ -1294,14 +1339,9 @@ export function RequestsView() {
 
     // Annual Leave live balance check & block if exceeding remaining_days
     if (formCategory === 'ANNUAL_LEAVE') {
-      const isProbationWithoutLeave =
-        targetRequesterEmp?.employment_status === 'PROBATION' &&
-        !formRequesterBalance;
       const availableDays = formRequesterBalance
         ? formRequesterBalance.remaining_days
-        : isProbationWithoutLeave
-          ? 0
-          : 12;
+        : 0;
 
       if (numericDuration > availableDays) {
         const msg =
@@ -1581,11 +1621,7 @@ export function RequestsView() {
   const formExceedsBalance =
     formCategory === 'ANNUAL_LEAVE' &&
     Number(formDuration) >
-      (formRequesterBalance
-        ? formRequesterBalance.remaining_days
-        : targetRequesterEmp?.employment_status === 'PROBATION'
-          ? 0
-          : 12);
+      (formRequesterBalance ? formRequesterBalance.remaining_days : 0);
 
   return (
     <div className="space-y-6">
@@ -1641,9 +1677,7 @@ export function RequestsView() {
             <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
               {myLeaveBalance
                 ? `${myLeaveBalance.remaining_days} ngày`
-                : currentEmp?.employment_status === 'PROBATION'
-                  ? '0 ngày'
-                  : '12 ngày'}
+                : '0 ngày'}
             </p>
             <p className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
               {myLeaveBalance
@@ -2070,9 +2104,7 @@ export function RequestsView() {
                       Còn lại:{' '}
                       {formRequesterBalance
                         ? formRequesterBalance.remaining_days
-                        : targetRequesterEmp?.employment_status === 'PROBATION'
-                          ? 0
-                          : 12}{' '}
+                        : 0}{' '}
                       ngày
                     </span>
                   </div>
@@ -2176,7 +2208,10 @@ export function RequestsView() {
                           <>
                             Bản ghi hiện tại:{' '}
                             <strong className="font-mono text-rose-700 dark:text-rose-400">
-                              {explanationPreview.existingDaily.status} (
+                              {explanationPreview.existingDaily.status === 'MISSING_PUNCH'
+                                ? 'Quên chấm công'
+                                : explanationPreview.existingDaily.status}{' '}
+                              (
                               {explanationPreview.existingDaily.workday_value.toFixed(
                                 1
                               )}{' '}

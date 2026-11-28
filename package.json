@@ -8,8 +8,8 @@
     "css:web": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css",
     "css:web:watch": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css --watch",
     "reset:demo": "node scripts/reset-demo-data.mjs",
-    "predev": "node scripts/export-mock-json.mjs && node scripts/reset-demo-data.mjs",
-    "dev": "next dev",
+    "ai:wake": "node scripts/wake-copilot-space.mjs",
+    "dev": "node scripts/dev-all.mjs",
     "dev:3005": "node scripts/reset-demo-data.mjs && next dev -p 3005",
     "dev:web": "node scripts/serve-web.mjs",
     "prebuild": "node scripts/export-mock-json.mjs",
@@ -22,9 +22,11 @@
     "test:all-workflows": "node scripts/test-all-system-workflows.mjs",
     "test:lifecycle": "node scripts/test-employee-lifecycle.mjs",
     "test:biometric": "node scripts/test-biometric-wifi.mjs",
+    "periocular:start": "powershell -ExecutionPolicy Bypass -File scripts/start-periocular-service.ps1",
     "test": "node scripts/test-hrm.mjs && node scripts/test-recruitment-workflows.mjs && node scripts/test-all-system-workflows.mjs && node scripts/test-employee-lifecycle.mjs && node scripts/test-biometric-wifi.mjs"
   },
   "dependencies": {
+    "@vladmandic/human": "^3.3.6",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "next": "14.2.21",
@@ -39,6 +41,8 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.21",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   AlertTriangle,
   ArrowRight,
@@ -39,26 +40,35 @@ import {
   getContracts,
   getDailyAttendances,
   getExpiringProbationContracts,
+  getHandoverItems,
   getLeaveBalances,
   getMonthlyAttendances,
   getPayrollRecords,
   getResignations,
+  getRuntimeDepartments,
+  isOfficialEmployeeStatus,
   mergeWithRuntimeCandidates,
   mergeWithRuntimeEmployees,
+  mergeWithRuntimeJobs,
   mergeWithRuntimeRequests,
 } from '@/lib/runtime-store';
+import { getWorkItems } from '@/lib/hrm/work-items-store';
 import { cn, formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import type {
   AnnualLeaveBalance,
   BurnoutTurnoverAlert,
   Candidate,
+  Department,
   Employee,
   EmployeeKpiRecord,
   EmploymentContract,
+  HandoverItem,
+  JobPosting,
   LeaveOvertimeRequest,
   PayrollRecord,
   ResignationRequest,
   RiskLevel,
+  WorkItem,
 } from '@/mock/types';
 import { Badge, BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,6 +83,14 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const TodayWorkCard = dynamic(
+  () =>
+    import('@/components/modules/dashboard/today-work-card').then(
+      (m) => m.TodayWorkCard
+    ),
+  { loading: () => <Skeleton className="h-[10rem] w-[100%] rounded-xl" /> }
+);
+
 const RISK_BADGE_MAP: Record<RiskLevel, { label: string; variant: BadgeVariant }> = {
   CRITICAL: { label: 'Rất cao', variant: 'danger' },
   HIGH: { label: 'Cao', variant: 'warning' },
@@ -84,8 +102,9 @@ const ROLE_SUBTITLE: Record<string, string> = {
   SUPER_ADMIN: 'Toàn cảnh vận hành nhân sự, quỹ lương và chỉ số rủi ro toàn hệ thống',
   DIRECTOR: 'Tổng quan điều hành doanh nghiệp, quy mô nhân sự, quỹ lương và cảnh báo rủi ro',
   HR_MANAGER: 'Theo dõi biến động nhân sự, phê duyệt đơn từ, quỹ lương và cảnh báo AI',
-  DEPT_MANAGER: 'Quản lý quân số, tiến độ tuyển dụng và sức khỏe đội ngũ Phòng Kỹ thuật Phần mềm',
+  DEPT_MANAGER: 'Quản lý quân số, tiến độ tuyển dụng và sức khỏe đội ngũ thuộc phòng ban phụ trách',
   EMPLOYEE: 'Tổng quan ngày công, phép năm còn lại và kết quả KPI cá nhân kỳ hiện tại',
+  CANDIDATE: 'Theo dõi trạng thái hồ sơ ứng tuyển và lịch phỏng vấn cá nhân',
 };
 
 export function DashboardView() {
@@ -103,6 +122,8 @@ export function DashboardView() {
   const [baseRequests, setBaseRequests] = useState<LeaveOvertimeRequest[]>([]);
   const [basePayrolls, setBasePayrolls] = useState<PayrollRecord[]>([]);
   const [baseCandidates, setBaseCandidates] = useState<Candidate[]>([]);
+  const [baseJobs, setBaseJobs] = useState<JobPosting[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [contracts, setContracts] = useState<EmploymentContract[]>([]);
   const [burnoutAlerts, setBurnoutAlerts] = useState<BurnoutTurnoverAlert[]>([]);
@@ -112,8 +133,13 @@ export function DashboardView() {
   const [annualLeaveBalances, setAnnualLeaveBalances] = useState<AnnualLeaveBalance[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [resignations, setResignations] = useState<ResignationRequest[]>([]);
-  const [expiringProbationCount, setExpiringProbationCount] = useState<number>(0);
+  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const [handoverItems, setHandoverItems] = useState<HandoverItem[]>([]);
+  const [expiringProbationsList, setExpiringProbationsList] = useState<
+    ReturnType<typeof getExpiringProbationContracts>
+  >([]);
   const [sentAlertIds, setSentAlertIds] = useState<Record<string, boolean>>({});
   const [selectedAlert, setSelectedAlert] = useState<BurnoutTurnoverAlert | null>(null);
 
@@ -132,7 +158,10 @@ export function DashboardView() {
         setBaseRequests(attData.MOCK_LEAVE_OVERTIME_REQUESTS);
         setBasePayrolls(payData.MOCK_PAYROLL_RECORDS);
         setBaseCandidates(atsData.MOCK_CANDIDATES);
+        setBaseJobs(atsData.MOCK_JOB_POSTINGS);
 
+        const rtDepts = getRuntimeDepartments();
+        setDepartments(rtDepts.length > 0 ? rtDepts : empData.MOCK_DEPARTMENTS);
         setEmployees(mergeWithRuntimeEmployees(empData.MOCK_EMPLOYEES));
         setContracts(getContracts(empData.MOCK_CONTRACTS));
         setBurnoutAlerts(empData.MOCK_BURNOUT_ALERTS);
@@ -150,8 +179,11 @@ export function DashboardView() {
           rtPayrolls.length > 0 ? rtPayrolls : payData.MOCK_PAYROLL_RECORDS
         );
         setCandidates(mergeWithRuntimeCandidates(atsData.MOCK_CANDIDATES));
+        setJobs(mergeWithRuntimeJobs(atsData.MOCK_JOB_POSTINGS));
         setResignations(getResignations());
-        setExpiringProbationCount(getExpiringProbationContracts(30).length);
+        setWorkItems(getWorkItems());
+        setHandoverItems(getHandoverItems());
+        setExpiringProbationsList(getExpiringProbationContracts(30));
       })
       .catch(() => {
         if (!active) return;
@@ -168,6 +200,8 @@ export function DashboardView() {
   useEffect(() => {
     if (baseEmployees.length === 0) return;
     const syncDashboardRuntime = () => {
+      const rtDepts = getRuntimeDepartments();
+      if (rtDepts.length > 0) setDepartments(rtDepts);
       setEmployees(mergeWithRuntimeEmployees(baseEmployees));
       setContracts(getContracts(baseContracts));
       setLeaveRequests(mergeWithRuntimeRequests(baseRequests));
@@ -176,8 +210,11 @@ export function DashboardView() {
       const rtPayrolls = getPayrollRecords('2026-11');
       setPayrollRecords(rtPayrolls.length > 0 ? rtPayrolls : basePayrolls);
       setCandidates(mergeWithRuntimeCandidates(baseCandidates));
+      setJobs(mergeWithRuntimeJobs(baseJobs));
       setResignations(getResignations());
-      setExpiringProbationCount(getExpiringProbationContracts(30).length);
+      setWorkItems(getWorkItems());
+      setHandoverItems(getHandoverItems());
+      setExpiringProbationsList(getExpiringProbationContracts(30));
     };
     window.addEventListener(HRM_RUNTIME_EVENT, syncDashboardRuntime);
     window.addEventListener('storage', syncDashboardRuntime);
@@ -191,7 +228,115 @@ export function DashboardView() {
     baseRequests,
     basePayrolls,
     baseCandidates,
+    baseJobs,
   ]);
+
+  const currentEmployee = useMemo(() => {
+    if (role === 'CANDIDATE') return null;
+    const explicitCode = currentUserProfile?.employee_code?.trim();
+    if (explicitCode && !explicitCode.toLowerCase().startsWith('uv-')) {
+      return (
+        employees.find(
+          (e) => e.employee_code.toLowerCase() === explicitCode.toLowerCase()
+        ) ?? null
+      );
+    }
+    const emailNeedle = (currentUserEmail || currentUserProfile?.email || '')
+      .trim()
+      .toLowerCase();
+    if (emailNeedle) {
+      const byExact = employees.find(
+        (e) =>
+          e.email.toLowerCase() === emailNeedle ||
+          e.personal_email?.toLowerCase() === emailNeedle
+      );
+      if (byExact) return byExact;
+      if (
+        emailNeedle.endsWith('@lacviethrm.vn') ||
+        emailNeedle.endsWith('@hrm-enterprise.vn')
+      ) {
+        const localPart = emailNeedle.split('@')[0];
+        return (
+          employees.find(
+            (e) => e.email.split('@')[0].toLowerCase() === localPart
+          ) ?? null
+        );
+      }
+      return null;
+    }
+    const defCode = ROLE_DEFAULT_PROFILES[role]?.employee_code;
+    if (defCode && !defCode.toLowerCase().startsWith('uv-')) {
+      return employees.find((e) => e.employee_code === defCode) ?? null;
+    }
+    return null;
+  }, [employees, currentUserProfile, currentUserEmail, role]);
+
+  const currentEmployeeCode = useMemo(() => {
+    if (role === 'CANDIDATE') return '';
+    if (currentEmployee?.employee_code) return currentEmployee.employee_code;
+    const explicitCode = currentUserProfile?.employee_code?.trim();
+    if (explicitCode && !explicitCode.toLowerCase().startsWith('uv-')) {
+      return explicitCode;
+    }
+    if (!currentUserEmail && !currentUserProfile) {
+      return ROLE_DEFAULT_PROFILES[role]?.employee_code ?? '';
+    }
+    return '';
+  }, [role, currentEmployee, currentUserProfile, currentUserEmail]);
+
+  const managerScope = useMemo(() => {
+    const deptIds = new Set<string>();
+    const deptNames = new Set<string>();
+    if (role !== 'DEPT_MANAGER') {
+      return {
+        deptIds,
+        deptNames,
+        label: 'Phòng ban phụ trách',
+        headcountTarget: 0,
+      };
+    }
+    const explicitDeptId = currentUserProfile?.department_id?.trim();
+    if (explicitDeptId) {
+      deptIds.add(explicitDeptId);
+    }
+    if (
+      currentEmployee &&
+      (!explicitDeptId || currentEmployee.department_id === explicitDeptId)
+    ) {
+      if (currentEmployee.department_id) deptIds.add(currentEmployee.department_id);
+      departments
+        .filter((d) => d.manager_id === currentEmployee.id)
+        .forEach((d) => deptIds.add(d.id));
+    } else if (!explicitDeptId && currentUserProfile?.department) {
+      const byName = departments.find(
+        (d) => d.department_name === currentUserProfile.department
+      );
+      if (byName) deptIds.add(byName.id);
+      else deptNames.add(currentUserProfile.department);
+    }
+
+    const matchedDepts = departments.filter((d) => deptIds.has(d.id));
+    matchedDepts.forEach((d) => deptNames.add(d.department_name));
+    const primaryDept =
+      matchedDepts.find((d) => d.id !== 'dept-tech') ?? matchedDepts[0];
+    const headcountTarget = matchedDepts.reduce((sum, d) => {
+      if (matchedDepts.some((child) => child.parent_id === d.id)) return sum;
+      return sum + d.headcount;
+    }, 0);
+
+    return {
+      deptIds,
+      deptNames,
+      label:
+        primaryDept?.department_name ||
+        currentEmployee?.department_name ||
+        currentUserProfile?.department ||
+        'Phòng ban phụ trách',
+      headcountTarget,
+    };
+  }, [role, currentUserProfile, currentEmployee, departments]);
+
+  const expiringProbationCount = expiringProbationsList.length;
 
   const totalEmployees = employees.length;
   const activeEmployees = useMemo(
@@ -247,40 +392,109 @@ export function DashboardView() {
     [contracts]
   );
 
+  const deptAllEmployees = useMemo(
+    () =>
+      employees.filter(
+        (e) =>
+          managerScope.deptIds.has(e.department_id) ||
+          managerScope.deptNames.has(e.department_name)
+      ),
+    [employees, managerScope]
+  );
   const deptEmployees = useMemo(
-    () => employees.filter((e) => e.department_id === 'dept-tech-swe'),
-    [employees]
+    () => deptAllEmployees.filter((e) => e.employment_status !== 'RESIGNED'),
+    [deptAllEmployees]
   );
-  const deptPendingRequests = useMemo(
+  const deptPendingRequests = useMemo(() => {
+    const empIds = new Set(deptAllEmployees.map((e) => e.id));
+    const empCodes = new Set(deptAllEmployees.map((e) => e.employee_code));
+    return pendingRequests.filter(
+      (r) =>
+        empIds.has(r.employee_id) ||
+        empCodes.has(r.employee_code) ||
+        managerScope.deptNames.has(r.department_name)
+    );
+  }, [pendingRequests, deptAllEmployees, managerScope]);
+
+  const deptExpiringProbationCount = useMemo(
     () =>
-      leaveRequests.filter(
-        (r) =>
-          r.approval_status === 'PENDING' &&
-          r.department_name === 'Phòng Kỹ thuật Phần mềm'
-      ),
-    [leaveRequests]
-  );
-  const deptAlerts = useMemo(
-    () =>
-      burnoutAlerts.filter(
-        (a) => a.department_name === 'Phòng Kỹ thuật Phần mềm'
-      ),
-    [burnoutAlerts]
+      expiringProbationsList.filter(
+        (item) =>
+          (item.employee &&
+            managerScope.deptIds.has(item.employee.department_id)) ||
+          managerScope.deptNames.has(item.contract.department_name)
+      ).length,
+    [expiringProbationsList, managerScope]
   );
 
+  const deptActiveOffboardingsCount = useMemo(() => {
+    const empIds = new Set(deptAllEmployees.map((e) => e.id));
+    return resignations.filter(
+      (r) =>
+        r.status !== 'COMPLETED' &&
+        r.status !== 'REJECTED' &&
+        r.status !== 'CANCELLED' &&
+        (managerScope.deptIds.has(r.department_id) ||
+          managerScope.deptNames.has(r.department_name) ||
+          empIds.has(r.employee_id))
+    ).length;
+  }, [resignations, deptAllEmployees, managerScope]);
+
+  const deptInterviewCandidatesCount = useMemo(() => {
+    const deptJobIds = new Set(
+      jobs
+        .filter(
+          (j) =>
+            managerScope.deptIds.has(j.department_id) ||
+            managerScope.deptNames.has(j.department_name)
+        )
+        .map((j) => j.id)
+    );
+    return candidates.filter(
+      (c) =>
+        c.stage === 'INTERVIEW' &&
+        (deptJobIds.has(c.job_id) || managerScope.deptNames.has(c.department_name))
+    ).length;
+  }, [candidates, jobs, managerScope]);
+
+  const deptAlerts = useMemo(() => {
+    const empMapById = new Map(employees.map((e) => [e.id, e]));
+    const empMapByCode = new Map(employees.map((e) => [e.employee_code, e]));
+    return burnoutAlerts.filter((a) => {
+      const emp = empMapById.get(a.employee_id) ?? empMapByCode.get(a.employee_code);
+      if (emp) {
+        if (emp.employment_status === 'RESIGNED') return false;
+        return (
+          managerScope.deptIds.has(emp.department_id) ||
+          managerScope.deptNames.has(emp.department_name)
+        );
+      }
+      return managerScope.deptNames.has(a.department_name);
+    });
+  }, [burnoutAlerts, employees, managerScope]);
+
   const visibleAlerts = useMemo(() => {
+    if (role === 'EMPLOYEE' || role === 'CANDIDATE') return [];
     if (role === 'DEPT_MANAGER') return deptAlerts;
-    if (role === 'EMPLOYEE') return [];
     return burnoutAlerts;
   }, [role, deptAlerts, burnoutAlerts]);
 
-  const currentEmployeeCode =
-    currentUserProfile?.employee_code ||
-    ROLE_DEFAULT_PROFILES[role]?.employee_code ||
-    'NV-2024-004';
   const personalLeave = useMemo(() => {
+    if (
+      !currentEmployeeCode ||
+      !currentEmployee ||
+      !isOfficialEmployeeStatus(currentEmployee.employment_status)
+    ) {
+      return {
+        total_entitled_days: 0,
+        total_days: 0,
+        used_days: 0,
+        pending_days: 0,
+        remaining_days: 0,
+      };
+    }
     const found = annualLeaveBalances.find(
-      (b) => b.employee_code === currentEmployeeCode
+      (b) => b.employee_code.toLowerCase() === currentEmployeeCode.toLowerCase()
     );
     if (found) {
       return {
@@ -295,7 +509,7 @@ export function DashboardView() {
       pending_days: 0,
       remaining_days: 12,
     };
-  }, [annualLeaveBalances, currentEmployeeCode]);
+  }, [annualLeaveBalances, currentEmployeeCode, currentEmployee]);
 
   const personalKpi = useMemo(() => {
     const found = kpiRecords.find(
@@ -397,22 +611,18 @@ export function DashboardView() {
             Dashboard tổng quan
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            {ROLE_SUBTITLE[role] ?? ROLE_SUBTITLE.HR_MANAGER}
+            {role === 'DEPT_MANAGER'
+              ? `Quản lý quân số, tiến độ tuyển dụng và sức khỏe đội ngũ ${managerScope.label}`
+              : ROLE_SUBTITLE[role] ?? ROLE_SUBTITLE.EMPLOYEE}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {role !== 'EMPLOYEE' ? (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setActiveNav('leaves')}>
-                <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
-                Duyệt đơn từ ({pendingRequests.length})
-              </Button>
-              <Button variant="primary" size="sm" onClick={() => setActiveNav('ats')}>
-                <Briefcase className="h-4 w-4" strokeWidth={1.5} />
-                Tuyển dụng ATS
-              </Button>
-            </>
-          ) : (
+          {role === 'CANDIDATE' ? (
+            <Button variant="primary" size="sm" onClick={() => setActiveNav('candidate')}>
+              <Briefcase className="h-4 w-4" strokeWidth={1.5} />
+              Mở Cổng ứng viên
+            </Button>
+          ) : role === 'EMPLOYEE' ? (
             <>
               <Button variant="outline" size="sm" onClick={() => setActiveNav('leaves')}>
                 <CalendarClock className="h-4 w-4" strokeWidth={1.5} />
@@ -423,9 +633,57 @@ export function DashboardView() {
                 Xem phiếu lương
               </Button>
             </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setActiveNav('leaves')}>
+                <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
+                Duyệt đơn từ (
+                {role === 'DEPT_MANAGER'
+                  ? deptPendingRequests.length
+                  : pendingRequests.length}
+                )
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setActiveNav('ats')}>
+                <Briefcase className="h-4 w-4" strokeWidth={1.5} />
+                Tuyển dụng ATS
+              </Button>
+            </>
           )}
         </div>
       </div>
+
+      <TodayWorkCard
+        role={role}
+        actorEmployee={currentEmployee}
+        employees={employees}
+        managedDepartmentIds={Array.from(managerScope.deptIds)}
+        workItems={workItems}
+        pendingApprovalsCount={
+          role === 'DEPT_MANAGER'
+            ? deptPendingRequests.length
+            : pendingRequests.length
+        }
+        activeHandoversCount={
+          handoverItems.filter((h) => {
+            if (h.status === 'COMPLETED') return false;
+            if (role === 'EMPLOYEE') {
+              return (
+                Boolean(currentEmployee) &&
+                (h.employee_id === currentEmployee?.id ||
+                  h.receiver_employee_id === currentEmployee?.id)
+              );
+            }
+            if (role === 'DEPT_MANAGER') {
+              return (
+                deptAllEmployees.some((e) => e.id === h.employee_id) ||
+                h.receiver_employee_id === currentEmployee?.id
+              );
+            }
+            return true;
+          }).length
+        }
+        onNavigate={(navId) => setActiveNav(navId)}
+      />
 
       {/* KPI Cards */}
       {(role === 'HR_MANAGER' || role === 'SUPER_ADMIN' || role === 'DIRECTOR') && (
@@ -538,7 +796,7 @@ export function DashboardView() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                  Nhân sự phòng Kỹ thuật PM
+                  Nhân sự {managerScope.label}
                 </span>
                 <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
               </div>
@@ -546,10 +804,12 @@ export function DashboardView() {
                 <span className="font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                   {deptEmployees.length}
                 </span>
-                <span className="text-xs text-[#5C7871] dark:text-zinc-400">hồ sơ trọng tâm</span>
+                <span className="text-xs text-[#5C7871] dark:text-zinc-400">hồ sơ trực thuộc</span>
               </div>
               <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Định biên toàn phòng: 28 kỹ sư
+                {managerScope.headcountTarget > 0
+                  ? `Định biên phòng ban: ${managerScope.headcountTarget} nhân sự`
+                  : 'Nhân sự thuộc phạm vi quản lý'}
               </p>
             </CardContent>
           </Card>
@@ -589,7 +849,7 @@ export function DashboardView() {
               </div>
               <div className="mt-2">
                 <span className="font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
-                  {candidates.filter((c) => c.stage === 'INTERVIEW').length}
+                  {deptInterviewCandidatesCount}
                 </span>
               </div>
               <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
@@ -617,6 +877,25 @@ export function DashboardView() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {role === 'CANDIDATE' && (
+        <Card className="border-l-4 border-l-[#0F766E] dark:border-l-teal-400">
+          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                Cổng thông tin Ứng viên dự tuyển
+              </p>
+              <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
+                Vui lòng truy cập Cổng ứng viên để xem tiến độ hồ sơ, lịch phỏng vấn và phản hồi thư mời nhận việc của bạn.
+              </p>
+            </div>
+            <Button variant="primary" size="sm" onClick={() => setActiveNav('candidate')}>
+              Đi tới Cổng ứng viên
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {role === 'EMPLOYEE' && (
@@ -712,104 +991,158 @@ export function DashboardView() {
       )}
 
       {/* Chart + Quick Summary */}
-      {role !== 'EMPLOYEE' && (
+      {role !== 'EMPLOYEE' && role !== 'CANDIDATE' && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <div>
-              <CardTitle>Biến động nhân sự 6 tháng gần nhất</CardTitle>
-              <CardDescription>
-                Quy mô nhân sự toàn công ty từ 06/2026 đến 11/2026 (đơn vị: người)
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-[#415A54] dark:text-zinc-400">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-[#0F766E] dark:bg-teal-400" />
-                Tổng nhân sự
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-[#B5CEC7] dark:bg-zinc-600" />
-                Tuyển mới
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={headcountTrend}
-                  margin={{ top: 8, right: 12, left: -16, bottom: 0 }}
-                  barGap={4}
-                >
-                  <CartesianGrid
-                    stroke={chartStrokeColor}
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: chartTickColor, fontSize: 11, fontFamily: 'monospace' }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: chartTickColor, fontSize: 11, fontFamily: 'monospace' }}
-                  />
-                  <Tooltip
-                    cursor={{ fill: theme === 'dark' ? 'rgba(39,39,42,0.5)' : 'rgba(232,243,239,0.75)' }}
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || !payload.length) return null;
-                      const row = payload[0].payload as HeadcountTrendItem;
-                      return (
-                        <div className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-xs shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900">
-                          <p className="font-mono font-semibold text-[#11221E] dark:text-zinc-100">
-                            Tháng {label}
-                          </p>
-                          <div className="mt-1.5 space-y-1">
-                            <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
-                              <span>Tổng nhân sự:</span>
-                              <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
-                                {formatNumberVN(row.total_headcount)}
-                              </span>
-                            </p>
-                            <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
-                              <span>Tuyển mới:</span>
-                              <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
-                                +{row.new_hires}
-                              </span>
-                            </p>
-                            <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
-                              <span>Nghỉ việc:</span>
-                              <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
-                                -{row.resigned}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Bar
-                    dataKey="total_headcount"
-                    name="Tổng nhân sự"
-                    fill={barPrimaryColor}
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={32}
-                  />
-                  <Bar
-                    dataKey="new_hires"
-                    name="Tuyển mới"
-                    fill={barSecondaryColor}
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={20}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+          {role === 'DEPT_MANAGER' ? (
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle>Cơ cấu nhân sự {managerScope.label}</CardTitle>
+                <CardDescription>
+                  Thống kê nhân sự trực thuộc phạm vi phòng ban quản lý (cô lập dữ liệu theo RBAC)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                  <div className="text-xs text-[#5C7871] dark:text-zinc-400">Đang làm việc</div>
+                  <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {deptEmployees.length}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                  <div className="text-xs text-[#5C7871] dark:text-zinc-400">Thử việc / Chờ nhận</div>
+                  <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
+                    {
+                      deptEmployees.filter(
+                        (e) =>
+                          e.employment_status === 'PROBATION' ||
+                          e.employment_status === 'PENDING_ONBOARD'
+                      ).length
+                    }
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                  <div className="text-xs text-[#5C7871] dark:text-zinc-400">Đang báo trước nghỉ</div>
+                  <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+                    {
+                      deptEmployees.filter(
+                        (e) => e.employment_status === 'NOTICE_PERIOD'
+                      ).length
+                    }
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                  <div className="text-xs text-[#5C7871] dark:text-zinc-400">KPI TB phòng ban</div>
+                  <div className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                    {deptEmployees.length > 0
+                      ? `${Math.round(
+                          deptEmployees.reduce(
+                            (sum, e) => sum + e.kpi_completion_rate,
+                            0
+                          ) / deptEmployees.length
+                        )}%`
+                      : '0%'}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="lg:col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <div>
+                  <CardTitle>Biến động nhân sự 6 tháng gần nhất</CardTitle>
+                  <CardDescription>
+                    Quy mô nhân sự toàn công ty từ 06/2026 đến 11/2026 (đơn vị: người)
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-[#415A54] dark:text-zinc-400">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-[#0F766E] dark:bg-teal-400" />
+                    Tổng nhân sự
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-[#B5CEC7] dark:bg-zinc-600" />
+                    Tuyển mới
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={headcountTrend}
+                      margin={{ top: 8, right: 12, left: -16, bottom: 0 }}
+                      barGap={4}
+                    >
+                      <CartesianGrid
+                        stroke={chartStrokeColor}
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="month"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: chartTickColor, fontSize: 11, fontFamily: 'monospace' }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: chartTickColor, fontSize: 11, fontFamily: 'monospace' }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: theme === 'dark' ? 'rgba(39,39,42,0.5)' : 'rgba(232,243,239,0.75)' }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload || !payload.length) return null;
+                          const row = payload[0].payload as HeadcountTrendItem;
+                          return (
+                            <div className="rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] px-3 py-2 text-xs shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900">
+                              <p className="font-mono font-semibold text-[#11221E] dark:text-zinc-100">
+                                Tháng {label}
+                              </p>
+                              <div className="mt-1.5 space-y-1">
+                                <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
+                                  <span>Tổng nhân sự:</span>
+                                  <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                                    {formatNumberVN(row.total_headcount)}
+                                  </span>
+                                </p>
+                                <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
+                                  <span>Tuyển mới:</span>
+                                  <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                                    +{row.new_hires}
+                                  </span>
+                                </p>
+                                <p className="flex items-center justify-between gap-4 text-[#415A54] dark:text-zinc-400">
+                                  <span>Nghỉ việc:</span>
+                                  <span className="font-mono font-medium tabular-nums text-[#11221E] dark:text-zinc-100">
+                                    -{row.resigned}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar
+                        dataKey="total_headcount"
+                        name="Tổng nhân sự"
+                        fill={barPrimaryColor}
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={32}
+                      />
+                      <Bar
+                        dataKey="new_hires"
+                        name="Tuyển mới"
+                        fill={barSecondaryColor}
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={20}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         <Card>
           <CardHeader className="pb-3">
@@ -829,7 +1162,9 @@ export function DashboardView() {
                   Đơn nghỉ phép & OT chờ duyệt
                 </span>
                 <Badge variant="warning" className="font-mono tabular-nums">
-                  {pendingRequests.length}
+                  {role === 'DEPT_MANAGER'
+                    ? deptPendingRequests.length
+                    : pendingRequests.length}
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
@@ -850,7 +1185,9 @@ export function DashboardView() {
                       Thử việc sắp đến hạn đánh giá (&lt;= 30 ngày)
                     </span>
                     <Badge variant="warning" className="font-mono tabular-nums">
-                      {expiringProbationCount}
+                      {role === 'DEPT_MANAGER'
+                        ? deptExpiringProbationCount
+                        : expiringProbationCount}
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
@@ -872,7 +1209,9 @@ export function DashboardView() {
                       Đơn thôi việc & Bàn giao Offboarding
                     </span>
                     <Badge variant="danger" className="font-mono tabular-nums">
-                      {activeOffboardingsCount}
+                      {role === 'DEPT_MANAGER'
+                        ? deptActiveOffboardingsCount
+                        : activeOffboardingsCount}
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">
@@ -893,7 +1232,9 @@ export function DashboardView() {
                   Ứng viên đang chờ phỏng vấn
                 </span>
                 <Badge variant="teal" className="font-mono tabular-nums">
-                  {candidates.filter((c) => c.stage === 'INTERVIEW').length}
+                  {role === 'DEPT_MANAGER'
+                    ? deptInterviewCandidatesCount
+                    : candidates.filter((c) => c.stage === 'INTERVIEW').length}
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-[#415A54] dark:text-zinc-400">

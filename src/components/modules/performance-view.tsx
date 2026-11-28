@@ -118,9 +118,9 @@ const RESULT_META: Record<
   PerformanceReviewResult,
   { label: string; variant: BadgeVariant }
 > = {
-  PASS: { label: 'Đạt thử việc (PASS)', variant: 'success' },
+  PASS: { label: 'Đạt thử việc', variant: 'success' },
   EXTEND: { label: 'Gia hạn thử việc', variant: 'warning' },
-  FAIL: { label: 'Không đạt (FAIL)', variant: 'destructive' },
+  FAIL: { label: 'Không đạt', variant: 'destructive' },
   EXCELLENT: { label: 'Xuất sắc', variant: 'teal' },
   GOOD: { label: 'Hoàn thành tốt', variant: 'success' },
   AVERAGE: { label: 'Đạt yêu cầu', variant: 'secondary' },
@@ -149,21 +149,21 @@ const CHANGE_TYPE_META: Record<
 };
 
 const ROLE_LABELS: Record<RoleCode, string> = {
-  SUPER_ADMIN: 'Quản trị hệ thống (SUPER_ADMIN)',
-  DIRECTOR: 'Ban Giám đốc (DIRECTOR)',
-  HR_MANAGER: 'Trưởng phòng Nhân sự (HR_MANAGER)',
-  DEPT_MANAGER: 'Trưởng bộ phận (DEPT_MANAGER)',
-  EMPLOYEE: 'Nhân viên (EMPLOYEE)',
-  CANDIDATE: 'Ứng viên (CANDIDATE)',
+  SUPER_ADMIN: 'Quản trị hệ thống',
+  DIRECTOR: 'Giám đốc',
+  HR_MANAGER: 'Quản trị Nhân sự',
+  DEPT_MANAGER: 'Trưởng bộ phận',
+  EMPLOYEE: 'Nhân viên',
+  CANDIDATE: 'Ứng viên',
 };
 
 const ROLE_SHORT_LABELS: Record<RoleCode, string> = {
-  SUPER_ADMIN: 'SUPER_ADMIN',
-  DIRECTOR: 'DIRECTOR',
-  HR_MANAGER: 'HR_MANAGER',
-  DEPT_MANAGER: 'DEPT_MANAGER',
-  EMPLOYEE: 'EMPLOYEE',
-  CANDIDATE: 'CANDIDATE',
+  SUPER_ADMIN: 'Quản trị hệ thống',
+  DIRECTOR: 'Giám đốc',
+  HR_MANAGER: 'Quản trị Nhân sự',
+  DEPT_MANAGER: 'Trưởng bộ phận',
+  EMPLOYEE: 'Nhân viên',
+  CANDIDATE: 'Ứng viên',
 };
 
 const EMPLOYMENT_STATUS_META: Record<
@@ -225,6 +225,12 @@ function escapeHtml(raw: string): string {
 
 function formatVnd(amount: number): string {
   return `${Math.round(amount || 0).toLocaleString('vi-VN')} đ`;
+}
+
+function formatSalaryInputVnd(rawDigits: string): string {
+  const digits = rawDigits.replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
 function formatDateDisplay(iso: string | undefined | null): string {
@@ -327,6 +333,8 @@ export function PerformanceView() {
 
   const canManageCareerDecisions =
     role === 'HR_MANAGER' || role === 'DIRECTOR' || role === 'SUPER_ADMIN';
+  const canApproveExecutiveDecision =
+    role === 'DIRECTOR' || role === 'SUPER_ADMIN';
   const canEvaluateReviews =
     role === 'DEPT_MANAGER' ||
     role === 'HR_MANAGER' ||
@@ -459,7 +467,7 @@ export function PerformanceView() {
       departmentId:
         actorEmployee?.department_id ??
         currentUserProfile?.department_id ??
-        'dept-tech',
+        '',
       departmentName:
         actorEmployee?.department_name ??
         currentUserProfile?.department ??
@@ -521,49 +529,43 @@ export function PerformanceView() {
       };
     }
 
-    const directDepts = departments.filter(
-      (d) =>
-        (actorEmployee && d.manager_id === actorEmployee.id) ||
-        d.id === actorIdentity.departmentId ||
-        d.department_name === actorIdentity.departmentName
-    );
-
-    if (directDepts.length === 0 && actorIdentity.departmentId.startsWith('dept-tech')) {
-      departments
-        .filter((d) => d.id.startsWith('dept-tech'))
-        .forEach((d) => {
-          allowedDeptIds.add(d.id);
-          allowedDeptNames.add(d.department_name);
-        });
-    } else {
-      for (const d of directDepts) {
-        allowedDeptIds.add(d.id);
-        allowedDeptNames.add(d.department_name);
+    const explicitDeptId = currentUserProfile?.department_id?.trim();
+    if (explicitDeptId) {
+      allowedDeptIds.add(explicitDeptId);
+    }
+    if (
+      actorEmployee &&
+      (!explicitDeptId || actorEmployee.department_id === explicitDeptId)
+    ) {
+      if (actorEmployee.department_id) {
+        allowedDeptIds.add(actorEmployee.department_id);
       }
-      // Include child departments managed under parent block (e.g. Khối Công nghệ -> SWE & Data/AI)
-      let addedChild = true;
-      while (addedChild) {
-        addedChild = false;
-        for (const d of departments) {
-          if (d.parent_id && allowedDeptIds.has(d.parent_id) && !allowedDeptIds.has(d.id)) {
-            allowedDeptIds.add(d.id);
-            allowedDeptNames.add(d.department_name);
-            addedChild = true;
-          }
+      for (const d of departments) {
+        if (d.manager_id === actorEmployee.id) {
+          allowedDeptIds.add(d.id);
         }
       }
     }
 
+    for (const d of departments) {
+      if (allowedDeptIds.has(d.id)) {
+        allowedDeptNames.add(d.department_name);
+      }
+    }
+
     const primaryDept =
-      departments.find((d) => actorEmployee && d.manager_id === actorEmployee.id) ??
-      departments.find((d) => d.id === actorIdentity.departmentId);
+      departments.find((d) => d.id === actorEmployee?.department_id) ??
+      departments.find((d) => allowedDeptIds.has(d.id));
 
     return {
       deptIds: allowedDeptIds,
       deptNames: allowedDeptNames,
-      scopeLabel: primaryDept?.department_name ?? actorIdentity.departmentName,
+      scopeLabel:
+        primaryDept?.department_name ??
+        actorEmployee?.department_name ??
+        'Phòng ban phụ trách',
     };
-  }, [role, departments, actorEmployee, actorIdentity]);
+  }, [role, departments, actorEmployee, currentUserProfile?.department_id]);
 
   const employeeMapById = useMemo(() => {
     const map = new Map<string, Employee>();
@@ -584,8 +586,7 @@ export function PerformanceView() {
         (emp) =>
           emp.employment_status !== 'RESIGNED' &&
           (managerDepartmentScope.deptIds.has(emp.department_id) ||
-            managerDepartmentScope.deptNames.has(emp.department_name) ||
-            (actorEmployee && emp.manager_id === actorEmployee.id))
+            managerDepartmentScope.deptNames.has(emp.department_name))
       );
     }
     return employees;
@@ -615,16 +616,34 @@ export function PerformanceView() {
     if (role === 'DEPT_MANAGER') {
       const teamIds = new Set(scopedEmployees.map((e) => e.id));
       const teamCodes = new Set(scopedEmployees.map((e) => e.employee_code));
-      return reviews.filter(
-        (r) =>
+      return reviews.filter((r) => {
+        const liveEmp =
+          employeeMapById.get(r.employee_id) ??
+          employeeMapById.get(r.employee_code);
+        if (liveEmp) {
+          return (
+            managerDepartmentScope.deptIds.has(liveEmp.department_id) ||
+            managerDepartmentScope.deptNames.has(liveEmp.department_name)
+          );
+        }
+        return (
           teamIds.has(r.employee_id) ||
           teamCodes.has(r.employee_code) ||
           managerDepartmentScope.deptIds.has(r.department_id) ||
           managerDepartmentScope.deptNames.has(r.department_name)
-      );
+        );
+      });
     }
     return reviews;
-  }, [role, reviews, actorEmployee, actorIdentity, scopedEmployees, managerDepartmentScope]);
+  }, [
+    role,
+    reviews,
+    actorEmployee,
+    actorIdentity,
+    scopedEmployees,
+    employeeMapById,
+    managerDepartmentScope,
+  ]);
 
   const filteredReviews = useMemo(() => {
     const q = normalizeVN(reviewSearch);
@@ -650,13 +669,22 @@ export function PerformanceView() {
     if (role === 'DEPT_MANAGER') {
       const teamIds = new Set(scopedEmployees.map((e) => e.id));
       const teamCodes = new Set(scopedEmployees.map((e) => e.employee_code));
-      return careerHistories.filter(
-        (h) =>
+      return careerHistories.filter((h) => {
+        const liveEmp =
+          employeeMapById.get(h.employee_id) ??
+          employeeMapById.get(h.employee_code);
+        if (liveEmp) {
+          return (
+            managerDepartmentScope.deptIds.has(liveEmp.department_id) ||
+            managerDepartmentScope.deptNames.has(liveEmp.department_name)
+          );
+        }
+        return (
           teamIds.has(h.employee_id) ||
           teamCodes.has(h.employee_code) ||
-          managerDepartmentScope.deptIds.has(h.new_department_id) ||
-          managerDepartmentScope.deptIds.has(h.old_department_id)
-      );
+          managerDepartmentScope.deptIds.has(h.new_department_id)
+        );
+      });
     }
     return careerHistories;
   }, [
@@ -665,6 +693,7 @@ export function PerformanceView() {
     actorEmployee,
     actorIdentity,
     scopedEmployees,
+    employeeMapById,
     managerDepartmentScope,
   ]);
 
@@ -861,6 +890,14 @@ export function PerformanceView() {
   };
 
   const openEditReviewModal = (review: PerformanceReview) => {
+    if (!canApproveReviews && review.status === 'APPROVED') {
+      showToast(
+        'Phiếu đánh giá đã phê duyệt',
+        'Chỉ bộ phận Nhân sự (HR Manager) hoặc Ban Giám đốc mới được điều chỉnh phiếu đánh giá đã phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     setEditingReview(review);
     setFormEmployeeId(review.employee_id);
     setFormCycle(review.cycle);
@@ -870,7 +907,13 @@ export function PerformanceView() {
     setFormGrade(review.grade);
     setFormResult(review.result);
     setFormBonusVnd(String(review.suggested_bonus_vnd ?? 0));
-    setFormReviewStatus(review.status);
+    setFormReviewStatus(
+      canApproveReviews
+        ? review.status
+        : review.status === 'DRAFT'
+          ? 'DRAFT'
+          : 'SUBMITTED'
+    );
     setFormReviewNote(review.review_note);
     setReviewModalOpen(true);
   };
@@ -957,7 +1000,11 @@ export function PerformanceView() {
         review_note: cleanNote,
         suggested_salary_vnd: editingReview?.suggested_salary_vnd,
         suggested_bonus_vnd: nextBonus,
-        status: formReviewStatus,
+        status: canApproveReviews
+          ? formReviewStatus
+          : formReviewStatus === 'DRAFT'
+            ? 'DRAFT'
+            : 'SUBMITTED',
       });
 
       syncRuntimeState();
@@ -979,6 +1026,7 @@ export function PerformanceView() {
   };
 
   const handleQuickApproveReview = async (review: PerformanceReview) => {
+    if (!canApproveReviews) return;
     const confirmed = await confirmSwal({
       title: `Phê duyệt kết quả đánh giá ${review.review_code}?`,
       html: `Xác nhận phê duyệt phiếu đánh giá kỳ <strong>${escapeHtml(review.period_label)}</strong> của <strong>${escapeHtml(review.full_name)}</strong> (${escapeHtml(review.employee_code)}) với điểm KPI <strong>${review.kpi_score}/100</strong> — Xếp loại <strong>${review.grade}</strong>.`,
@@ -1016,14 +1064,14 @@ export function PerformanceView() {
     if (!canManageCareerDecisions) {
       const confirmedProposal = await confirmSwal({
         title: 'Gửi đề xuất chuyển chính thức lên Phòng Nhân sự?',
-        html: `Nhân sự <strong>${escapeHtml(emp.full_name)}</strong> (${escapeHtml(emp.employee_code)}) đã đạt kết quả thử việc <strong>PASS (${review.kpi_score}/100 điểm)</strong>.<br/>Hệ thống sẽ gửi thông báo để Phòng Nhân sự (C&amp;B) phát hành Hợp đồng chính thức 100% lương và khởi tạo quỹ phép năm.`,
+        html: `Nhân sự <strong>${escapeHtml(emp.full_name)}</strong> (${escapeHtml(emp.employee_code)}) đã đạt kết quả thử việc <strong>Đạt (${review.kpi_score}/100 điểm)</strong>.<br/>Hệ thống sẽ gửi thông báo để Phòng Nhân sự phát hành Hợp đồng chính thức 100% lương và khởi tạo quỹ phép năm.`,
         confirmText: 'Gửi đề xuất cho HR',
       });
       if (!confirmedProposal) return;
 
       pushNotification({
         title: `Đề xuất chuyển chính thức: ${emp.full_name} (${emp.employee_code})`,
-        message: `${actorIdentity.fullName} đề xuất ký HĐLĐ chính thức cho ${emp.full_name} sau kỳ đánh giá thử việc đạt ${review.kpi_score}/100 điểm (PASS).`,
+        message: `${actorIdentity.fullName} đề xuất ký HĐLĐ chính thức cho ${emp.full_name} sau kỳ đánh giá thử việc đạt ${review.kpi_score}/100 điểm.`,
         category: 'PERFORMANCE',
         target_roles: ['HR_MANAGER', 'DIRECTOR'],
         target_department_id: emp.department_id,
@@ -1046,18 +1094,27 @@ export function PerformanceView() {
       emp.official_salary_vnd ??
       Math.round(emp.base_salary_vnd / (salaryPercent / 100) / 100000) * 100000;
 
+    if (!canApproveExecutiveDecision && officialSalary > 50_000_000) {
+      await alertSwal({
+        icon: 'warning',
+        title: 'Cần Giám đốc phê duyệt',
+        text: 'Chuyển chính thức nhân sự có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc hoặc Quản trị hệ thống phê duyệt.',
+      });
+      return;
+    }
+
     const confirmed = await confirmSwal({
       title: `Chuyển chính thức nhân sự ${emp.full_name}?`,
       html: `
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
-          <div>Nhân sự: <strong>${escapeHtml(emp.full_name)}</strong> (<span style="font-family:monospace;">${escapeHtml(emp.employee_code)}</span>) · Kết quả thử việc: <strong>PASS (${review.kpi_score}/100)</strong></div>
+          <div>Nhân sự: <strong>${escapeHtml(emp.full_name)}</strong> (<span style="font-family:monospace;">${escapeHtml(emp.employee_code)}</span>) · Kết quả thử việc: <strong>Đạt (${review.kpi_score}/100)</strong></div>
           <div style="padding:10px 12px;border-radius:8px;border:1px solid #C6D9D3;background:rgba(15,118,110,0.06);font-size:13px;line-height:1.55;">
-            <strong>Đồng bộ tự động 4 phân hệ ngay sau khi xác nhận:</strong>
+            <strong>Đồng bộ tự động ngay sau khi xác nhận:</strong>
             <ol style="margin:6px 0 0 18px;padding:0;">
-              <li>Hồ sơ nhân sự: Chuyển từ <code>PROBATION</code> sang <strong>OFFICIAL (Chính thức)</strong>.</li>
+              <li>Hồ sơ nhân sự: Chuyển từ <strong>Thử việc</strong> sang <strong>Chính thức</strong>.</li>
               <li>Hợp đồng lao động: Tạo mới <strong>HĐLĐ xác định thời hạn 12 tháng</strong> hưởng <strong>100% lương (${escapeHtml(formatVnd(officialSalary))})</strong>.</li>
-              <li>Quỹ phép năm (<code>leave_balances</code>): Khởi tạo tiêu chuẩn <strong>12 ngày phép/năm</strong>.</li>
-              <li>Sổ lịch sử công tác (<code>career_histories</code>): Ghi bất biến Quyết định chuyển chính thức.</li>
+              <li>Quỹ phép năm: Khởi tạo tiêu chuẩn <strong>12 ngày phép/năm</strong>.</li>
+              <li>Lịch sử công tác: Ghi nhận Quyết định chuyển chính thức.</li>
             </ol>
           </div>
         </div>
@@ -1094,7 +1151,7 @@ export function PerformanceView() {
             <li>Quyết định công tác: <code>${escapeHtml(result.careerEntry.decision_no)}</code></li>
             <li>Hợp đồng mới (100% lương): <code>${escapeHtml(result.officialContract.contract_number)}</code> — <strong>${escapeHtml(formatVnd(result.employee.base_salary_vnd))}</strong></li>
             <li>Quỹ phép năm ${result.leaveBalance.year}: <strong>${result.leaveBalance.total_entitled_days} ngày</strong> khả dụng</li>
-            <li>Trạng thái nhân sự: <strong>OFFICIAL (Chính thức)</strong></li>
+            <li>Trạng thái nhân sự: <strong>Chính thức</strong></li>
           </ul>
         `,
       });
@@ -1152,9 +1209,10 @@ export function PerformanceView() {
 
         setDecNewSalaryVnd(String(suggestedSalary));
         setDecNewRoleCode(
-          (initialType === 'PROMOTION' ||
-            initialType === 'ROLE_CHANGE' ||
-            isLeadershipPositionName(targetEmp.position_name)) &&
+          canApproveExecutiveDecision &&
+            (initialType === 'PROMOTION' ||
+              initialType === 'ROLE_CHANGE' ||
+              isLeadershipPositionName(targetEmp.position_name)) &&
             targetEmp.role_code === 'EMPLOYEE'
             ? 'DEPT_MANAGER'
             : targetEmp.role_code
@@ -1178,7 +1236,13 @@ export function PerformanceView() {
 
       setDecisionModalOpen(true);
     },
-    [employees, departments, buildSuggestedDecisionNo]
+    [
+      employees,
+      departments,
+      buildSuggestedDecisionNo,
+      canApproveExecutiveDecision,
+      isLeadershipPositionName,
+    ]
   );
 
   // Action Shortcut 2: Propose Promotion / Salary Increase from A+ / A Review
@@ -1247,9 +1311,10 @@ export function PerformanceView() {
         : emp.base_salary_vnd;
     setDecNewSalaryVnd(String(suggestedSal));
     setDecNewRoleCode(
-      (decChangeType === 'PROMOTION' ||
-        decChangeType === 'ROLE_CHANGE' ||
-        isLeadershipPositionName(emp.position_name)) &&
+      canApproveExecutiveDecision &&
+        (decChangeType === 'PROMOTION' ||
+          decChangeType === 'ROLE_CHANGE' ||
+          isLeadershipPositionName(emp.position_name)) &&
         emp.role_code === 'EMPLOYEE'
         ? 'DEPT_MANAGER'
         : emp.role_code
@@ -1263,6 +1328,7 @@ export function PerformanceView() {
     }
     const emp = employeeMapById.get(decEmployeeId);
     if (
+      canApproveExecutiveDecision &&
       emp &&
       (nextType === 'PROMOTION' || nextType === 'ROLE_CHANGE') &&
       emp.role_code === 'EMPLOYEE'
@@ -1273,7 +1339,11 @@ export function PerformanceView() {
 
   const handleDecisionPositionNameChange = (nextPosName: string) => {
     setDecNewPositionName(nextPosName);
-    if (isLeadershipPositionName(nextPosName) && decNewRoleCode === 'EMPLOYEE') {
+    if (
+      canApproveExecutiveDecision &&
+      isLeadershipPositionName(nextPosName) &&
+      decNewRoleCode === 'EMPLOYEE'
+    ) {
       setDecNewRoleCode('DEPT_MANAGER');
     }
   };
@@ -1343,6 +1413,23 @@ export function PerformanceView() {
       return;
     }
 
+    const isLeadershipTargetRole =
+      decNewRoleCode === 'DEPT_MANAGER' ||
+      decNewRoleCode === 'HR_MANAGER' ||
+      decNewRoleCode === 'DIRECTOR' ||
+      decNewRoleCode === 'SUPER_ADMIN';
+    if (
+      !canApproveExecutiveDecision &&
+      (parsedSalary > 50_000_000 || isLeadershipTargetRole)
+    ) {
+      await alertSwal({
+        icon: 'warning',
+        title: 'Cần Giám đốc phê duyệt',
+        text: 'Quyết định có mức lương trên 50.000.000 VNĐ hoặc bổ nhiệm vai trò Trưởng bộ phận / Quản lý / Giám đốc bắt buộc do Giám đốc hoặc Quản trị hệ thống ký ban hành.',
+      });
+      return;
+    }
+
     const cleanReason = decReason.trim();
     if (cleanReason.length < 5) {
       await alertSwal({
@@ -1360,23 +1447,22 @@ export function PerformanceView() {
     );
     const salaryDelta = calcSalaryIncreaseInfo(emp.base_salary_vnd, parsedSalary);
     const midMonthArmed = isMidMonthEffectiveDate(decEffectiveDate);
-    const periodYm = decEffectiveDate.slice(0, 7);
+    const effectiveDateDisplay = formatDateDisplay(decEffectiveDate);
 
     const confirmed = await confirmSwal({
       title: `Xác nhận ban hành Quyết định ${cleanDecisionNo}?`,
       html: `
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;font-size:13px;line-height:1.55;">
           <div>
-            Nhân sự: <strong>${escapeHtml(emp.full_name)}</strong> (<code>${escapeHtml(emp.employee_code)}</code>) · Loại: <strong>${escapeHtml(CHANGE_TYPE_META[decChangeType].label)}</strong> · Hiệu lực: <code>${escapeHtml(decEffectiveDate)}</code>
+            Nhân sự: <strong>${escapeHtml(emp.full_name)}</strong> (${escapeHtml(emp.employee_code)}) · Loại: <strong>${escapeHtml(CHANGE_TYPE_META[decChangeType].label)}</strong> · Hiệu lực: <strong>${escapeHtml(effectiveDateDisplay)}</strong>
           </div>
           <div style="padding:10px 12px;border-radius:8px;border:1px solid #C6D9D3;background:rgba(15,118,110,0.06);">
-            <strong>Hệ thống sẽ tự động đồng bộ xuyên suốt 4+1 phân hệ:</strong>
+            <strong>Nội dung cập nhật tự động:</strong>
             <ol style="margin:6px 0 0 18px;padding:0;">
-              <li><strong>Sổ lịch sử công tác (<code>career_histories</code>):</strong> Lưu bản ghi bất biến (append-only), giữ nguyên toàn bộ lịch sử cũ.</li>
-              <li><strong>Hồ sơ Nhân sự (<code>employees</code>):</strong> ${escapeHtml(emp.department_name)} → <strong>${escapeHtml(targetDept?.department_name ?? emp.department_name)}</strong> · Chức danh: <strong>${escapeHtml(cleanPosName)}</strong> · Lương: <strong>${escapeHtml(formatVnd(parsedSalary))} (${escapeHtml(salaryDelta.label)})</strong>.</li>
-              <li><strong>Hợp đồng lao động (<code>contracts</code>):</strong> Tự động khởi tạo Phụ lục hợp đồng (<code>PLHĐ</code>) gắn mã <code>${escapeHtml(cleanDecisionNo)}</code>.</li>
-              <li><strong>Tài khoản &amp; Quyền RBAC (<code>users</code>):</strong> Đồng bộ quyền <code>${emp.role_code}</code> → <strong><code>${decNewRoleCode}</code></strong>${decNewRoleCode === 'DEPT_MANAGER' ? ' (mở khóa phê duyệt đơn từ cấp dưới &amp; gán Trưởng bộ phận)' : ''}.</li>
-              <li><strong>Bảng lương tháng (<code>payrolls</code>):</strong> ${midMonthArmed ? `Kích hoạt <strong>tách lương giữa kỳ ${periodYm}</strong> (trước và từ ngày <code>${decEffectiveDate}</code>)` : `Áp dụng lương mới từ kỳ <code>${periodYm}</code>`}.</li>
+              <li><strong>Hồ sơ nhân sự:</strong> ${escapeHtml(emp.department_name)} → <strong>${escapeHtml(targetDept?.department_name ?? emp.department_name)}</strong> · Chức danh: <strong>${escapeHtml(cleanPosName)}</strong> · Lương: <strong>${escapeHtml(formatVnd(parsedSalary))} (${escapeHtml(salaryDelta.label)})</strong>.</li>
+              <li><strong>Hợp đồng lao động:</strong> Tự động tạo Phụ lục hợp đồng gắn số quyết định <code>${escapeHtml(cleanDecisionNo)}</code>.</li>
+              <li><strong>Phân quyền hệ thống:</strong> ${escapeHtml(ROLE_SHORT_LABELS[emp.role_code])} → <strong>${escapeHtml(ROLE_SHORT_LABELS[decNewRoleCode])}</strong>${decNewRoleCode === 'DEPT_MANAGER' ? ' (mở quyền phê duyệt đơn nghỉ phép và tăng ca bộ phận)' : ''}.</li>
+              <li><strong>Bảng lương tháng:</strong> ${midMonthArmed ? `Tách lương giữa kỳ theo ngày <strong>${escapeHtml(effectiveDateDisplay)}</strong>` : `Áp dụng mức lương mới từ ngày <strong>${escapeHtml(effectiveDateDisplay)}</strong>`}.</li>
             </ol>
           </div>
         </div>
@@ -1406,28 +1492,44 @@ export function PerformanceView() {
       setDecisionModalOpen(false);
       setActiveTab('career');
 
-      showToast(
-        `Đã ban hành Quyết định ${issued.careerEntry.decision_no}`,
-        `Đã đồng bộ hồ sơ ${issued.employee.full_name}, sinh phụ lục ${issued.addendumContract.contract_number} và cập nhật quyền ${issued.updatedUser.role_code}.`,
-        'success'
-      );
+      if (issued.transferWarnings && issued.transferWarnings.length > 0) {
+        showToast(
+          `Đã ban hành QĐ ${issued.careerEntry.decision_no} (lưu ý bàn giao nội bộ)`,
+          issued.transferWarnings[0],
+          'warning'
+        );
 
-      await alertSwal({
-        icon: 'success',
-        title: `Ban hành thành công ${issued.careerEntry.decision_no}`,
-        html: `
+        await alertSwal({
+          icon: 'warning',
+          title: `Đã ban hành Quyết định ${issued.careerEntry.decision_no} (Lưu ý bàn giao)`,
+          text: [
+            `Hồ sơ ${issued.employee.full_name} (${issued.employee.position_name} · ${issued.employee.department_name}) đã được cập nhật và sinh phụ lục ${issued.addendumContract.contract_number}.`,
+            ...issued.transferWarnings,
+          ].join('\n\n'),
+        });
+      } else {
+        showToast(
+          `Đã ban hành Quyết định ${issued.careerEntry.decision_no}`,
+          `Đã đồng bộ hồ sơ ${issued.employee.full_name}, sinh phụ lục ${issued.addendumContract.contract_number} và cập nhật quyền ${ROLE_SHORT_LABELS[issued.updatedUser.role_code]}.`,
+          'success'
+        );
+
+        await alertSwal({
+          icon: 'success',
+          title: `Ban hành thành công ${issued.careerEntry.decision_no}`,
+          html: `
           <div style="font-size:13px;line-height:1.6;">
-            <p style="margin:0 0 6px 0;">Toàn bộ 5 tác động nghiệp vụ đã được ghi nhận đồng bộ:</p>
+            <p style="margin:0 0 6px 0;">Các thay đổi nghiệp vụ đã được ghi nhận đồng bộ:</p>
             <ol style="margin:0 0 0 18px;padding:0;">
-              <li><strong><code>career_histories</code>:</strong> Đã ghi sổ bất biến mã <code>${escapeHtml(issued.careerEntry.decision_no)}</code>.</li>
               <li><strong>Hồ sơ nhân sự:</strong> Cập nhật <strong>${escapeHtml(issued.employee.position_name)}</strong> (${escapeHtml(issued.employee.department_name)}) · Lương <strong>${escapeHtml(formatVnd(issued.employee.base_salary_vnd))}</strong>.</li>
-              <li><strong>Phụ lục Hợp đồng (<code>PLHĐ</code>):</strong> Đã phát hành <code>${escapeHtml(issued.addendumContract.contract_number)}</code> (ID: <code>${escapeHtml(issued.addendumContract.id)}</code>).</li>
-              <li><strong>Tài khoản RBAC:</strong> Quyền hệ thống hiện tại là <strong><code>${escapeHtml(issued.updatedUser.role_code)}</code></strong>.</li>
-              <li><strong>Động cơ Tính lương:</strong> ${midMonthArmed ? `Đã sẵn sàng tách lương giữa tháng <code>${periodYm}</code> tại mốc <code>${escapeHtml(decEffectiveDate)}</code>.` : `Đã cập nhật mức lương tính công cho kỳ <code>${periodYm}</code>.`}</li>
+              <li><strong>Hợp đồng lao động:</strong> Tự động tạo Phụ lục hợp đồng <code>${escapeHtml(issued.addendumContract.contract_number)}</code> gắn số quyết định <code>${escapeHtml(issued.careerEntry.decision_no)}</code>.</li>
+              <li><strong>Phân quyền hệ thống:</strong> Quyền hiện tại là <strong>${escapeHtml(ROLE_SHORT_LABELS[issued.updatedUser.role_code])}</strong>.</li>
+              <li><strong>Bảng lương tháng:</strong> ${midMonthArmed ? `Tách lương giữa kỳ theo ngày <strong>${escapeHtml(effectiveDateDisplay)}</strong>.` : `Đã cập nhật mức lương tính công từ ngày <strong>${escapeHtml(effectiveDateDisplay)}</strong>.`}</li>
             </ol>
           </div>
         `,
-      });
+        });
+      }
     } catch (err) {
       await alertSwal({
         icon: 'error',
@@ -1457,9 +1559,14 @@ export function PerformanceView() {
     [canViewAllSalaries, actorEmployee, actorIdentity.employeeCode]
   );
 
-  // Access control guard: Only SUPER_ADMIN can view Performance & Career Progression
-  const isSuperAdminOnlyAccess = (role as string) === 'SUPER_ADMIN';
-  if (!isSuperAdminOnlyAccess) {
+  // Access control guard: Only SUPER_ADMIN, DIRECTOR, HR_MANAGER, DEPT_MANAGER can view Performance & Career Progression
+  const hasModuleAccess = [
+    'SUPER_ADMIN',
+    'DIRECTOR',
+    'HR_MANAGER',
+    'DEPT_MANAGER',
+  ].includes(role as string);
+  if (!hasModuleAccess) {
     return (
       <Card className="border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-[#121214]">
         <CardContent className="flex flex-col items-center justify-center gap-3 py-14 text-center">
@@ -1467,10 +1574,10 @@ export function PerformanceView() {
             <Lock className="h-5 w-5" strokeWidth={1.5} />
           </div>
           <p className="text-base font-semibold text-[#11221E] dark:text-zinc-100">
-            Phân hệ Đánh giá &amp; Thăng tiến chỉ dành cho Quản trị viên hệ thống (Admin).
+            Không đủ quyền truy cập Đánh giá &amp; Thăng tiến (403)
           </p>
           <p className="max-w-md text-xs text-[#5C7871] dark:text-zinc-400">
-            Tài khoản hiện tại không có quyền truy cập trực tiếp vào phân hệ này. Vui lòng quay về trang Tổng quan.
+            Phân hệ Đánh giá Hiệu suất &amp; Quyết định Thăng tiến chỉ dành cho Ban Giám đốc, Quản trị Nhân sự và Trưởng bộ phận.
           </p>
           <Button
             variant="primary"
@@ -1536,7 +1643,7 @@ export function PerformanceView() {
                   <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                     Sổ cái Lịch sử Công tác &amp; Quyết định Nhân sự Bất biến
                   </p>
-                  <Badge variant="teal">Append-Only · Cấm sửa/xóa lịch sử</Badge>
+                  <Badge variant="teal">Lưu vết lịch sử · Cấm sửa/xóa lịch sử</Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-400">
                   Mọi quyết định thăng chức, điều chuyển, điều chỉnh lương hoặc chuyển chính thức đều lưu snapshot Trước → Sau và giữ nguyên lịch sử gốc phục vụ kiểm toán &amp; tính lương tách kỳ.
@@ -1636,7 +1743,7 @@ export function PerformanceView() {
                   </div>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#415A54] dark:text-zinc-400">
                     <Lock className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Bản ghi bất biến (Read-Only)
+                    Bản ghi chỉ xem
                   </span>
                 </div>
               </CardHeader>
@@ -1775,8 +1882,8 @@ export function PerformanceView() {
                                 </div>
                               )}
 
-                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
-                                <span>RBAC: {ROLE_SHORT_LABELS[entry.old_role_code]}</span>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[#415A54] dark:text-zinc-400">
+                                <span>Quyền: {ROLE_SHORT_LABELS[entry.old_role_code]}</span>
                                 <ArrowRight
                                   className="h-3 w-3 shrink-0"
                                   strokeWidth={1.5}
@@ -1801,12 +1908,6 @@ export function PerformanceView() {
                                     {entry.addendum_contract_number ||
                                       entry.addendum_contract_id}
                                   </Badge>
-                                  {entry.addendum_contract_id &&
-                                    entry.addendum_contract_number && (
-                                      <p className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-500">
-                                        ID: {entry.addendum_contract_id}
-                                      </p>
-                                    )}
                                 </div>
                               ) : (
                                 <span className="text-xs text-[#5C7871] dark:text-zinc-500">
@@ -1831,7 +1932,7 @@ export function PerformanceView() {
                     className="h-4 w-4 text-[#0F766E] dark:text-teal-400"
                     strokeWidth={1.5}
                   />
-                  Dòng thời gian Thăng tiến &amp; Lộ trình Công tác (Timeline)
+                  Dòng thời gian Thăng tiến &amp; Lộ trình Công tác
                 </CardTitle>
                 <CardDescription>
                    Chuỗi mốc sự kiện nhân sự theo trình tự thời gian hiệu lực mới nhất lên đầu.
@@ -1870,8 +1971,7 @@ export function PerformanceView() {
                               </span>
                             </div>
                             <span className="font-mono text-xs tabular-nums text-[#415A54] dark:text-zinc-400">
-                              Hiệu lực: {formatDateDisplay(entry.effective_date)} (
-                              {entry.effective_date})
+                              Hiệu lực: {formatDateDisplay(entry.effective_date)}
                             </span>
                           </div>
 
@@ -1915,8 +2015,8 @@ export function PerformanceView() {
                               <p className="text-[11px] font-medium text-[#5C7871] dark:text-zinc-400">
                                 Quyền hệ thống &amp; Phụ lục HĐ
                               </p>
-                              <p className="mt-1 font-mono tabular-nums text-[#11221E] dark:text-zinc-200">
-                                {entry.old_role_code} → {entry.new_role_code}
+                              <p className="mt-1 text-[#11221E] dark:text-zinc-200">
+                                {ROLE_SHORT_LABELS[entry.old_role_code]} → {ROLE_SHORT_LABELS[entry.new_role_code]}
                               </p>
                               <p className="mt-0.5 font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
                                 Phụ lục:{' '}
@@ -2257,7 +2357,7 @@ export function PerformanceView() {
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             {role === 'DEPT_MANAGER'
               ? `Người phụ trách: ${actorIdentity.fullName} (${actorIdentity.employeeCode}). Chấm điểm KPI/OKR bộ phận, đánh giá thử việc và đề xuất thăng tiến (lương cơ bản đồng cấp/cấp dưới được bảo mật).`
-              : `Điều hành bởi ${actorIdentity.fullName} (${actorIdentity.employeeCode}) · Đồng bộ trực tiếp kết quả đánh giá Thử việc/Quý/Năm sang Hợp đồng, Quỹ phép, Phân quyền RBAC và Bảng lương tách kỳ.`}
+              : `Điều hành bởi ${actorIdentity.fullName} (${actorIdentity.employeeCode}) · Đồng bộ trực tiếp kết quả đánh giá Thử việc/Quý/Năm sang Hợp đồng, Quỹ phép, Phân quyền hệ thống và Bảng lương tách kỳ.`}
           </p>
         </div>
 
@@ -2290,7 +2390,7 @@ export function PerformanceView() {
               </p>
               <p className="mt-0.5 text-[11px] text-[#5C7871] dark:text-zinc-400">
                 {pendingProbationConversions.length > 0
-                  ? `${pendingProbationConversions.length} thử việc PASS chờ lên chính thức`
+                  ? `${pendingProbationConversions.length} thử việc đạt chuẩn chờ lên chính thức`
                   : `${highPerformersCount} nhân sự đạt hạng A / A+`}
               </p>
             </div>
@@ -2331,7 +2431,7 @@ export function PerformanceView() {
                 {roleScopedCareerHistories.length}
               </p>
               <p className="mt-0.5 text-[11px] text-[#5C7871] dark:text-zinc-400">
-                Append-only · Tự động sinh PLHĐ
+                Lưu vết lịch sử · Tự động sinh PLHĐ
               </p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-950/30 dark:text-blue-400">
@@ -2393,13 +2493,13 @@ export function PerformanceView() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                    Nhân sự thử việc đã ĐẠT đánh giá (PASS) — Sẵn sàng chuyển chính thức
+                    Nhân sự thử việc đã Đạt đánh giá — Sẵn sàng chuyển chính thức
                   </p>
                   <p className="mt-0.5 text-xs text-[#415A54] dark:text-zinc-300">
                     {pendingProbationConversions
                       .map((r) => `${r.full_name} (${r.employee_code} · ${r.kpi_score} điểm)`)
                       .join(', ')}{' '}
-                    đang ở trạng thái PROBATION. Chuyển chính thức sẽ tự động sinh HĐLĐ 100% lương và khởi tạo 12 ngày phép năm.
+                    đang ở trạng thái Thử việc. Chuyển chính thức sẽ tự động sinh HĐLĐ 100% lương và khởi tạo 12 ngày phép năm.
                   </p>
                 </div>
               </div>
@@ -2411,7 +2511,9 @@ export function PerformanceView() {
                   }
                 >
                   <UserCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Chuyển chính thức ngay
+                  {canManageCareerDecisions
+                    ? 'Chuyển chính thức ngay'
+                    : 'Đề xuất chuyển chính thức'}
                 </Button>
               </div>
             </div>
@@ -2734,7 +2836,9 @@ export function PerformanceView() {
                                       className="h-3.5 w-3.5"
                                       strokeWidth={1.5}
                                     />
-                                    Chuyển chính thức
+                                    {canManageCareerDecisions
+                                      ? 'Chuyển chính thức'
+                                      : 'Đề xuất chuyển chính thức'}
                                   </Button>
                                 )}
 
@@ -2768,14 +2872,16 @@ export function PerformanceView() {
                                   </Button>
                                 )}
 
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openEditReviewModal(rec)}
-                                >
-                                  <Edit3 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                  Cập nhật
-                                </Button>
+                                {(canApproveReviews || rec.status !== 'APPROVED') && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openEditReviewModal(rec)}
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                    Cập nhật
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -2981,9 +3087,9 @@ export function PerformanceView() {
                     handleFormCycleChange(val as PerformanceReviewCycle)
                   }
                   options={[
-                    { label: 'PROBATION — Đánh giá thử việc', value: 'PROBATION' },
-                    { label: 'QUARTERLY — Đánh giá Quý', value: 'QUARTERLY' },
-                    { label: 'ANNUAL — Đánh giá Năm', value: 'ANNUAL' },
+                    { label: 'Đánh giá thử việc', value: 'PROBATION' },
+                    { label: 'Đánh giá Quý', value: 'QUARTERLY' },
+                    { label: 'Đánh giá Năm', value: 'ANNUAL' },
                   ]}
                 />
               </div>
@@ -3070,7 +3176,7 @@ export function PerformanceView() {
                   htmlFor="rev-grade"
                   className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
-                  Xếp loại (Grade)
+                  Xếp loại
                 </label>
                 <Select
                   id="rev-grade"
@@ -3106,15 +3212,15 @@ export function PerformanceView() {
                   options={
                     formCycle === 'PROBATION'
                       ? [
-                          { label: 'PASS — Đạt thử việc', value: 'PASS' },
-                          { label: 'EXTEND — Gia hạn thử việc', value: 'EXTEND' },
-                          { label: 'FAIL — Không đạt thử việc', value: 'FAIL' },
+                          { label: 'Đạt thử việc', value: 'PASS' },
+                          { label: 'Gia hạn thử việc', value: 'EXTEND' },
+                          { label: 'Không đạt thử việc', value: 'FAIL' },
                         ]
                       : [
-                          { label: 'EXCELLENT — Xuất sắc', value: 'EXCELLENT' },
-                          { label: 'GOOD — Hoàn thành tốt', value: 'GOOD' },
-                          { label: 'AVERAGE — Đạt yêu cầu', value: 'AVERAGE' },
-                          { label: 'POOR — Chưa đạt yêu cầu', value: 'POOR' },
+                          { label: 'Xuất sắc', value: 'EXCELLENT' },
+                          { label: 'Hoàn thành tốt', value: 'GOOD' },
+                          { label: 'Đạt yêu cầu', value: 'AVERAGE' },
+                          { label: 'Chưa đạt yêu cầu', value: 'POOR' },
                         ]
                   }
                 />
@@ -3151,11 +3257,18 @@ export function PerformanceView() {
                   onValueChange={(val) =>
                     setFormReviewStatus(val as PerformanceReview['status'])
                   }
-                  options={[
-                    { label: 'APPROVED — Đã phê duyệt', value: 'APPROVED' },
-                    { label: 'SUBMITTED — Chờ phê duyệt', value: 'SUBMITTED' },
-                    { label: 'DRAFT — Lưu nháp', value: 'DRAFT' },
-                  ]}
+                  options={
+                    canApproveReviews
+                      ? [
+                          { label: 'Đã phê duyệt', value: 'APPROVED' },
+                          { label: 'Chờ phê duyệt', value: 'SUBMITTED' },
+                          { label: 'Lưu nháp', value: 'DRAFT' },
+                        ]
+                      : [
+                          { label: 'Gửi chờ phê duyệt', value: 'SUBMITTED' },
+                          { label: 'Lưu nháp', value: 'DRAFT' },
+                        ]
+                  }
                 />
               </div>
             </div>
@@ -3210,7 +3323,7 @@ export function PerformanceView() {
               Ban hành Quyết định Thăng chức / Điều chuyển / Tăng lương
             </DialogTitle>
             <DialogDescription>
-              Quyết định có hiệu lực sẽ tự động ghi Sổ cái công tác bất biến, cập nhật Hồ sơ nhân sự, sinh Phụ lục HĐLĐ (PLHĐ), nâng quyền RBAC và kích hoạt tách lương giữa kỳ nếu chọn ngày giữa tháng.
+              Quyết định có hiệu lực sẽ tự động lưu lịch sử công tác, cập nhật Hồ sơ nhân sự, sinh Phụ lục hợp đồng, cập nhật phân quyền hệ thống và kích hoạt tách lương giữa kỳ nếu chọn ngày giữa tháng.
             </DialogDescription>
           </DialogHeader>
 
@@ -3266,10 +3379,10 @@ export function PerformanceView() {
                   </div>
                   <div>
                     <p className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                      Quyền RBAC hiện tại
+                      Quyền hệ thống hiện tại
                     </p>
-                    <p className="mt-0.5 font-mono font-semibold tabular-nums text-[#11221E] dark:text-zinc-200">
-                      {selectedDecisionEmployee.role_code}
+                    <p className="mt-0.5 font-semibold text-[#11221E] dark:text-zinc-200">
+                      {ROLE_SHORT_LABELS[selectedDecisionEmployee.role_code]}
                     </p>
                   </div>
                 </div>
@@ -3291,17 +3404,17 @@ export function PerformanceView() {
                     handleDecisionChangeTypeChange(val as DecisionModalChangeType)
                   }
                   options={[
-                    { label: 'PROMOTION — Thăng chức / Bổ nhiệm', value: 'PROMOTION' },
+                    { label: 'Thăng chức / Bổ nhiệm', value: 'PROMOTION' },
                     {
-                      label: 'DEPARTMENT_TRANSFER — Điều chuyển phòng ban',
+                      label: 'Điều chuyển phòng ban',
                       value: 'DEPARTMENT_TRANSFER',
                     },
                     {
-                      label: 'SALARY_ADJUSTMENT — Điều chỉnh lương',
+                      label: 'Điều chỉnh bậc lương',
                       value: 'SALARY_ADJUSTMENT',
                     },
                     {
-                      label: 'ROLE_CHANGE — Nâng quyền quản lý (RBAC)',
+                      label: 'Thay đổi phân quyền hệ thống',
                       value: 'ROLE_CHANGE',
                     },
                   ]}
@@ -3335,7 +3448,7 @@ export function PerformanceView() {
                   htmlFor="dec-effective-date"
                   className="text-xs font-semibold text-[#11221E] dark:text-zinc-200"
                 >
-                  Ngày có hiệu lực (Effective Date)
+                  Ngày có hiệu lực
                 </label>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
@@ -3343,14 +3456,14 @@ export function PerformanceView() {
                     onClick={() => handleDecisionEffectiveDateChange('2026-11-16')}
                     className="rounded border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] tabular-nums text-[#0F766E] hover:border-[#0F766E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-teal-400"
                   >
-                    Giữa tháng: 2026-11-16
+                    Giữa tháng: 16/11/2026
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDecisionEffectiveDateChange('2026-12-01')}
                     className="rounded border border-[#C6D9D3] bg-[#FCFEFD] px-2 py-0.5 font-mono text-[11px] tabular-nums text-[#415A54] hover:border-[#0F766E] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
                   >
-                    Đầu tháng: 2026-12-01
+                    Đầu tháng: 01/12/2026
                   </button>
                 </div>
               </div>
@@ -3364,13 +3477,7 @@ export function PerformanceView() {
               />
 
               <p className="text-xs leading-relaxed text-[#415A54] dark:text-zinc-400">
-                Lưu ý tính lương C&amp;B: Nếu chọn ngày hiệu lực giữa tháng (ví dụ:{' '}
-                <code className="rounded bg-[#E4EEEB] px-1 py-0.5 font-mono text-[#0F766E] dark:bg-zinc-800 dark:text-teal-400">
-                  2026-11-16
-                </code>
-                ), động cơ tính lương tháng 11 sẽ <strong>tự động tách bảng lương làm 2 nửa</strong>: số ngày công trước{' '}
-                <code className="font-mono">effective_date</code> hưởng mức lương cũ và số ngày công từ{' '}
-                <code className="font-mono">effective_date</code> trở đi hưởng mức lương mới!
+                Lưu ý tính lương: Nếu chọn ngày hiệu lực giữa tháng (ví dụ: 16/11/2026), hệ thống sẽ tự động tách bảng lương tháng 11 thành 2 giai đoạn: số ngày công trước ngày hiệu lực hưởng mức lương cũ và từ ngày hiệu lực trở đi hưởng mức lương mới.
               </p>
             </div>
 
@@ -3387,7 +3494,7 @@ export function PerformanceView() {
                   value={decNewDeptId}
                   onValueChange={setDecNewDeptId}
                   options={departments.map((d) => ({
-                    label: `${d.department_code} — ${d.department_name}`,
+                    label: d.department_name,
                     value: d.id,
                   }))}
                 />
@@ -3437,11 +3544,18 @@ export function PerformanceView() {
                 </div>
                 <Input
                   id="dec-new-salary"
-                  type="number"
-                  min={1000000}
-                  step={100000}
-                  value={decNewSalaryVnd}
-                  onChange={(e) => setDecNewSalaryVnd(e.target.value)}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="VD: 26.500.000"
+                  value={formatSalaryInputVnd(decNewSalaryVnd)}
+                  onChange={(e) => {
+                    const digits = e.target.value
+                      .replace(/\D/g, '')
+                      .replace(/^0+(?=\d)/, '')
+                      .slice(0, 12);
+                    setDecNewSalaryVnd(digits);
+                  }}
                   className="font-mono tabular-nums"
                 />
               </div>
@@ -3451,22 +3565,51 @@ export function PerformanceView() {
                   htmlFor="dec-new-role"
                   className="text-xs font-medium text-[#415A54] dark:text-zinc-300"
                 >
-                  Phân quyền hệ thống mới (RBAC Role)
+                  Phân quyền hệ thống mới
                 </label>
                 <Select
                   id="dec-new-role"
                   value={decNewRoleCode}
                   onValueChange={(val) => setDecNewRoleCode(val as RoleCode)}
-                  options={[
-                    { label: ROLE_LABELS.EMPLOYEE, value: 'EMPLOYEE' },
-                    { label: ROLE_LABELS.DEPT_MANAGER, value: 'DEPT_MANAGER' },
-                    { label: ROLE_LABELS.HR_MANAGER, value: 'HR_MANAGER' },
-                    { label: ROLE_LABELS.DIRECTOR, value: 'DIRECTOR' },
-                  ]}
+                  options={
+                    canApproveExecutiveDecision
+                      ? [
+                          { label: ROLE_LABELS.EMPLOYEE, value: 'EMPLOYEE' },
+                          { label: ROLE_LABELS.DEPT_MANAGER, value: 'DEPT_MANAGER' },
+                          { label: ROLE_LABELS.HR_MANAGER, value: 'HR_MANAGER' },
+                          { label: ROLE_LABELS.DIRECTOR, value: 'DIRECTOR' },
+                        ]
+                      : [
+                          { label: ROLE_LABELS.EMPLOYEE, value: 'EMPLOYEE' },
+                          {
+                            label: `${ROLE_LABELS.DEPT_MANAGER} (Cần Giám đốc duyệt)`,
+                            value: 'DEPT_MANAGER',
+                          },
+                          {
+                            label: `${ROLE_LABELS.HR_MANAGER} (Cần Giám đốc duyệt)`,
+                            value: 'HR_MANAGER',
+                          },
+                          {
+                            label: `${ROLE_LABELS.DIRECTOR} (Cần Giám đốc duyệt)`,
+                            value: 'DIRECTOR',
+                          },
+                        ]
+                  }
                 />
-                <p className="text-[11px] text-[#5C7871] dark:text-zinc-400">
-                  Nâng từ <code className="font-mono">EMPLOYEE → DEPT_MANAGER</code> sẽ tự động mở khóa quyền phê duyệt đơn nghỉ phép/OT của nhân viên cấp dưới.
-                </p>
+                {!canApproveExecutiveDecision &&
+                ((Number(decNewSalaryVnd) || 0) > 50_000_000 ||
+                  decNewRoleCode === 'DEPT_MANAGER' ||
+                  decNewRoleCode === 'HR_MANAGER' ||
+                  decNewRoleCode === 'DIRECTOR' ||
+                  decNewRoleCode === 'SUPER_ADMIN') ? (
+                  <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    Cần Giám đốc duyệt: Mức lương trên 50.000.000 VNĐ hoặc bổ nhiệm vai trò Trưởng phòng / Quản lý / Giám đốc yêu cầu Giám đốc / Quản trị hệ thống ký ban hành.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                    Nâng quyền từ Nhân viên → Trưởng bộ phận sẽ tự động mở quyền phê duyệt đơn nghỉ phép và tăng ca của nhân viên trong bộ phận.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -3495,11 +3638,29 @@ export function PerformanceView() {
               >
                 Hủy bỏ
               </Button>
-              <Button type="submit" disabled={isSubmittingDecision}>
+              <Button
+                type="submit"
+                disabled={
+                  isSubmittingDecision ||
+                  (!canApproveExecutiveDecision &&
+                    ((Number(decNewSalaryVnd) || 0) > 50_000_000 ||
+                      decNewRoleCode === 'DEPT_MANAGER' ||
+                      decNewRoleCode === 'HR_MANAGER' ||
+                      decNewRoleCode === 'DIRECTOR' ||
+                      decNewRoleCode === 'SUPER_ADMIN'))
+                }
+              >
                 <FileSignature className="h-4 w-4" strokeWidth={1.5} />
                 {isSubmittingDecision
                   ? 'Đang ban hành...'
-                  : 'Xác nhận & Ban hành Quyết định'}
+                  : !canApproveExecutiveDecision &&
+                      ((Number(decNewSalaryVnd) || 0) > 50_000_000 ||
+                        decNewRoleCode === 'DEPT_MANAGER' ||
+                        decNewRoleCode === 'HR_MANAGER' ||
+                        decNewRoleCode === 'DIRECTOR' ||
+                        decNewRoleCode === 'SUPER_ADMIN')
+                    ? 'Cần Giám đốc duyệt'
+                    : 'Xác nhận & Ban hành Quyết định'}
               </Button>
             </DialogFooter>
           </form>

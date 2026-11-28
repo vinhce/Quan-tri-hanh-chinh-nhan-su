@@ -34,3 +34,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI Copilot & local training/scratch artifacts
+.env.*
+!.env.example
+models/
+.venv*/
+training_data/
+data/
+scratch/
+!scratch/.gitkeep
+
+# Periocular ONNX Python service
+services/periocular-onnx/.venv/
+__pycache__/
+logs/

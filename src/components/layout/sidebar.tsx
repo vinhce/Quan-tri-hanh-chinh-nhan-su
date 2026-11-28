@@ -104,7 +104,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Tuyển dụng & ATS",
     section: "Quản trị cốt lõi",
     icon: UserCheck,
-    roles: ["SUPER_ADMIN", "HR_MANAGER", "DEPT_MANAGER"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER"],
     badgeCount: 6,
     deliverableStep: "Bước 2",
     summary: "Đề xuất tuyển dụng từ phòng ban, tin tuyển dụng và Kanban ứng viên",
@@ -169,7 +169,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Đánh giá & Thăng tiến",
     section: "Vận hành",
     icon: Activity,
-    roles: ["SUPER_ADMIN"],
+    roles: ["SUPER_ADMIN", "DIRECTOR", "HR_MANAGER", "DEPT_MANAGER"],
     badgeCount: 3,
     deliverableStep: "Bước 2",
     summary: "Đánh giá hiệu suất đa chu kỳ, lộ trình thăng tiến, điều chuyển và cảnh báo AI",
@@ -202,6 +202,26 @@ export const NAV_ITEMS: NavItem[] = [
     summary: "Lịch sử truy cập, thay đổi dữ liệu lương và phê duyệt hệ thống",
   },
 ];
+
+export const NAV_ALIAS_TO_ID: Record<string, string> = {
+  employees: "core-hr",
+  recruitment: "ats",
+  assets: "onboarding",
+  offboarding: "offboarding",
+  resignations: "offboarding",
+  settlement: "offboarding",
+  requests: "leaves",
+  performance: "kpi",
+  roles: "rbac",
+};
+
+export function canRoleAccessNav(role: RoleCode, navId: string): boolean {
+  if (!role || role === "CANDIDATE") return false;
+  const canonicalId = NAV_ALIAS_TO_ID[navId] ?? navId;
+  const item = NAV_ITEMS.find((i) => i.id === canonicalId);
+  if (!item) return false;
+  return item.roles.includes(role);
+}
 
 export const ROLE_META: Record<
   RoleCode,
@@ -340,7 +360,11 @@ function getRoleBadgeMeta(
     case "EMPLOYEE":
     default:
       return {
-        text: `${empCode} · ${normalizedDept}`,
+        text: empCode
+          ? `${empCode} · ${normalizedDept}`
+          : normalizedDept
+            ? `${ROLE_META.EMPLOYEE.label} · ${normalizedDept}`
+            : ROLE_META.EMPLOYEE.label,
         className:
           "border-[#C6D9D3] bg-[#E4EEEB] text-[#415A54] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
       };
@@ -361,6 +385,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const router = useRouter();
   const {
     role,
+    setRole,
     currentUserEmail,
     currentUserProfile,
     setAuthenticatedUser,
@@ -466,31 +491,93 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [roleMenuOpen]);
 
-  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
-  const currentMeta = ROLE_META[role];
-  const defaultProfile = ROLE_DEFAULT_PROFILES[role];
-  const displayName = currentUserProfile?.fullName || currentMeta.empName;
-  const displayDept = currentUserProfile?.department || currentMeta.department;
-  const displayDeptId = currentUserProfile?.department_id;
-  const displayEmpCode =
-    currentUserProfile?.employee_code || currentMeta.empCode || defaultProfile.employee_code;
+  const matchedLoginAccount = useMemo(() => {
+    const lookupKey =
+      currentUserProfile?.employee_code?.trim() ||
+      currentUserEmail?.trim() ||
+      currentUserProfile?.email?.trim() ||
+      "";
+    if (!lookupKey) return null;
+    return findSystemUserForLogin(lookupKey);
+  }, [
+    currentUserProfile?.employee_code,
+    currentUserProfile?.email,
+    currentUserEmail,
+    activeRuntimeEmployees,
+  ]);
+
+  const effectiveRole: RoleCode =
+    matchedLoginAccount?.user?.role_code ??
+    matchedLoginAccount?.employee?.role_code ??
+    role;
+
+  useEffect(() => {
+    if (
+      matchedLoginAccount?.user?.role_code &&
+      matchedLoginAccount.user.role_code !== role
+    ) {
+      setRole(matchedLoginAccount.user.role_code);
+    }
+  }, [matchedLoginAccount?.user?.role_code, role, setRole]);
+
+  const isSelfRegisteredCustomAccount = useMemo(() => {
+    const hasSessionIdentity = Boolean(
+      currentUserEmail?.trim() ||
+        currentUserProfile?.employee_code?.trim() ||
+        currentUserProfile?.fullName?.trim()
+    );
+    if (!hasSessionIdentity) return false;
+    if (matchedLoginAccount?.user || matchedLoginAccount?.employee) {
+      return false;
+    }
+    const normEmail = (currentUserEmail || currentUserProfile?.email || "")
+      .trim()
+      .toLowerCase();
+    const isDefaultDemoEmail = Object.values(ROLE_DEFAULT_PROFILES).some(
+      (p) => p.email.trim().toLowerCase() === normEmail
+    );
+    return !isDefaultDemoEmail;
+  }, [currentUserEmail, currentUserProfile, matchedLoginAccount]);
+
+  const visibleItems = NAV_ITEMS.filter((item) =>
+    item.roles.includes(effectiveRole)
+  );
+  const currentMeta = ROLE_META[effectiveRole];
+  const defaultProfile = ROLE_DEFAULT_PROFILES[effectiveRole];
+  const displayName =
+    matchedLoginAccount?.employee?.full_name ||
+    currentUserProfile?.fullName ||
+    currentMeta.empName;
+  const displayDept =
+    matchedLoginAccount?.employee?.department_name ||
+    currentUserProfile?.department ||
+    currentMeta.department;
+  const displayDeptId =
+    matchedLoginAccount?.employee?.department_id ||
+    currentUserProfile?.department_id;
+  const displayEmpCode = isSelfRegisteredCustomAccount
+    ? currentUserProfile?.employee_code?.trim() || ""
+    : matchedLoginAccount?.employee?.employee_code ||
+      currentUserProfile?.employee_code ||
+      currentMeta.empCode ||
+      defaultProfile.employee_code;
 
   const onboardingInProgressCount = useMemo(() => {
     const activeRecords = onboardingRecords.filter(
       (rec) => rec.status === "IN_PROGRESS"
     );
     if (
-      role === "SUPER_ADMIN" ||
-      role === "HR_MANAGER" ||
-      role === "DIRECTOR"
+      effectiveRole === "SUPER_ADMIN" ||
+      effectiveRole === "HR_MANAGER" ||
+      effectiveRole === "DIRECTOR"
     ) {
       return activeRecords.length;
     }
-    if (role === "DEPT_MANAGER") {
-      const actorDeptKey = (displayDeptId || displayDept || "dept-tech").trim();
-      const isTechScope = TECH_DEPT_SCOPE.has(actorDeptKey);
+    if (effectiveRole === "DEPT_MANAGER") {
+      const actorDeptKey = (displayDeptId || displayDept || "").trim();
+      if (!actorDeptKey) return 0;
       return activeRecords.filter((rec) => {
-        if (isTechScope) {
+        if (actorDeptKey === "dept-tech" || actorDeptKey === "Khối Công nghệ") {
           return (
             TECH_DEPT_SCOPE.has(rec.department_id) ||
             TECH_DEPT_SCOPE.has(rec.department_name)
@@ -502,10 +589,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         );
       }).length;
     }
+    if (!displayEmpCode) return 0;
     return activeRecords.filter(
       (rec) => rec.employee_code === displayEmpCode
     ).length;
-  }, [onboardingRecords, role, displayDeptId, displayDept, displayEmpCode]);
+  }, [onboardingRecords, effectiveRole, displayDeptId, displayDept, displayEmpCode]);
 
   const offboardingBadgeCount = useMemo(() => {
     const activeResignations = resignationRecords.filter(
@@ -515,17 +603,17 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         r.status !== "CANCELLED"
     );
     if (
-      role === "SUPER_ADMIN" ||
-      role === "HR_MANAGER" ||
-      role === "DIRECTOR"
+      effectiveRole === "SUPER_ADMIN" ||
+      effectiveRole === "HR_MANAGER" ||
+      effectiveRole === "DIRECTOR"
     ) {
       return activeResignations.length;
     }
-    if (role === "DEPT_MANAGER") {
-      const actorDeptKey = (displayDeptId || displayDept || "dept-tech").trim();
-      const isTechScope = TECH_DEPT_SCOPE.has(actorDeptKey);
+    if (effectiveRole === "DEPT_MANAGER") {
+      const actorDeptKey = (displayDeptId || displayDept || "").trim();
+      if (!actorDeptKey) return 0;
       return activeResignations.filter((rec) => {
-        if (isTechScope) {
+        if (actorDeptKey === "dept-tech" || actorDeptKey === "Khối Công nghệ") {
           return (
             TECH_DEPT_SCOPE.has(rec.department_id) ||
             TECH_DEPT_SCOPE.has(rec.department_name)
@@ -537,6 +625,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         );
       }).length;
     }
+    if (!displayEmpCode) return 0;
     const ownActive = activeResignations.filter(
       (r) => r.employee_code === displayEmpCode
     ).length;
@@ -547,7 +636,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   }, [
     resignationRecords,
     handoverRecords,
-    role,
+    effectiveRole,
     displayDeptId,
     displayDept,
     displayEmpCode,
@@ -563,9 +652,13 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       .join("")
       .toUpperCase() || "NV";
 
-  const roleBadge = getRoleBadgeMeta(role, displayEmpCode, displayDept);
+  const roleBadge = getRoleBadgeMeta(effectiveRole, displayEmpCode, displayDept);
 
   const handleSelectNav = (item: NavItem) => {
+    if (!canRoleAccessNav(effectiveRole, item.id)) {
+      setActiveNav("dashboard");
+      return;
+    }
     setActiveNav(item.id);
     setRoleMenuOpen(false);
     onMobileClose?.();
@@ -578,6 +671,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   };
 
   const handleSwitchDemoRole = (nextRole: RoleCode) => {
+    if (isSelfRegisteredCustomAccount) return;
     const nextProfile = ROLE_DEFAULT_PROFILES[nextRole];
     const nextMeta = ROLE_META[nextRole];
     const loginCheck = findSystemUserForLogin(nextProfile.email);
@@ -592,8 +686,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       });
       return;
     }
-    const effectiveRole = loginCheck.user?.role_code ?? nextRole;
-    setAuthenticatedUser(effectiveRole, nextProfile.email, {
+    const resolvedNextRole = loginCheck.user?.role_code ?? nextRole;
+    setAuthenticatedUser(resolvedNextRole, nextProfile.email, {
       fullName:
         loginCheck.employee?.full_name ||
         nextProfile.fullName ||
@@ -609,7 +703,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         nextMeta.empCode,
       title: loginCheck.employee?.position_name || nextProfile.title,
     });
-    setActiveNav("dashboard");
+    if (!canRoleAccessNav(resolvedNextRole, activeNav)) {
+      setActiveNav("dashboard");
+    } else {
+      setActiveNav("dashboard");
+    }
     setRoleMenuOpen(false);
     onMobileClose?.();
   };
@@ -626,20 +724,37 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   }, [activeRuntimeEmployees, displayEmpCode, currentUserEmail]);
 
   const handleQuickSwitchEmployee = (empIdOrCode: string) => {
-    if (!empIdOrCode) return;
+    if (!empIdOrCode || isSelfRegisteredCustomAccount) return;
     const emp = activeRuntimeEmployees.find(
       (e) => e.id === empIdOrCode || e.employee_code === empIdOrCode
     );
     if (!emp) return;
-    const keepNav = activeNav;
-    setAuthenticatedUser(emp.role_code || "EMPLOYEE", emp.email, {
+    const loginCheck = findSystemUserForLogin(emp.employee_code || emp.email);
+    if (!loginCheck.canLogin) {
+      setRoleMenuOpen(false);
+      void alertSwal({
+        title: "Tài khoản đang bị khóa",
+        text:
+          loginCheck.blockReason ||
+          "Tài khoản này đã bị khóa truy cập.",
+        icon: "error",
+      });
+      return;
+    }
+    const nextRole: RoleCode =
+      loginCheck.user?.role_code || emp.role_code || "EMPLOYEE";
+    const nextNav = canRoleAccessNav(nextRole, activeNav)
+      ? activeNav
+      : "dashboard";
+    setAuthenticatedUser(nextRole, loginCheck.user?.email || emp.email, {
       fullName: emp.full_name,
       department: emp.department_name,
       department_id: emp.department_id,
       employee_code: emp.employee_code,
+      email: loginCheck.user?.email || emp.email,
       title: emp.position_name,
     });
-    setActiveNav(keepNav);
+    setActiveNav(nextNav);
     setRoleMenuOpen(false);
     onMobileClose?.();
   };
@@ -825,7 +940,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             ref={collapsedFooterRef}
             className="relative shrink-0 border-t border-[#C6D9D3] p-2 dark:border-zinc-800/80 flex flex-col items-center"
           >
-            {roleMenuOpen &&
+            {!isSelfRegisteredCustomAccount &&
+              roleMenuOpen &&
               renderRoleMenu(
                 "sidebar-quick-employee-select-collapsed",
                 "absolute bottom-2 left-full z-50 ml-2 w-64 shadow-[0_12px_28px_rgba(17,34,30,0.16)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.5)]"
@@ -833,11 +949,21 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
             <button
               type="button"
-              onClick={() => setRoleMenuOpen((prev) => !prev)}
-              title={`Tài khoản: ${displayName} (${displayEmpCode}) - Nhấn để đổi vai trò`}
+              onClick={() => {
+                if (isSelfRegisteredCustomAccount) {
+                  handleOpenProfile();
+                } else {
+                  setRoleMenuOpen((prev) => !prev);
+                }
+              }}
+              title={
+                isSelfRegisteredCustomAccount
+                  ? `Tài khoản: ${displayName}`
+                  : `Tài khoản: ${displayName} (${displayEmpCode}) - Nhấn để đổi vai trò`
+              }
               aria-label="Menu tài khoản"
-              aria-haspopup="menu"
-              aria-expanded={roleMenuOpen}
+              aria-haspopup={isSelfRegisteredCustomAccount ? undefined : "menu"}
+              aria-expanded={isSelfRegisteredCustomAccount ? undefined : roleMenuOpen}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C6D9D3] bg-[#FCFEFD] font-mono text-xs font-bold text-[#0B4F4A] transition-colors hover:bg-[#D8E6E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 dark:focus-visible:ring-teal-400/30"
             >
               {initials}
@@ -1017,7 +1143,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         ref={isMobile ? mobileFooterRef : expandedFooterRef}
         className="relative shrink-0 border-t border-[#C6D9D3] p-2.5 dark:border-zinc-800/80"
       >
-        {roleMenuOpen &&
+        {!isSelfRegisteredCustomAccount &&
+          roleMenuOpen &&
           renderRoleMenu(
             isMobile
               ? "sidebar-quick-employee-select-mobile"
@@ -1029,9 +1156,19 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setRoleMenuOpen((prev) => !prev)}
-              aria-label={`Tài khoản ${displayName}, mở menu đổi vai trò demo`}
-              aria-expanded={roleMenuOpen}
+              onClick={() => {
+                if (isSelfRegisteredCustomAccount) {
+                  handleOpenProfile();
+                } else {
+                  setRoleMenuOpen((prev) => !prev);
+                }
+              }}
+              aria-label={
+                isSelfRegisteredCustomAccount
+                  ? `Tài khoản ${displayName}`
+                  : `Tài khoản ${displayName}, mở menu đổi vai trò demo`
+              }
+              aria-expanded={isSelfRegisteredCustomAccount ? undefined : roleMenuOpen}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#C6D9D3] bg-[#E4EEEB] font-mono text-xs font-semibold text-[#0B4F4A] transition-colors hover:bg-[#D8E6E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-teal-400 dark:hover:bg-zinc-700 dark:focus-visible:ring-teal-400/30"
             >
               {initials}
@@ -1060,21 +1197,23 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setRoleMenuOpen((prev) => !prev)}
-            aria-label="Đổi vai trò (demo)"
-            aria-expanded={roleMenuOpen}
-            className="mt-1.5 flex h-7 w-full items-center justify-between rounded-md px-2 text-[11px] font-medium text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-200 dark:focus-visible:ring-teal-400/30"
-          >
-            <span>Đổi vai trò (demo)</span>
-            <ChevronDown
-              className={`h-3.5 w-3.5 shrink-0 transition-transform ${
-                roleMenuOpen ? "rotate-180" : ""
-              }`}
-              strokeWidth={1.5}
-            />
-          </button>
+          {!isSelfRegisteredCustomAccount && (
+            <button
+              type="button"
+              onClick={() => setRoleMenuOpen((prev) => !prev)}
+              aria-label="Đổi vai trò (demo)"
+              aria-expanded={roleMenuOpen}
+              className="mt-1.5 flex h-7 w-full items-center justify-between rounded-md px-2 text-[11px] font-medium text-[#415A54] transition-colors hover:bg-[#E8F3EF] hover:text-[#11221E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E]/30 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-200 dark:focus-visible:ring-teal-400/30"
+            >
+              <span>Đổi vai trò (demo)</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                  roleMenuOpen ? "rotate-180" : ""
+                }`}
+                strokeWidth={1.5}
+              />
+            </button>
+          )}
 
           <div className="mt-2 border-t border-zinc-200/80 pt-2 dark:border-zinc-800">
             <button
@@ -1132,7 +1271,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               <span className="font-semibold text-[#11221E] dark:text-zinc-100">
                 {displayName}
               </span>{" "}
-              (<span className="font-mono tabular-nums">{displayEmpCode}</span>) và quay về trang đăng nhập không?
+              (<span className="font-mono tabular-nums">{displayEmpCode || currentUserEmail || "Cá nhân"}</span>) và quay về trang đăng nhập không?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">

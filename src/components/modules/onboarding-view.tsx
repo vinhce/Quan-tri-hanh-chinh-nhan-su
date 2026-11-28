@@ -13,6 +13,7 @@ import {
   FileSignature,
   KeyRound,
   Laptop,
+  Lock,
   MailCheck,
   Monitor,
   PackageCheck,
@@ -44,6 +45,7 @@ import {
   getOnboardingRecords,
   getPerformanceReviews,
   getPreboardingInvites,
+  getRuntimeDepartments,
   getSystemUsers,
   getTodayDateVN,
   HRM_RUNTIME_EVENT,
@@ -95,19 +97,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export type OnboardingSubTab = 'progress' | 'assets';
-
-const DEFAULT_TECH_DEPT_IDS = new Set([
-  'dept-tech',
-  'dept-tech-swe',
-  'dept-tech-data',
-  'dept-data',
-]);
-
-const DEFAULT_TECH_DEPT_NAMES = new Set([
-  'Khối Công nghệ',
-  'Phòng Kỹ thuật Phần mềm',
-  'Phòng Dữ liệu & AI',
-]);
 
 const TASK_GROUP_ORDER: OnboardingTaskGroup[] = ['IT', 'ADMIN', 'HR', 'MANAGER'];
 
@@ -272,13 +261,16 @@ export function OnboardingView() {
   const {
     role,
     currentUserProfile,
+    currentUserEmail,
     uiState,
     setUiState,
     showToast,
     navIntent,
     clearNavIntent,
+    setActiveNav,
   } = useApp();
 
+  const isAccessDenied = role === 'EMPLOYEE' || role === 'CANDIDATE';
   const defaultProfile = ROLE_DEFAULT_PROFILES[role];
   const actorCode =
     currentUserProfile?.employee_code || defaultProfile.employee_code;
@@ -286,9 +278,10 @@ export function OnboardingView() {
   const actorDeptIdOverride = (
     currentUserProfile as { department_id?: string } | null
   )?.department_id;
-  const actorDeptNameOverride = currentUserProfile?.department;
 
-  const canManageAll = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+  const canManageAll =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR' || role === 'HR_MANAGER';
+  const canApproveHighSalary = role === 'SUPER_ADMIN' || role === 'DIRECTOR';
   const isDeptManager = role === 'DEPT_MANAGER';
   const isEmployee = role === 'EMPLOYEE';
 
@@ -409,6 +402,10 @@ export function OnboardingView() {
   const [revokeNote, setRevokeNote] = useState<string>('');
 
   const syncFromRuntimeStore = useCallback(() => {
+    const rtDepts = getRuntimeDepartments();
+    if (rtDepts.length > 0) {
+      setDepartments(rtDepts);
+    }
     setRecords(getOnboardingRecords());
     setAssets(getCompanyAssets());
     setEmployeeAssets(getEmployeeAssets());
@@ -428,7 +425,8 @@ export function OnboardingView() {
     try {
       const empMock = await fetchEmployeesMock();
       baseEmployeesRef.current = empMock.MOCK_EMPLOYEES;
-      setDepartments(empMock.MOCK_DEPARTMENTS);
+      const rtDepts = getRuntimeDepartments();
+      setDepartments(rtDepts.length > 0 ? rtDepts : empMock.MOCK_DEPARTMENTS);
       setEmployees(mergeWithRuntimeEmployees(empMock.MOCK_EMPLOYEES));
       setRecords(getOnboardingRecords());
       setAssets(getCompanyAssets());
@@ -458,29 +456,88 @@ export function OnboardingView() {
     };
   }, [syncFromRuntimeStore]);
 
+  const actorEmployee = useMemo(() => {
+    if (isAccessDenied) return null;
+    const explicitCode = currentUserProfile?.employee_code?.trim();
+    if (explicitCode && !explicitCode.toUpperCase().startsWith('UV-')) {
+      const byCode = employees.find(
+        (e) => e.employee_code.toLowerCase() === explicitCode.toLowerCase()
+      );
+      if (byCode) return byCode;
+    }
+    const rawEmail = (currentUserProfile?.email || currentUserEmail || '')
+      .trim()
+      .toLowerCase();
+    if (rawEmail) {
+      const byEmail = employees.find(
+        (e) =>
+          e.email.toLowerCase() === rawEmail ||
+          (e.personal_email && e.personal_email.toLowerCase() === rawEmail)
+      );
+      if (byEmail) return byEmail;
+      if (
+        rawEmail.endsWith('@lacviethrm.vn') ||
+        rawEmail.endsWith('@hrm-enterprise.vn')
+      ) {
+        const local = rawEmail.split('@')[0];
+        const byLocal = employees.find(
+          (e) => e.email.toLowerCase().split('@')[0] === local
+        );
+        if (byLocal) return byLocal;
+      }
+    }
+    if (!explicitCode && !rawEmail) {
+      const defCode = ROLE_DEFAULT_PROFILES[role]?.employee_code;
+      if (defCode && !defCode.startsWith('UV-')) {
+        return employees.find((e) => e.employee_code === defCode) ?? null;
+      }
+    }
+    return null;
+  }, [isAccessDenied, currentUserProfile, currentUserEmail, employees, role]);
+
+  const managerDeptIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isDeptManager) return ids;
+    const explicitDeptId = actorDeptIdOverride?.trim();
+    if (explicitDeptId) {
+      ids.add(explicitDeptId);
+    }
+    if (
+      actorEmployee &&
+      (!explicitDeptId || actorEmployee.department_id === explicitDeptId)
+    ) {
+      if (actorEmployee.department_id) ids.add(actorEmployee.department_id);
+      for (const d of departments) {
+        if (d.manager_id === actorEmployee.id) {
+          ids.add(d.id);
+        }
+      }
+    }
+    return ids;
+  }, [isDeptManager, actorDeptIdOverride, actorEmployee, departments]);
+
+  const managerDeptNames = useMemo(() => {
+    const names = new Set<string>();
+    if (!isDeptManager) return names;
+    for (const d of departments) {
+      if (managerDeptIds.has(d.id)) {
+        names.add(d.department_name.trim().toLowerCase());
+      }
+    }
+    return names;
+  }, [isDeptManager, departments, managerDeptIds]);
+
   // Helper to check Department Manager scope
   const isInManagerScope = useCallback(
     (deptId?: string, deptName?: string): boolean => {
-      if (actorDeptIdOverride && !DEFAULT_TECH_DEPT_IDS.has(actorDeptIdOverride)) {
-        if (deptId === actorDeptIdOverride) return true;
-        const childIds = departments
-          .filter((d) => d.parent_id === actorDeptIdOverride)
-          .map((d) => d.id);
-        return Boolean(deptId && childIds.includes(deptId));
+      if (!isDeptManager) return true;
+      if (deptId && managerDeptIds.has(deptId)) return true;
+      if (deptName && managerDeptNames.has(deptName.trim().toLowerCase())) {
+        return true;
       }
-      if (
-        !actorDeptIdOverride &&
-        actorDeptNameOverride &&
-        !DEFAULT_TECH_DEPT_NAMES.has(actorDeptNameOverride)
-      ) {
-        return deptName === actorDeptNameOverride;
-      }
-      return Boolean(
-        (deptId && DEFAULT_TECH_DEPT_IDS.has(deptId)) ||
-          (deptName && DEFAULT_TECH_DEPT_NAMES.has(deptName))
-      );
+      return false;
     },
-    [actorDeptIdOverride, actorDeptNameOverride, departments]
+    [isDeptManager, managerDeptIds, managerDeptNames]
   );
 
   // Scoped onboarding records by role
@@ -542,7 +599,7 @@ export function OnboardingView() {
     if (isDeptManager) {
       const empByCode = new Map(employees.map((e) => [e.employee_code, e]));
       return assets.filter((a) => {
-        if (a.status !== 'ASSIGNED') return true;
+        if (a.status !== 'ASSIGNED') return false;
         const holder = a.assigned_to_code
           ? empByCode.get(a.assigned_to_code)
           : undefined;
@@ -854,15 +911,18 @@ export function OnboardingView() {
       .filter(
         (emp) =>
           isOfficialEmployeeStatus(emp.employment_status) &&
-          emp.employee_code !== selectedRecord.employee_code
+          emp.employee_code !== selectedRecord.employee_code &&
+          (!isDeptManager ||
+            isInManagerScope(emp.department_id, emp.department_name))
       )
       .map((emp) => ({
         label: `${emp.full_name} (${emp.employee_code} · ${emp.position_name})`,
         value: emp.id,
       }));
-  }, [employees, selectedRecord]);
+  }, [employees, selectedRecord, isDeptManager, isInManagerScope]);
 
   const handleCopyPreboardingUrl = async (token: string) => {
+    if (!canManageAll) return;
     const rel = `/preboarding?token=${encodeURIComponent(token)}`;
     const full =
       typeof window !== 'undefined' ? `${window.location.origin}${rel}` : rel;
@@ -877,6 +937,7 @@ export function OnboardingView() {
   };
 
   const openQuickUpdateModal = (invite: PreboardingInvite) => {
+    if (!canManageAll) return;
     setQuickUpdateInvite(invite);
   };
 
@@ -885,7 +946,7 @@ export function OnboardingView() {
     e?: React.FormEvent
   ) => {
     e?.preventDefault();
-    if (!quickUpdateInvite) return;
+    if (!canManageAll || !quickUpdateInvite) return;
     const sub = quickUpdateInvite.submitted_data;
     if (!sub || quickUpdateInvite.status === 'PENDING') {
       await alertSwal({
@@ -925,10 +986,20 @@ export function OnboardingView() {
 
   const handleCreateNewPreboardingInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageAll) return;
     if (!invFullName.trim() || !invPersonalEmail.trim()) return;
     const dept =
       departments.find((d) => d.id === invDeptId) ?? departments[0];
     if (!dept) return;
+    const officialSalaryNum = Number(invOfficialSalary) || 25000000;
+    if (!canApproveHighSalary && officialSalaryNum > 50_000_000) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Mở Pre-boarding với mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
 
     const result = createPreboardingInvite({
       fullName: invFullName.trim(),
@@ -940,7 +1011,7 @@ export function OnboardingView() {
       managerId: dept.manager_id,
       managerName: dept.manager_name,
       expectedStartDate: invStartDate || '2026-11-02',
-      officialSalaryVnd: Number(invOfficialSalary) || 25000000,
+      officialSalaryVnd: officialSalaryNum,
       probationSalaryPercent: Number(invProbPct) || 85,
       actorName,
     });
@@ -973,6 +1044,7 @@ export function OnboardingView() {
 
   // Department Task Runners via completeOnboardingDeptTask
   const handleRunItProvisioning = async (record: OnboardingRecord) => {
+    if (!canManageAll) return;
     const corpEmail = itEmailInput.trim() || record.email;
     const ok = await confirmSwal({
       title: 'Cấp Email công ty & Kích hoạt Tài khoản SSO?',
@@ -999,6 +1071,7 @@ export function OnboardingView() {
   };
 
   const handleRunAdminAssetTask = async (record: OnboardingRecord) => {
+    if (!canManageAll) return;
     if (!adminAssetIdInput) {
       await alertSwal({
         title: 'Chưa chọn tài sản cấp phát',
@@ -1100,12 +1173,21 @@ export function OnboardingView() {
   };
 
   const handleRunHrProbationContract = async (record: OnboardingRecord) => {
+    if (!canManageAll) return;
     const pct = Math.min(
       100,
       Math.max(50, Number.parseInt(hrSalaryPercentInput, 10) || 85)
     );
     const officialSal = Number(hrOfficialSalaryInput) || 24000000;
     const probSal = Math.round((officialSal * pct) / 100);
+    if (!canApproveHighSalary && (officialSal > 50_000_000 || probSal > 50_000_000)) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Phát hành Hợp đồng thử việc có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
 
     const ok = await confirmSwal({
       title: 'Phát hành Hợp đồng Thử việc 02 tháng?',
@@ -1141,6 +1223,20 @@ export function OnboardingView() {
     currentlyCompleted: boolean
   ) => {
     if (!canActorToggleGroup(role, group, record.status)) return;
+    if (
+      !currentlyCompleted &&
+      group === 'HR' &&
+      !canApproveHighSalary &&
+      ((record.official_salary_vnd ?? 0) > 50_000_000 ||
+        (Number(hrOfficialSalaryInput) || 0) > 50_000_000)
+    ) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Chốt hợp đồng cho nhân sự có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống thực hiện.',
+        'warning'
+      );
+      return;
+    }
 
     if (!currentlyCompleted) {
       completeOnboardingDeptTask({
@@ -1265,6 +1361,12 @@ export function OnboardingView() {
 
   // Manager Quick Probation Review PASS
   const handleQuickPassProbationReview = async (emp: Employee) => {
+    if (
+      !canManageAll &&
+      (!isDeptManager || !isInManagerScope(emp.department_id, emp.department_name))
+    ) {
+      return;
+    }
     const ok = await confirmSwal({
       title: 'Ghi nhận kết quả Đánh giá Thử việc ĐẠT (PASS)?',
       html: `Xác nhận nhân sự <strong>${escapeSwalHtml(emp.full_name)}</strong> (<span class="font-mono">${escapeSwalHtml(emp.employee_code)}</span>) đạt yêu cầu chuyên môn sau 60 ngày thử việc để Phòng Nhân sự chuyển ký Hợp đồng chính thức 100% lương.`,
@@ -1303,10 +1405,19 @@ export function OnboardingView() {
 
   // Open Probation -> Official Conversion Dialog
   const openConvertToOfficialModal = (emp: Employee) => {
+    if (!canManageAll) return;
     const pct = emp.probation_salary_percent || 85;
     const computed100 =
       emp.official_salary_vnd ??
       Math.round(emp.base_salary_vnd / (pct / 100) / 100000) * 100000;
+    if (!canApproveHighSalary && computed100 > 50_000_000) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Chuyển chính thức hồ sơ có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     const existingPass = reviews.find(
       (r) =>
         (r.employee_id === emp.id || r.employee_code === emp.employee_code) &&
@@ -1326,9 +1437,17 @@ export function OnboardingView() {
 
   const handleConfirmConvertToOfficial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!convertTargetEmp) return;
+    if (!canManageAll || !convertTargetEmp) return;
 
     const salaryNum = Number(convertSalaryVnd) || convertTargetEmp.base_salary_vnd;
+    if (!canApproveHighSalary && salaryNum > 50_000_000) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Chốt lương chính thức trên 50.000.000 VNĐ vượt thẩm quyền HR Manager — yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     const scoreNum = Math.min(100, Math.max(50, Number(convertKpiScore) || 90));
 
     const ok = await confirmSwal({
@@ -1569,6 +1688,36 @@ export function OnboardingView() {
     }
   }, [role, actorCode]);
 
+  if (isAccessDenied) {
+    return (
+      <div className="mx-auto max-w-xl py-16">
+        <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/15">
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+              <Lock className="h-6 w-6" strokeWidth={1.75} />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Không đủ quyền truy cập Onboarding &amp; Tài sản (403)
+              </h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Phân hệ Quản trị Hội nhập &amp; Kho tài sản chỉ dành cho Ban Giám đốc, Quản trị Nhân sự và Trưởng bộ phận.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setActiveNav('dashboard')}
+            >
+              Quay về Bảng điều khiển
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // 1. Loading state
   if (uiState === 'loading' || isLoading) {
     return (
@@ -1730,7 +1879,11 @@ export function OnboardingView() {
             )}
           >
             <Laptop className="h-4 w-4" strokeWidth={1.5} />
-            {isEmployee ? 'Tài sản đang giữ' : 'Kho & Tài sản cấp phát'}
+            {isEmployee
+              ? 'Tài sản đang giữ'
+              : isDeptManager
+                ? 'Tài sản nhân sự phòng ban'
+                : 'Kho & Tài sản cấp phát'}
             <span className="ml-0.5 font-mono text-[11px] tabular-nums text-[#415A54] dark:text-zinc-400">
               ({scopedAssets.length})
             </span>
@@ -1772,40 +1925,42 @@ export function OnboardingView() {
                           {stMeta.shortLabel}
                         </Badge>
                         {canManageAll && (
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            onClick={() => openQuickUpdateModal(inv)}
-                          >
-                            Duyệt hồ sơ
-                          </Button>
+                          <>
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              onClick={() => openQuickUpdateModal(inv)}
+                            >
+                              Duyệt hồ sơ
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 px-0"
+                              aria-label={`Sao chép link Pre-boarding của ${inv.full_name}`}
+                              title="Sao chép link Pre-boarding"
+                              onClick={() => void handleCopyPreboardingUrl(inv.token)}
+                            >
+                              {copiedToken === inv.token ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-600" strokeWidth={1.75} />
+                              ) : (
+                                <ClipboardCopy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              )}
+                            </Button>
+                            <Link
+                              href={inv.preboarding_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`Mở cổng Pre-boarding của ${inv.full_name}`}
+                              title="Mở cổng Pre-boarding"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C6D9D3] bg-white text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            </Link>
+                          </>
                         )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 px-0"
-                          aria-label={`Sao chép link Pre-boarding của ${inv.full_name}`}
-                          title="Sao chép link Pre-boarding"
-                          onClick={() => void handleCopyPreboardingUrl(inv.token)}
-                        >
-                          {copiedToken === inv.token ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-600" strokeWidth={1.75} />
-                          ) : (
-                            <ClipboardCopy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          )}
-                        </Button>
-                        <Link
-                          href={inv.preboarding_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Mở cổng Pre-boarding của ${inv.full_name}`}
-                          title="Mở cổng Pre-boarding"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#C6D9D3] bg-white text-[#11221E] transition-colors hover:bg-[#E8F3EF] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        </Link>
                       </div>
                     </div>
                   );
@@ -1897,10 +2052,17 @@ export function OnboardingView() {
                   !isOfficialEmployeeStatus(focusedEmployee.employment_status) &&
                   focusedEmployee.employment_status !== 'RESIGNED'
               );
+              const canEvaluateProbationFocused = Boolean(
+                isDeptManager &&
+                  focusedEmployee &&
+                  focusedEmployee.employment_status === 'PROBATION'
+              );
               const showFocusedFooter = Boolean(
                 focusedRecord &&
                   focusedStats &&
-                  (canCompleteFocused || canConvertFocused)
+                  (canCompleteFocused ||
+                    canConvertFocused ||
+                    canEvaluateProbationFocused)
               );
 
               return (
@@ -2076,16 +2238,35 @@ export function OnboardingView() {
                           </Button>
                         )}
                         {canConvertFocused && focusedEmployee && (
+                          !canApproveHighSalary &&
+                          (focusedEmployee.official_salary_vnd ??
+                            focusedEmployee.base_salary_vnd) > 50_000_000 ? (
+                            <Badge variant="warning">Cần Giám đốc duyệt</Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                openConvertToOfficialModal(focusedEmployee)
+                              }
+                            >
+                              <Award className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              Chuyển chính thức
+                            </Button>
+                          )
+                        )}
+                        {canEvaluateProbationFocused && focusedEmployee && (
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="primary"
                             size="sm"
                             onClick={() =>
-                              openConvertToOfficialModal(focusedEmployee)
+                              void handleQuickPassProbationReview(focusedEmployee)
                             }
                           >
-                            <Award className="h-3.5 w-3.5" strokeWidth={1.5} />
-                            Chuyển chính thức
+                            <UserCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            Đánh giá Thử việc (PASS)
                           </Button>
                         )}
                       </div>
@@ -2137,12 +2318,19 @@ export function OnboardingView() {
                   onValueChange={(v) =>
                     setAssetStatusFilter(v as 'ALL' | AssetStatus)
                   }
-                  options={[
-                    { label: 'Tất cả trạng thái', value: 'ALL' },
-                    { label: 'Đang cấp phát', value: 'ASSIGNED' },
-                    { label: 'Sẵn sàng trong kho', value: 'AVAILABLE' },
-                    { label: 'Đang bảo trì', value: 'MAINTENANCE' },
-                  ]}
+                  options={
+                    isDeptManager
+                      ? [
+                          { label: 'Tất cả trạng thái', value: 'ALL' },
+                          { label: 'Đang cấp phát', value: 'ASSIGNED' },
+                        ]
+                      : [
+                          { label: 'Tất cả trạng thái', value: 'ALL' },
+                          { label: 'Đang cấp phát', value: 'ASSIGNED' },
+                          { label: 'Sẵn sàng trong kho', value: 'AVAILABLE' },
+                          { label: 'Đang bảo trì', value: 'MAINTENANCE' },
+                        ]
+                  }
                 />
               </div>
 

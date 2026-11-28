@@ -1,0 +1,3342 @@
+{
+  "schema_version": "2.4.0",
+  "generated_at": "2026-11-23",
+  "language": "vi",
+  "compatibility": {
+    "repository": "ai-powered-hrm",
+    "system_name": "Lạc Việt HRM",
+    "system_version": "v2.4",
+    "compatible_types": [
+      "CopilotSampleQA (src/mock/types.ts:620-628)",
+      "NaturalLanguageLeaveDraft (src/mock/types.ts:630-641)"
+    ],
+    "notes": "Vừa dùng trực tiếp làm tập dữ liệu train/RAG/ChatML cho AI, vừa import trực tiếp vào ai-copilot-widget.tsx hoặc API /api/hrm/copilot mà giữ nguyên compatibility với MOCK_COPILOT_QA (qa-001..qa-004) và MOCK_NL_LEAVE_DRAFTS (nl-001..nl-003)."
+  },
+  "project_meta": {
+    "package_name": "ai-powered-hrm",
+    "package_version": "0.1.0",
+    "system_name": "Lạc Việt HRM",
+    "system_version": "v2.4",
+    "default_period": "2026-11",
+    "operating_year": 2026,
+    "timezone": "Asia/Ho_Chi_Minh",
+    "architecture_summary": "Next.js 14.2.21 App Router (src/, static export out/) + bản web tĩnh HTML/CSS/JS (web/ qua scripts/serve-web.mjs), Tailwind CSS + design system teal/zinc, 30 bảng SQL MySQL 8.0+ / MariaDB 10.6+ (InnoDB / utf8mb4_unicode_ci), WebAuthn CTAP2 sinh trắc học & cổng kiểm soát Same-WiFi.",
+    "dependencies": {
+      "clsx": "^2.1.1",
+      "lucide-react": "^0.468.0",
+      "next": "14.2.21",
+      "react": "^18.3.1",
+      "react-dom": "^18.3.1",
+      "recharts": "^2.15.0",
+      "sweetalert2": "^11.26.25",
+      "tailwind-merge": "^2.6.0"
+    },
+    "devDependencies": {
+      "@types/node": "^20.17.10",
+      "@types/react": "^18.3.12",
+      "@types/react-dom": "^18.3.1",
+      "autoprefixer": "^10.4.20",
+      "postcss": "^8.4.49",
+      "tailwindcss": "^3.4.17",
+      "typescript": "^5.7.2"
+    },
+    "npm_scripts": {
+      "gen:mock": "node scripts/export-mock-json.mjs",
+      "mock:web": "node scripts/export-mock-json.mjs",
+      "css:web": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css",
+      "css:web:watch": "tailwindcss -c tailwind.web.config.mjs -i ./web/assets/css/tailwind.input.css -o ./web/assets/css/tailwind.css --watch",
+      "reset:demo": "node scripts/reset-demo-data.mjs",
+      "predev": "node scripts/export-mock-json.mjs && node scripts/reset-demo-data.mjs",
+      "dev": "next dev",
+      "dev:3005": "node scripts/reset-demo-data.mjs && next dev -p 3005",
+      "dev:web": "node scripts/serve-web.mjs",
+      "prebuild": "node scripts/export-mock-json.mjs",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint",
+      "typecheck": "tsc --noEmit",
+      "test:unit": "node scripts/test-hrm.mjs",
+      "test:recruitment": "node scripts/test-recruitment-workflows.mjs",
+      "test:all-workflows": "node scripts/test-all-system-workflows.mjs",
+      "test:lifecycle": "node scripts/test-employee-lifecycle.mjs",
+      "test:biometric": "node scripts/test-biometric-wifi.mjs",
+      "test": "node scripts/test-hrm.mjs && node scripts/test-recruitment-workflows.mjs && node scripts/test-all-system-workflows.mjs && node scripts/test-employee-lifecycle.mjs && node scripts/test-biometric-wifi.mjs"
+    },
+    "test_suites_summary": {
+      "typecheck": "PASS (0 errors)",
+      "total_assertions": 145,
+      "passed": 145,
+      "failed": 0,
+      "suites": [
+        {
+          "name": "Unit Tests (P0-P3c)",
+          "script": "scripts/test-hrm.mjs",
+          "assertions": 12,
+          "status": "PASS"
+        },
+        {
+          "name": "Recruitment & ATS Workflows",
+          "script": "scripts/test-recruitment-workflows.mjs",
+          "assertions": 20,
+          "status": "PASS"
+        },
+        {
+          "name": "All-System 10 Modules & RBAC",
+          "script": "scripts/test-all-system-workflows.mjs",
+          "assertions": 46,
+          "status": "PASS"
+        },
+        {
+          "name": "4-Stage Employee Lifecycle & SQL",
+          "script": "scripts/test-employee-lifecycle.mjs",
+          "assertions": 30,
+          "status": "PASS"
+        },
+        {
+          "name": "Biometric WebAuthn & Same-WiFi + Night-Lock",
+          "script": "scripts/test-biometric-wifi.mjs",
+          "assertions": 37,
+          "status": "PASS"
+        }
+      ]
+    },
+    "demo_accounts": [
+      {
+        "role": "SUPER_ADMIN",
+        "title": "Quản trị hệ thống",
+        "employee_code": "NV-2024-001",
+        "full_name": "Nguyễn Văn An",
+        "email": "an.nguyen@lacviethrm.vn",
+        "department": "Ban Điều hành",
+        "shift_code": "HC-08:00",
+        "demo_password": "LacVietHRM@2026"
+      },
+      {
+        "role": "DIRECTOR",
+        "title": "Giám đốc Điều hành",
+        "employee_code": "NV-2024-000",
+        "full_name": "Trần Quốc Việt",
+        "email": "viet.tran@hrm-enterprise.vn",
+        "department": "Ban Điều hành",
+        "shift_code": "HC-08:00",
+        "demo_password": "LacVietHRM@2026"
+      },
+      {
+        "role": "HR_MANAGER",
+        "title": "Trưởng phòng Nhân sự",
+        "employee_code": "NV-2024-002",
+        "full_name": "Trần Thị Bích Ngọc",
+        "email": "ngoc.tran@lacviethrm.vn",
+        "department": "Phòng Nhân sự & Hành chính",
+        "shift_code": "HC-08:00",
+        "demo_password": "LacVietHRM@2026"
+      },
+      {
+        "role": "DEPT_MANAGER",
+        "title": "Trưởng bộ phận",
+        "employee_code": "NV-2024-003",
+        "full_name": "Lê Hoàng Nam",
+        "email": "nam.le@lacviethrm.vn",
+        "department": "Khối Công nghệ",
+        "shift_code": "HC-08:30",
+        "demo_password": "LacVietHRM@2026"
+      },
+      {
+        "role": "EMPLOYEE",
+        "title": "Nhân viên chính thức",
+        "employee_code": "NV-2024-004",
+        "login_card_alias_code": "NV-2024-008",
+        "full_name": "Phạm Minh Tuấn",
+        "email": "tuan.pham@lacviethrm.vn",
+        "department": "Khối Công nghệ",
+        "shift_code": "HC-08:30",
+        "demo_password": "LacVietHRM@2026",
+        "note": "Card quick-login trên login/page.tsx:93 hiển thị NV-2024-008 nhưng findSystemUserForLogin & AppProvider ánh xạ về nhân sự thực tế NV-2024-004 (hỗ trợ cả domain @lacviethrm.vn và @hrm-enterprise.vn)."
+      },
+      {
+        "role": "CANDIDATE",
+        "title": "Ứng viên tìm việc",
+        "candidate_code": "UV-2026-001",
+        "full_name": "Hoàng Vũ Minh",
+        "email": "minh.hoang@gmail.com",
+        "demo_password": "LacVietHRM@2026",
+        "note": "Bị chặn HTTP 403 nếu truy cập /app; sau khi nhận Offer sẽ tự sinh token Pre-boarding CSPRNG (pb-<32 hex>), HR duyệt xong sẽ kích hoạt tài khoản EMPLOYEE mới."
+      }
+    ]
+  },
+  "system_prompt_template": "Bạn là Lạc Việt Copilot — Trợ lý AI chính thức của hệ thống Lạc Việt HRM v2.4 (Quản trị Hành chính Nhân sự 4 Giai đoạn). Quy tắc bắt buộc:\n1. Luôn trả lời bằng tiếng Việt rõ ràng, chính xác, trích dẫn đúng quy chế, công thức, mã trạng thái, màn hình (/app?nav=...) hoặc mã lỗi thật trong hệ thống.\n2. Tuyệt đối tôn trọng phân quyền RBAC 6 vai trò (SUPER_ADMIN, DIRECTOR, HR_MANAGER, DEPT_MANAGER, EMPLOYEE, CANDIDATE) và quy tắc cô lập dữ liệu cá nhân: KHÔNG tiết lộ lương, đơn từ, đánh giá hay thông tin nhạy cảm của nhân sự khác nếu người hỏi là EMPLOYEE hoặc không có quyền.\n3. Khi người dùng nhập câu xin nghỉ phép / WFH / nghỉ ốm bằng ngôn ngữ tự nhiên, ưu tiên bóc tách thành JSON theo schema NaturalLanguageLeaveDraft (parsed_category, parsed_start_date, parsed_end_date, parsed_duration_days, parsed_reason, parsed_handover_to, confidence_score).\n4. Không bịa tính năng không tồn tại; phân biệt rõ thử việc (PROBATION = 0 ngày phép năm, 0% BHXH) với chính thức (OFFICIAL = 12 ngày phép năm, 10.5% BHXH trần 46.800.000đ, thuế TNCN 7 bậc), khóa chấm công đêm 22:00-06:00, Same-WiFi Gate và 6 cổng Clearance Hard Gate khi nghỉ việc.",
+  "routes_and_modules": {
+    "public_routes": [
+      {
+        "path": "/",
+        "source_file": "src/app/page.tsx:5-7",
+        "purpose": "Trang chủ render trực tiếp Cổng Việc làm (<CareersPage />)"
+      },
+      {
+        "path": "/careers",
+        "source_file": "src/app/careers/page.tsx:65",
+        "purpose": "Cổng tuyển dụng công khai: lọc phòng ban/level, xem JD, nộp CV (≤ 5MB .pdf/.doc/.docx), chặn nộp trùng job đang xét"
+      },
+      {
+        "path": "/about",
+        "source_file": "src/app/about/page.tsx:10",
+        "purpose": "Trang giới thiệu Tổng Công ty Lạc Việt"
+      },
+      {
+        "path": "/contact",
+        "source_file": "src/app/contact/page.tsx:11",
+        "purpose": "Thông tin trụ sở Hà Nội / TP.HCM & form liên hệ"
+      },
+      {
+        "path": "/preboarding",
+        "source_file": "src/app/preboarding/page.tsx:216-228",
+        "purpose": "Cổng ứng viên tự khai báo thông tin pháp lý trước nhận việc qua ?token=pb-... (tự điền 18 trường mẫu, token demo pb-demo-2026-hrm01)"
+      },
+      {
+        "path": "/login",
+        "source_file": "src/app/login/page.tsx:358-1710",
+        "purpose": "Đăng nhập / Đăng ký / Chọn nhanh 6 vai trò demo, chặn tài khoản RESIGNED/LOCKED & hỗ trợ ?redirect= và ?locked=1"
+      }
+    ],
+    "protected_routes": [
+      {
+        "path": "/candidate",
+        "source_file": "src/app/candidate/page.tsx:290",
+        "auth_guard": "Yêu cầu cookie hrm_role + hrm_token (src/middleware.ts:68-74); cô lập hồ sơ đúng ứng viên đang đăng nhập; đã bỏ ô tra cứu công khai theo Email/SĐT; cho phép xác nhận/dời lịch PV, rút đơn trước PV, bấm Đồng ý nhận việc tự sinh token Pre-boarding CSPRNG."
+      },
+      {
+        "path": "/app",
+        "source_file": "src/app/app/page.tsx:37-155",
+        "auth_guard": "Yêu cầu cookie hrm_role + hrm_token; CHẶN vai trò CANDIDATE với HTTP 403 (middleware.ts:30-64 & app/page.tsx:74-101). Hỗ trợ deep-link ?nav=<nav_id|alias>.",
+        "nav_aliases": {
+          "employees": "core-hr",
+          "recruitment": "ats",
+          "assets": "onboarding",
+          "resignations": "offboarding",
+          "settlement": "offboarding",
+          "requests": "leaves",
+          "performance": "kpi",
+          "roles": "rbac"
+        }
+      }
+    ],
+    "sidebar_modules": [
+      {
+        "section": "Quản trị cốt lõi",
+        "nav_id": "dashboard",
+        "aliases": [],
+        "label": "Tổng quan điều hành",
+        "component": "src/components/modules/dashboard-view.tsx",
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER",
+          "EMPLOYEE"
+        ],
+        "notes": "Khi role === EMPLOYEE: chỉ hiện số liệu & lịch sử cá nhân đúng mã NV, ẩn biểu đồ biến động nhân sự toàn công ty và ẩn các thẻ tác vụ ưu tiên của HR."
+      },
+      {
+        "section": "Quản trị cốt lõi",
+        "nav_id": "core-hr",
+        "aliases": [
+          "employees"
+        ],
+        "label": "Hồ sơ & Tổ chức",
+        "component": "src/components/modules/core-hr-view.tsx",
+        "sub_tabs": [
+          "employees",
+          "org",
+          "contracts"
+        ],
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER"
+        ],
+        "notes": "Quản lý danh bạ nhân sự (tìm tiếng Việt không dấu), sơ đồ phòng ban và hợp đồng lao động."
+      },
+      {
+        "section": "Quản trị cốt lõi",
+        "nav_id": "contracts",
+        "aliases": [],
+        "label": "Hợp đồng & Phụ lục",
+        "component": "src/components/modules/core-hr-view.tsx",
+        "default_tab": "contracts",
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER"
+        ],
+        "notes": "Theo dõi HĐ thử việc, chính thức, phụ lục điều chuyển/tăng lương và cảnh báo HĐ hết hạn <= 30 ngày."
+      },
+      {
+        "section": "Quản trị cốt lõi",
+        "nav_id": "ats",
+        "aliases": [
+          "recruitment"
+        ],
+        "label": "Tuyển dụng & ATS",
+        "component": "src/components/modules/ats-view.tsx",
+        "sub_tabs": [
+          "candidates",
+          "jobs",
+          "requests"
+        ],
+        "roles": [
+          "SUPER_ADMIN",
+          "HR_MANAGER",
+          "DEPT_MANAGER"
+        ],
+        "notes": "Kanban tối ưu 3 cột (Tiếp nhận & Sàng lọc, Phỏng vấn & Offer, Nhận việc & Kết thúc); nút + Đề xuất tuyển dụng mở từ DEPT_MANAGER+, nút + Tạo tin tuyển dụng chỉ mở cho HR_MANAGER/DIRECTOR/SUPER_ADMIN."
+      },
+      {
+        "section": "Quản trị cốt lõi",
+        "nav_id": "onboarding",
+        "aliases": [
+          "assets"
+        ],
+        "label": "Onboarding & Tài sản",
+        "component": "src/components/modules/onboarding-view.tsx",
+        "sub_tabs": [
+          "progress",
+          "assets"
+        ],
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER",
+          "EMPLOYEE"
+        ],
+        "notes": "Thẻ Checklist Onboarding phẳng gọn 4 nhóm (IT/ADMIN/MANAGER/HR); modal HR Rà soát Pre-boarding ở chế độ Read-Only; cấp phát tài sản kho & Chuyển chính thức (OFFICIAL)."
+      },
+      {
+        "section": "Quản trị cốt lõi",
+        "nav_id": "offboarding",
+        "aliases": [
+          "resignations",
+          "settlement"
+        ],
+        "label": "Nghỉ việc & Tất toán",
+        "component": "src/components/modules/offboarding-view.tsx",
+        "sub_tabs": [
+          "overview",
+          "handover",
+          "clearance",
+          "settlement"
+        ],
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER",
+          "EMPLOYEE"
+        ],
+        "notes": "Kiểm hạn báo trước 3/30/45 ngày, chuyển giao Quản lý kế nhiệm, bàn giao 3 bên, thu hồi/đối soát tài sản kho & 6 cổng Clearance Hard Gate, chốt quyết toán kỳ cuối & khóa SSO (RESIGNED)."
+      },
+      {
+        "section": "Vận hành",
+        "nav_id": "attendance",
+        "aliases": [],
+        "label": "Chấm công & Ca làm",
+        "component": "src/components/modules/attendance-view.tsx",
+        "sub_tabs": [
+          "attendances",
+          "monthly",
+          "shifts"
+        ],
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER",
+          "EMPLOYEE"
+        ],
+        "notes": "Hero Check-in Card 1 nút Chấm công bằng vân tay (ECDSA P-256 / RSA-2048), Same-WiFi Gate (ẩn khoảng cách GPS), khóa khung đêm 22:00-06:00, tự ngắt ca lúc 22:00 bằng nhãn tiếng Việt sạch."
+      },
+      {
+        "section": "Vận hành",
+        "nav_id": "leaves",
+        "aliases": [
+          "requests"
+        ],
+        "label": "Đơn từ & Phê duyệt",
+        "component": "src/components/modules/requests-view.tsx",
+        "request_categories": [
+          "ANNUAL_LEAVE",
+          "UNPAID_LEAVE",
+          "SICK_LEAVE",
+          "OVERTIME",
+          "REMOTE_WORK",
+          "LATE_EXPLANATION",
+          "BUSINESS_TRIP",
+          "OVERSEAS_BUSINESS_TRIP"
+        ],
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER",
+          "EMPLOYEE"
+        ],
+        "notes": "Cô lập đơn từ & phép tồn theo nhân sự; phê duyệt đa cấp (Cấp 1 DEPT_MANAGER -> Cấp 2 HR_MANAGER -> Cấp 3 DIRECTOR khi phép > 3 ngày hoặc nghỉ không lương); tự trừ quỹ phép & đồng bộ công/OT."
+      },
+      {
+        "section": "Vận hành",
+        "nav_id": "payroll",
+        "aliases": [],
+        "label": "Bảng lương & Thuế",
+        "component": "src/components/modules/payroll-view.tsx",
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER"
+        ],
+        "notes": "Tính lương tháng chuẩn 22 công, BHXH 10.5% trần 46.8tr (thử việc 0%), thuế TNCN 7 bậc & tự động tách lương giữa kỳ (mid_month_split)."
+      },
+      {
+        "section": "Vận hành",
+        "nav_id": "payslip",
+        "aliases": [],
+        "label": "Phiếu lương cá nhân",
+        "component": "src/components/modules/payslip-self-view.tsx",
+        "roles": [
+          "SUPER_ADMIN",
+          "DIRECTOR",
+          "HR_MANAGER",
+          "DEPT_MANAGER",
+          "EMPLOYEE"
+        ],
+        "notes": "Cổng ESS cá nhân xem hồ sơ, chấm công bằng vân tay real-time & xem phiếu lương + giải thích thuế TNCN cá nhân (cô lập tuyệt đối theo nhân viên đăng nhập)."
+      },
+      {
+        "section": "Vận hành",
+        "nav_id": "kpi",
+        "aliases": [
+          "performance"
+        ],
+        "label": "Đánh giá & Thăng tiến",
+        "component": "src/components/modules/performance-view.tsx",
+        "sub_tabs": [
+          "reviews",
+          "career",
+          "burnout"
+        ],
+        "roles": [
+          "SUPER_ADMIN"
+        ],
+        "notes": "Đánh giá KPI, phát hiện Burnout (OT > 30h/tháng) & ban hành quyết định thăng chức/tăng lương vào sổ cái career_histories (Append-Only); hiện giới hạn RBAC trên Sidebar chỉ mở cho SUPER_ADMIN."
+      },
+      {
+        "section": "Hệ thống",
+        "nav_id": "rbac",
+        "aliases": [
+          "roles"
+        ],
+        "label": "Phân quyền vai trò",
+        "component": "src/components/modules/admin-roles-view.tsx",
+        "sub_tabs": [
+          "matrix",
+          "accounts"
+        ],
+        "roles": [
+          "SUPER_ADMIN"
+        ],
+        "notes": "Ma trận phân quyền 6 vai trò x 57 hành động và quản lý trạng thái kích hoạt tài khoản."
+      },
+      {
+        "section": "Hệ thống",
+        "nav_id": "settings",
+        "aliases": [],
+        "label": "Tham số & Chính sách",
+        "component": "src/components/modules/admin-settings-view.tsx",
+        "roles": [
+          "SUPER_ADMIN",
+          "HR_MANAGER"
+        ],
+        "notes": "Cấu hình Same-WiFi Gate, thông số card WiFi máy chủ (netsh), công chuẩn/thuế/BHXH, ngày lễ 2026 & cấu hình AI."
+      },
+      {
+        "section": "Hệ thống",
+        "nav_id": "audit-logs",
+        "aliases": [],
+        "label": "Nhật ký bảo mật",
+        "component": "src/components/modules/admin-audit-view.tsx",
+        "roles": [
+          "SUPER_ADMIN"
+        ],
+        "notes": "Nhật ký kiểm toán bất biến chỉ đọc (không có sửa/xóa) ghi mọi thao tác đăng nhập, RBAC, sinh trắc học, WiFi, lương, thăng chức & nghỉ việc."
+      }
+    ]
+  },
+  "rbac_matrix": {
+    "source_file": "src/lib/hrm/permissions.ts",
+    "total_roles": 6,
+    "total_actions": 57,
+    "action_groups": {
+      "ats": 22,
+      "stage1_onboarding": 9,
+      "stage2_operations": 10,
+      "stage3_performance": 4,
+      "stage4_offboarding": 12
+    },
+    "roles": [
+      {
+        "role": "SUPER_ADMIN",
+        "allowed_actions_count": "57/57",
+        "scope_summary": "Toàn quyền toàn bộ 57 hành động nghiệp vụ, cấu hình WiFi/RBAC, Audit Log và độc quyền truy cập menu Đánh giá & Thăng tiến trên UI.",
+        "blocked_actions": []
+      },
+      {
+        "role": "DIRECTOR",
+        "allowed_actions_count": "52/57",
+        "scope_summary": "Phê duyệt tối cao (định biên > 3 người, lương > 50tr, đơn phép > 3 ngày, bổ nhiệm cấp Quản lý, chốt bảng lương, quyết toán cuối) + quyền + Tạo tin tuyển dụng.",
+        "blocked_actions": [
+          "confirm_interview",
+          "accept_offer",
+          "decline_offer",
+          "withdraw_application",
+          "submit_resignation"
+        ]
+      },
+      {
+        "role": "HR_MANAGER",
+        "allowed_actions_count": "51/57 toàn quyền + 2/57 theo ngưỡng",
+        "scope_summary": "Điều phối ATS (Kanban 3 cột, + Tạo tin tuyển dụng), rà soát Pre-boarding (Read-Only) & Duyệt hồ sơ, Onboarding, HĐ, Lương/Thuế, ký 4 nhóm Clearance (IT/ADMIN/ACCOUNTING/HR) & Quyết toán cuối.",
+        "conditional_limits": [
+          "approve_proposal: bị chặn nếu headcount > 3 hoặc salary > 50.000.000 đ (phải trình DIRECTOR).",
+          "approve_promotion_or_salary_change: bị chặn nếu newRole thuộc DEPT_MANAGER/DIRECTOR hoặc salary > 50.000.000 đ."
+        ],
+        "blocked_actions": [
+          "accept_offer",
+          "decline_offer",
+          "withdraw_application",
+          "approve_leave_director"
+        ]
+      },
+      {
+        "role": "DEPT_MANAGER",
+        "allowed_actions_count": "24/57",
+        "scope_summary": "Tạo & gửi đề xuất tuyển dụng (+ Đề xuất tuyển dụng), sàng lọc/chấm điểm PV, giao Mentor & đánh giá thử việc, duyệt đơn cấp 1 của cấp dưới, đề xuất thăng chức & duyệt/nghiệm thu bàn giao nghỉ việc.",
+        "blocked_actions_note": "Không có quyền + Tạo tin tuyển dụng, không tự chỉnh bảng lương toàn công ty, không ký Clearance phòng ban khác."
+      },
+      {
+        "role": "EMPLOYEE",
+        "allowed_actions_count": "8/57",
+        "actions": [
+          "apply_job",
+          "submit_preboarding_info",
+          "check_in_out",
+          "create_leave_request",
+          "view_self_payslip",
+          "submit_resignation",
+          "confirm_handover_sender",
+          "confirm_handover_receiver"
+        ],
+        "isolation_rules": "Mọi view nhân viên lọc chặt theo employee đang đăng nhập (không fallback về NV-2024-004); Dashboard ẩn biểu đồ & tác vụ HR; ẩn menu Đánh giá & Thăng tiến."
+      },
+      {
+        "role": "CANDIDATE",
+        "allowed_actions_count": "7/57",
+        "actions": [
+          "apply_job",
+          "submit_preboarding_info",
+          "reschedule_interview",
+          "confirm_interview",
+          "accept_offer",
+          "decline_offer",
+          "withdraw_application"
+        ],
+        "isolation_rules": "Bị chặn HTTP 403 khỏi /app; chỉ truy cập /careers, /candidate và /preboarding?token=...; khóa rút đơn khi đã vào vòng INTERVIEW trở lên."
+      }
+    ]
+  },
+  "database_schema": {
+    "engine": "MySQL 8.0+ / MariaDB 10.6+ (InnoDB / utf8mb4_unicode_ci)",
+    "total_tables": 30,
+    "total_foreign_keys": 43,
+    "delete_protection_rule": "Tuyệt đối không xóa cứng nhân sự (Zero Hard Delete); 30 FK dùng ON DELETE RESTRICT, 9 FK dùng ON DELETE SET NULL ở migration 002 (chỉ 4 FK nối trong pipeline ứng tuyển thô 001 dùng CASCADE).",
+    "migrations": [
+      {
+        "file": "db/migrations/001_recruitment_core.sql",
+        "tables_count": 11,
+        "foreign_keys_count": 4,
+        "tables": [
+          {
+            "name": "counters",
+            "purpose": "Bộ đếm sinh mã theo loại/năm/phòng ban (uq_counter)"
+          },
+          {
+            "name": "job_proposals",
+            "purpose": "Đề xuất tuyển dụng & định biên (có version khóa lạc quan)"
+          },
+          {
+            "name": "job_postings",
+            "purpose": "Tin tuyển dụng công khai /careers (proposal_id UNIQUE)"
+          },
+          {
+            "name": "candidates",
+            "purpose": "Hồ sơ ứng viên (candidate_code, email UNIQUE)"
+          },
+          {
+            "name": "files",
+            "purpose": "Metadata tệp CV/tài liệu đính kèm (mime, size, sha256)"
+          },
+          {
+            "name": "applications",
+            "purpose": "Hồ sơ ứng tuyển gắn ứng viên & tin tuyển dụng (uq_cand_job)"
+          },
+          {
+            "name": "interviews",
+            "purpose": "Lịch phỏng vấn, đề xuất dời lịch & điểm đánh giá"
+          },
+          {
+            "name": "offers",
+            "purpose": "Thư mời nhận việc & mức lương Offer (application_id UNIQUE)"
+          },
+          {
+            "name": "notifications",
+            "purpose": "Thông báo nội bộ theo event_id UNIQUE"
+          },
+          {
+            "name": "audit_logs",
+            "purpose": "Nhật ký kiểm toán bất biến toàn hệ thống (Append-Only)"
+          },
+          {
+            "name": "outbox_emails",
+            "purpose": "Hàng đợi email gửi ra ngoài"
+          }
+        ]
+      },
+      {
+        "file": "db/migrations/002_employee_lifecycle.sql",
+        "tables_count": 19,
+        "foreign_keys_count": 39,
+        "idempotent_alter_blocks": 15,
+        "groups": [
+          {
+            "group": "1. Core HR & Auth",
+            "tables": [
+              "departments",
+              "positions",
+              "employees",
+              "users"
+            ]
+          },
+          {
+            "group": "2. Stage 1 — Onboarding, Assets, Contracts & Leave",
+            "tables": [
+              "onboarding_tasks",
+              "assets",
+              "employee_assets",
+              "contracts",
+              "leave_balances"
+            ]
+          },
+          {
+            "group": "3. Stage 2 — Attendance, Leave/OT & Payroll",
+            "tables": [
+              "attendances",
+              "leave_requests",
+              "payrolls"
+            ]
+          },
+          {
+            "group": "4. Stage 3 — Performance & Career History",
+            "tables": [
+              "performance_reviews",
+              "career_histories"
+            ]
+          },
+          {
+            "group": "5. Stage 4 — Offboarding & Clearance",
+            "tables": [
+              "resignations",
+              "handover_items",
+              "clearance_checklists"
+            ]
+          },
+          {
+            "group": "6. Biometric WebAuthn & Same-WiFi Policy",
+            "tables": [
+              "biometric_credentials",
+              "wifi_attendance_policies"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "business_rules_and_policies": {
+    "hrm_config": {
+      "source_file": "src/lib/hrm/config.ts",
+      "ats": {
+        "DIRECTOR_APPROVAL_HEADCOUNT_THRESHOLD": 3,
+        "DIRECTOR_APPROVAL_SALARY_THRESHOLD_VND": 50000000,
+        "OFFER_EXPIRY_DAYS": 7,
+        "MAX_UPLOAD_SIZE_BYTES": 5242880,
+        "ALLOWED_CV_EXTENSIONS": [
+          ".pdf",
+          ".doc",
+          ".docx"
+        ],
+        "AUTO_ARCHIVE_HIRED_DAYS": 3
+      },
+      "stage1_onboarding": {
+        "PREBOARDING_TOKEN_EXPIRY_DAYS": 7,
+        "PROBATION_SHORT_DAYS": 30,
+        "PROBATION_DEFAULT_DAYS": 60,
+        "PROBATION_DEFAULT_SALARY_PERCENT": 85,
+        "OFFICIAL_SALARY_PERCENT": 100,
+        "PROBATION_EXPIRY_ALERT_DAYS": 15,
+        "CONTRACT_EXPIRY_ALERT_DAYS": 30
+      },
+      "stage2_attendance_leave_payroll": {
+        "STANDARD_WORK_START": "08:30",
+        "STANDARD_WORK_END": "17:30",
+        "LATE_GRACE_MINUTES": 15,
+        "HALF_DAY_THRESHOLD_MINUTES": 120,
+        "NIGHT_LOCK_WINDOW": "22:00 - 06:00 (isAttendanceNightLockWindow)",
+        "DAILY_AUTO_CUTOFF_TIME": "22:00",
+        "STANDARD_MONTHLY_WORKDAYS": 22,
+        "ANNUAL_LEAVE_DEFAULT_DAYS": 12,
+        "DIRECTOR_LEAVE_APPROVAL_DAYS_THRESHOLD": 3,
+        "OT_MULTIPLIER_WEEKDAY": 1.5,
+        "OT_MULTIPLIER_WEEKEND": 2.0,
+        "OT_MULTIPLIER_HOLIDAY": 3.0,
+        "BHXH_EMPLOYEE_RATE": 0.105,
+        "BHXH_EMPLOYEE_BREAKDOWN": {
+          "BHXH": 0.08,
+          "BHYT": 0.015,
+          "BHTN": 0.01
+        },
+        "BHXH_EMPLOYER_RATE": 0.235,
+        "BHXH_EMPLOYER_BREAKDOWN": {
+          "BHXH": 0.175,
+          "BHYT": 0.03,
+          "BHTN": 0.01,
+          "KPCD": 0.02
+        },
+        "BHXH_SALARY_CAP_VND": 46800000,
+        "PROBATION_INSURANCE_EXEMPT": true,
+        "PIT_PERSONAL_DEDUCTION_VND": 11000000,
+        "PIT_DEPENDENT_DEDUCTION_VND": 4400000
+      },
+      "stage3_promotion": {
+        "PROMOTION_DIRECTOR_SALARY_THRESHOLD_VND": 50000000,
+        "IMMUTABLE_LEDGER_TABLE": "career_histories (Append-Only, HTTP 409 nếu sửa/ghi đè)"
+      },
+      "stage4_resignation_notice_days": {
+        "PROBATION": 3,
+        "PROBATION_2M": 3,
+        "FIXED_TERM_12M_24M_1Y_3Y": 30,
+        "INDEFINITE_TERM": 45,
+        "LEGAL_BASIS": "Điều 27 & Điều 35 Bộ luật Lao động Việt Nam"
+      }
+    },
+    "pit_tax_brackets_7_levels": [
+      {
+        "level": 1,
+        "min_vnd": 0,
+        "max_vnd": 5000000,
+        "rate": 0.05,
+        "quick_deduction_vnd": 0
+      },
+      {
+        "level": 2,
+        "min_vnd": 5000000,
+        "max_vnd": 10000000,
+        "rate": 0.1,
+        "quick_deduction_vnd": 250000
+      },
+      {
+        "level": 3,
+        "min_vnd": 10000000,
+        "max_vnd": 18000000,
+        "rate": 0.15,
+        "quick_deduction_vnd": 750000
+      },
+      {
+        "level": 4,
+        "min_vnd": 18000000,
+        "max_vnd": 32000000,
+        "rate": 0.2,
+        "quick_deduction_vnd": 1650000
+      },
+      {
+        "level": 5,
+        "min_vnd": 32000000,
+        "max_vnd": 52000000,
+        "rate": 0.25,
+        "quick_deduction_vnd": 3250000
+      },
+      {
+        "level": 6,
+        "min_vnd": 52000000,
+        "max_vnd": 80000000,
+        "rate": 0.3,
+        "quick_deduction_vnd": 5850000
+      },
+      {
+        "level": 7,
+        "min_vnd": 80000000,
+        "max_vnd": null,
+        "rate": 0.35,
+        "quick_deduction_vnd": 9850000
+      }
+    ],
+    "id_formats": {
+      "source_file": "src/lib/hrm/ids.ts",
+      "job_proposal": "YC-{YYYY}-{DEPT}{NN}",
+      "job_posting": "JD-{YYYY}-{DEPT}{NN}",
+      "candidate": "UV-{YYYY}-{NNN}",
+      "employee": "NV-{YYYY}-{NNN}",
+      "contract_probation": "HDTV-{YYYY}-{NNN}",
+      "contract_official": "HDLD-{YYYY}-{NNN}",
+      "contract_addendum": "PLHD-{YYYY}-{NNN}",
+      "decision": "QD-{YYYY}-{CAT}{NNN} | QD-{YYYY}-{NNN}",
+      "resignation": "TV-{YYYY}-{NNN}",
+      "payroll_monthly": "BL-{YYYYMM}-{NNN}",
+      "payroll_final_settlement": "QT-{YYYYMM}-{NNN}",
+      "leave_request": "NP-{YYYY}-{NNN}",
+      "performance_review": "DG-{YYYY}-{NNN}",
+      "preboarding_token": "pb-<32 hex CSPRNG>",
+      "event_id": "{prefix}-{timestampMs}-{rand6}"
+    },
+    "employee_lifecycle_states": [
+      {
+        "order": 1,
+        "status": "PENDING_ONBOARD",
+        "sso_active": false,
+        "leave_entitlement": 0,
+        "description": "Mới khởi tạo Pre-boarding; chờ ứng viên nộp thông tin & HR xác minh / IT cấp SSO."
+      },
+      {
+        "order": 2,
+        "status": "PROBATION",
+        "sso_active": true,
+        "leave_entitlement": 0,
+        "salary_rate": "85%",
+        "bhxh": "0% (Miễn trích theo HĐ thử việc PROBATION_2M)",
+        "description": "Đang thử việc 60 ngày; không được phép xin nghỉ phép năm có hưởng lương."
+      },
+      {
+        "order": 3,
+        "status": "OFFICIAL",
+        "alias": "ACTIVE",
+        "sso_active": true,
+        "leave_entitlement": 12,
+        "salary_rate": "100%",
+        "bhxh": "10.5% NLĐ / 23.5% NSDLĐ",
+        "description": "Nhân sự chính thức; convertProbationToOfficial mở ngay quỹ 12 ngày phép trong kỳ 2026 tại Đơn từ & Phê duyệt."
+      },
+      {
+        "order": 4,
+        "status": "NOTICE_PERIOD",
+        "sso_active": true,
+        "leave_entitlement": "Giữ số phép tồn khả dụng để quyết toán",
+        "description": "Đơn xin nghỉ việc đã duyệt; bật Bàn giao 3 bên, Kế nhiệm Quản lý (nếu là Manager) và Clearance 6 cổng."
+      },
+      {
+        "order": 5,
+        "status": "RESIGNED",
+        "sso_active": false,
+        "account_status": "LOCKED",
+        "description": "Hoàn tất quyết toán kỳ cuối; khóa đăng nhập /login & thu hồi phiên realtime nhưng giữ 100% lịch sử và cờ is_rehireable."
+      }
+    ],
+    "biometric_and_same_wifi_rules": {
+      "source_files": [
+        "src/lib/biometric-attendance.ts",
+        "src/lib/hrm/biometric-server.ts"
+      ],
+      "webauthn": {
+        "algorithms": [
+          "ES256 (ECDSA P-256, alg -7)",
+          "RS256 (TPM RSA-2048, alg -257)"
+        ],
+        "enroll_options": "authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged', requireResidentKey: false, hints: ['client-device']",
+        "punch_options": "allowCredentials (transports: ['internal']), userVerification: 'required', hints: ['client-device']",
+        "server_checks": [
+          "Challenge CSPRNG 32 bytes TTL 120s dùng 1 lần (chống Replay Attack -> 403).",
+          "Kiểm rpIdHash === SHA256(rpId), cờ UP (0x01) và bắt buộc UV=1 (0x04 -> 403 nếu thiếu).",
+          "Chống nhân bản khóa: chặn nếu signCount quay lùi (< stored.sign_count -> 403), cho phép giữ nguyên khi cảm biến không tăng.",
+          "Verify chữ ký mật mã thật qua Node crypto.verify('sha256', authData || sha256(clientDataJSON), spkiPublicKey, signature)."
+        ]
+      },
+      "same_wifi_gate_modes": [
+        {
+          "mode": "POLICY_DISABLED",
+          "allowed": true,
+          "meaning": "Admin tắt enforce_same_wifi = false"
+        },
+        {
+          "mode": "CELLULAR_BLOCKED",
+          "allowed": false,
+          "http": 403,
+          "meaning": "Thiết bị bật mạng di động 4G/5G (chặn kể cả khi gửi kèm hint IP)"
+        },
+        {
+          "mode": "ADMIN_WHITELIST",
+          "allowed": true,
+          "meaning": "IP nằm trong danh sách allowed_public_ips do Admin cấu hình"
+        },
+        {
+          "mode": "SAME_WIFI_NAT_IP",
+          "allowed": true,
+          "meaning": "Điện thoại qua DevTunnel/ngrok trùng Public IPv4 NAT hoặc prefix IPv6 /64 của bộ phát WiFi văn phòng"
+        },
+        {
+          "mode": "SAME_LAN_SUBNET",
+          "allowed": true,
+          "meaning": "Thiết bị LAN cùng subnet netmask WiFi công ty hoặc khớp allowed_lan_cidrs"
+        },
+        {
+          "mode": "HOST_LOCAL",
+          "allowed": true,
+          "meaning": "Máy chủ localhost có card LAN/WiFi thật hoặc Public IP"
+        },
+        {
+          "mode": "WIFI_MISMATCH",
+          "allowed": false,
+          "http": 403,
+          "meaning": "Khác mạng WiFi văn phòng / WiFi ngoài / mất toàn bộ kết nối mạng"
+        }
+      ],
+      "attendance_punch_conversion": {
+        "work_hours_rules": "Giờ chuẩn 08:30-17:30 (trừ 60 phút nghỉ trưa nếu bao trùm 12:00-13:00; ân hạn đi muộn 15 phút). >= 6.5h -> 1.0 công; 3.5h đến < 6.5h -> 0.5 công (HALF_DAY); < 3.5h -> 0.0 công (ABSENT).",
+        "night_lock_window": "Từ 22:00 đến 05:59:59 giờ Việt Nam bị chặn chấm công (chỉ cho đồng bộ REQUEST_SYNC từ đơn Giải trình công đã duyệt).",
+        "auto_cutoff_at_22": "Check-in trước 22:00 mà quá 22:00 hoặc sang ngày sau chưa check-out tự ngắt thành trạng thái thiếu giờ ra (0.0 công) để gửi Giải trình công."
+      }
+    },
+    "clearance_hard_gates_6": [
+      "1. Bàn giao công việc 3 bên hoàn tất 100% (Người nghỉ gửi -> Đồng nghiệp nhận -> Quản lý nghiệm thu; handoverTotal > 0).",
+      "2. Chuyển giao Quản lý kế nhiệm xong 100% (nếu người nghỉ giữ chức Quản lý / có cấp dưới hoặc đơn chờ duyệt).",
+      "3. Hành chính thu hồi & đối soát 100% thiết bị trong employee_assets (GOOD -> AVAILABLE; DAMAGED/LOST -> tính penalty_deduction_vnd trừ lương cuối).",
+      "4. IT ký xác nhận đã thu hồi Email công ty & quyền hệ thống (it_access_revoked = true).",
+      "5. Kế toán ký xác nhận đã chốt công nợ & tạm ứng (accounting_debt_cleared = true).",
+      "6. HR ký xác nhận đã chốt sổ BHXH & hồ sơ báo giảm (hr_bhxh_closed = true)."
+    ],
+    "mid_month_salary_split_formula": "Khi có bản ghi career_histories có effective_date nằm trong tháng tính lương và old_salary_vnd !== new_salary_vnd: đếm số ngày làm việc T2-T6 trước mốc hiệu lực (weekdaysOld) và từ mốc hiệu lực (weekdaysNew). Làm tròn bậc 0.5 ngày theo tỷ trọng days_at_old_salary, phần còn lại là days_at_new_salary. Lương cơ bản = round(old * days_at_old / 22) + round(new * days_at_new / 22).",
+    "boot_epoch_demo_reset": "Mỗi lần chạy npm run reset:demo hoặc POST /api/hrm/sync { resetStore: true }, server sinh mới _bootEpoch = 'boot-<ts>-<4char>'. Client polling GET /api/hrm/sync thấy lệch bootEpoch sẽ xóa sạch 25 keys localStorage đồng bộ + dọn phiên auth không còn ACTIVE rồi tải lại trạng thái ban đầu.",
+    "stage3_performance_and_career_enums": {
+      "source_files": [
+        "src/components/modules/performance-view.tsx",
+        "src/lib/hrm/workflow.ts"
+      ],
+      "tabs": [
+        "reviews",
+        "career",
+        "burnout"
+      ],
+      "review_cycles": [
+        "PROBATION",
+        "QUARTERLY",
+        "ANNUAL"
+      ],
+      "review_grades": [
+        "A+",
+        "A",
+        "B+",
+        "B",
+        "C"
+      ],
+      "review_results": [
+        "PASS",
+        "EXTEND",
+        "FAIL",
+        "EXCELLENT",
+        "GOOD",
+        "AVERAGE",
+        "POOR"
+      ],
+      "review_statuses": [
+        "DRAFT",
+        "SUBMITTED",
+        "APPROVED"
+      ],
+      "career_change_types": {
+        "PROMOTION": "BN (Thăng chức)",
+        "DEPARTMENT_TRANSFER": "DC (Điều chuyển phòng ban)",
+        "TRANSFER": "DC (Điều chuyển phòng ban)",
+        "SALARY_ADJUSTMENT": "TL (Điều chỉnh lương)",
+        "PROBATION_TO_OFFICIAL": "CT (Chuyển chính thức)",
+        "ROLE_CHANGE": "PQ (Nâng quyền quản lý)"
+      },
+      "burnout_risk_levels": {
+        "CRITICAL": "Nguy cấp",
+        "HIGH": "Rủi ro cao",
+        "MEDIUM": "Theo dõi",
+        "LOW": "Ổn định"
+      },
+      "legal_proposal_transitions": {
+        "draft": [
+          "pending_approval"
+        ],
+        "pending_approval": [
+          "approved",
+          "rejected",
+          "needs_info"
+        ],
+        "needs_info": [
+          "pending_approval",
+          "rejected"
+        ],
+        "approved": [
+          "posted"
+        ],
+        "rejected": [
+          "draft"
+        ],
+        "posted": []
+      },
+      "legal_stage_transitions": {
+        "new": [
+          "screening"
+        ],
+        "screening": [
+          "interview"
+        ],
+        "interview": [
+          "offer"
+        ],
+        "offer": [
+          "hired"
+        ],
+        "hired": []
+      },
+      "legal_interview_transitions": {
+        "not_scheduled": [
+          "invited",
+          "cancelled"
+        ],
+        "invited": [
+          "confirmed",
+          "reschedule_requested",
+          "scheduled",
+          "cancelled"
+        ],
+        "confirmed": [
+          "completed",
+          "reschedule_requested",
+          "cancelled"
+        ],
+        "reschedule_requested": [
+          "scheduled",
+          "invited",
+          "confirmed",
+          "cancelled"
+        ],
+        "scheduled": [
+          "confirmed",
+          "reschedule_requested",
+          "completed",
+          "cancelled"
+        ],
+        "completed": [],
+        "cancelled": [
+          "invited"
+        ]
+      },
+      "workflow_error_codes": [
+        "VERSION_MISMATCH",
+        "INVALID_TRANSITION"
+      ]
+    },
+    "legal_cross_check_2026": {
+      "ngay_kiem_tra": "2026-11-23",
+      "verified_sources": [
+        "Bộ luật Lao động 2019 (Luật số 45/2019/QH14) — thuvienphapluat.vn, vbpl.vn",
+        "Nghị định 145/2020/NĐ-CP hướng dẫn BLLĐ về điều kiện lao động & thời giờ làm việc — chinhphu.vn",
+        "Luật Bảo hiểm xã hội 2024 (Luật số 41/2024/QH15, hiệu lực 01/07/2025) & NĐ 73/2024/NĐ-CP — baohiemxahoi.gov.vn, chinhphu.vn",
+        "Luật Việc làm & chính sách BHTN 60% — baohiemxahoi.gov.vn, chinhphu.vn",
+        "Nghị quyết 110/2025/UBTVQH15 (giảm trừ gia cảnh từ 01/01/2026) & Luật Thuế TNCN 2025 (biểu 5 bậc) — chinhphu.vn, thuvienphapluat.vn, gdt.gov.vn",
+        "Thông tư 111/2013/TT-BTC Điều 25 & Mẫu 08/CK-TNCN (Thông tư 80/2021/TT-BTC) — thuvienphapluat.vn, gdt.gov.vn"
+      ],
+      "data_json_vs_law_conflicts": [
+        {
+          "id": "CONFLICT-01-PIT-2026",
+          "topic": "Thuế TNCN: Giảm trừ gia cảnh & số bậc lũy tiến",
+          "data_json_rule": "Giảm trừ bản thân 11.000.000 đ, NPT 4.400.000 đ, biểu thuế 7 bậc (5%..35%).",
+          "law_rule": "Nghị quyết 110/2025/UBTVQH15 nâng lên 15.500.000 đ & 6.200.000 đ từ 01/01/2026; Luật Thuế TNCN 2025 rút gọn biểu 5 bậc (5%/10%/20%/30%/35%).",
+          "resolution": "Ưu tiên công thức trên data.json/HRM_CONFIG khi giải thích phiếu lương trong app Lạc Việt HRM v2.4, đồng thời ghi chú thay đổi pháp luật 2026 để người dùng hỏi HR/Kế toán về cấu hình thực tế."
+        },
+        {
+          "id": "CONFLICT-02-PROBATION-PIT",
+          "topic": "Thuế TNCN hợp đồng thử việc dưới 3 tháng",
+          "data_json_rule": "Hệ thống mô phỏng tính theo biểu lũy tiến sau giảm trừ 11.000.000 đ (và miễn 10.5% BHXH).",
+          "law_rule": "Điểm i Khoản 1 Điều 25 Thông tư 111/2013/TT-BTC khấu trừ 10% tại nguồn với thu nhập >= 2.000.000 đ/lần (trừ khi đủ điều kiện làm Mẫu 08/CK-TNCN theo TT 80/2021).",
+          "resolution": "Ưu tiên logic tính trên app theo data.json, kèm ghi chú cần hỏi HR/Kế toán về Mẫu 08/CK-TNCN hoặc khấu trừ 10% ngoài thực tế."
+        },
+        {
+          "id": "CONFLICT-03-PROBATION-AND-LEAVE-LIMITS",
+          "topic": "Thời hạn thử việc & số ngày phép năm đặc thù",
+          "data_json_rule": "Thử việc 60 ngày / 30 ngày ngắn; phép năm mặc định 12 ngày (OFFICIAL), 0 ngày (PROBATION).",
+          "law_rule": "Điều 25 BLLĐ cho phép tối đa 180 ngày (Quản lý DN), 60 ngày (CĐ+), 30 ngày (TC), 6 ngày (việc khác); Điều 113–114 BLLĐ quy định 12/14/16 ngày và +1 ngày/5 năm thâm niên.",
+          "resolution": "Ưu tiên tham số chuẩn trong data.json; với chức danh Quản lý DN (180d) hoặc thâm niên/nặng nhọc (14–16 ngày) nhắc người dùng hỏi HR."
+        },
+        {
+          "id": "CONFLICT-04-NIGHT-LOCK-AND-OT-CAP",
+          "topic": "Khung 22:00-06:00 & ngưỡng cảnh báo OT",
+          "data_json_rule": "Khóa chấm công vân tay 22:00–06:00 (trừ REQUEST_SYNC), tự ngắt ca 22:00, OT 1.5x/2.0x/3.0x, cảnh báo Burnout sớm > 30h/tháng.",
+          "law_rule": "Điều 98, 106–107 BLLĐ & NĐ 145/2020 định nghĩa ban đêm 22:00–06:00 (+30%, OT đêm 200%/210%/270%/390%) và trần OT luật là 40h/tháng (200h–300h/năm).",
+          "resolution": "Ưu tiên cơ chế khóa đêm & ngưỡng Burnout > 30h của data.json trên app; ghi chú mức trần luật 40h/tháng và phụ cấp đêm để hỏi HR/Kế toán."
+        }
+      ]
+    }
+  },
+  "api_reference": [
+    {
+      "method": "GET, POST",
+      "path": "/api/hrm/sync",
+      "source_file": "src/app/api/hrm/sync/route.ts",
+      "purpose": "Đồng bộ runtime 2 chiều PC <-> Mobile và đặt lại dữ liệu demo.",
+      "post_body": "{ key?, items?, fullSync?, forceStageRollback?, resetStore? } (giới hạn 5 MB, key phải khớp /^hrm_(?:runtime_[a-z0-9_]+|sync_integration_check)$/, chặn __proto__/constructor/prototype)",
+      "status_codes": [
+        200,
+        400,
+        413,
+        500
+      ]
+    },
+    {
+      "method": "GET, POST",
+      "path": "/api/hrm/lifecycle",
+      "source_file": "src/app/api/hrm/lifecycle/route.ts",
+      "purpose": "Xử lý Pre-boarding, kiểm tra clearance, lịch sử thăng chức bất biến, báo trước nghỉ việc & sinh mã.",
+      "get_queries": [
+        "?token=<pb-...>",
+        "?entity=&employee_id=",
+        "(rỗng -> trả stores + config)"
+      ],
+      "post_actions": [
+        "sync",
+        "upsert",
+        "submit_preboarding_info",
+        "set_user_active",
+        "append_career_history",
+        "calculate_notice_period",
+        "verify_clearance_gate",
+        "generate_code",
+        "reset_demo_sync"
+      ],
+      "security_guards": [
+        "Kiểm Origin trên POST (localhost, 127.0.0.1, *.devtunnels.ms hoặc cùng host -> 403 nếu khác nguồn).",
+        "Rate limit tách bucket IP & token (tối đa 30 req/60s -> 429 + Retry-After).",
+        "Chặn __proto__/constructor/prototype (400); allowlist 20 trường submit_preboarding_info & validate CCCD 9|12 số / STK 6-24 ký tự (422).",
+        "Quét đồng bộ cả key *_v1 và legacy: trả 410 nếu EXPIRED/quá expires_at, trả 403 nếu đã VERIFIED hoặc nhân sự đã OFFICIAL/ACTIVE/RESIGNED."
+      ],
+      "status_codes": [
+        200,
+        201,
+        400,
+        403,
+        404,
+        409,
+        410,
+        422,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET, POST",
+      "path": "/api/hrm/attendance/biometric",
+      "source_file": "src/app/api/hrm/attendance/biometric/route.ts",
+      "purpose": "Cấp challenge WebAuthn, verify đăng ký/chấm công vân tay & kiểm soát Same-WiFi.",
+      "post_actions": [
+        "save_wifi_policy (RBAC SUPER_ADMIN|HR_MANAGER|DIRECTOR)",
+        "delete_credential",
+        "network_status",
+        "issue_challenge",
+        "verify_register",
+        "verify_punch"
+      ],
+      "status_codes": [
+        200,
+        201,
+        400,
+        403,
+        404,
+        500
+      ]
+    },
+    {
+      "method": "GET, POST",
+      "path": "/api/hrm/proposals",
+      "source_file": "src/app/api/hrm/proposals/route.ts",
+      "purpose": "Danh sách & tạo đề xuất tuyển dụng (YC-YYYY-<DEPT>NN).",
+      "status_codes": [
+        200,
+        201,
+        400,
+        500
+      ]
+    },
+    {
+      "method": "GET, PATCH",
+      "path": "/api/hrm/proposals/[id]",
+      "source_file": "src/app/api/hrm/proposals/[id]/route.ts",
+      "purpose": "Duyệt/Từ chối đề xuất tuyển dụng qua optimistic locking version & kiểm tra ngưỡng headcount > 3 hoặc lương > 50tr.",
+      "status_codes": [
+        200,
+        400,
+        404,
+        500
+      ]
+    },
+    {
+      "method": "GET, POST",
+      "path": "/api/hrm/jobs",
+      "source_file": "src/app/api/hrm/jobs/route.ts",
+      "purpose": "Danh sách & đăng tin tuyển dụng công khai (JD-YYYY-<DEPT>NN).",
+      "status_codes": [
+        200,
+        201,
+        400,
+        500
+      ]
+    },
+    {
+      "method": "GET, POST",
+      "path": "/api/hrm/applications",
+      "source_file": "src/app/api/hrm/applications/route.ts",
+      "purpose": "Nộp đơn ứng tuyển (multipart/form-data, CV ≤ 5MB .pdf/.doc/.docx), chống nộp trùng job.",
+      "status_codes": [
+        200,
+        201,
+        400,
+        404,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/hrm/applications/transition",
+      "source_file": "src/app/api/hrm/applications/transition/route.ts",
+      "purpose": "Chuyển cột ATS Kanban (new -> screening -> interview -> offer -> hired), chặn interview nếu chưa có lịch PV.",
+      "status_codes": [
+        200,
+        400,
+        404
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/hrm/applications/[id]/transition",
+      "source_file": "src/app/api/hrm/applications/[id]/transition/route.ts",
+      "purpose": "Biến thể REST theo id path của transition hồ sơ ứng tuyển.",
+      "status_codes": [
+        200,
+        400,
+        404
+      ]
+    },
+    {
+      "method": "GET, POST, PATCH",
+      "path": "/api/hrm/interviews",
+      "source_file": "src/app/api/hrm/interviews/route.ts",
+      "purpose": "Thiết lập lịch phỏng vấn & luồng ứng viên đề xuất dời/xác nhận lịch (chặn dời sau khi đã confirmed).",
+      "status_codes": [
+        200,
+        201,
+        400,
+        404,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/hrm/proposals/[id]/approve-create-job",
+      "source_file": "src/app/api/hrm/proposals/[id]/approve-create-job/route.ts",
+      "purpose": "Duyệt đề xuất tuyển dụng và khởi tạo ngay tin tuyển dụng công khai (JD) trong 1 bước với kiểm tra RBAC approve_proposal (chặn nếu headcount > 3 hoặc salary_max > 50tr với HR_MANAGER).",
+      "status_codes": [
+        200,
+        400,
+        403,
+        404
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "id": "wf-001",
+      "name": "Luồng 1 — Tuyển dụng ATS 3 cột & Offer tự cấp Pre-boarding",
+      "stage": "ATS",
+      "roles_involved": [
+        "DEPT_MANAGER",
+        "HR_MANAGER",
+        "DIRECTOR",
+        "CANDIDATE"
+      ],
+      "nav_ids": [
+        "ats"
+      ],
+      "steps": [
+        {
+          "order": 1,
+          "actor_role": "DEPT_MANAGER",
+          "action": "Bấm + Đề xuất tuyển dụng; trình HR Manager (hoặc Director nếu headcount > 3 hoặc lương > 50tr)."
+        },
+        {
+          "order": 2,
+          "actor_role": "HR_MANAGER",
+          "action": "Bấm + Tạo tin tuyển dụng đăng lên /careers."
+        },
+        {
+          "order": 3,
+          "actor_role": "CANDIDATE",
+          "action": "Nộp CV tại /careers (<= 5MB); theo dõi trạng thái & xác nhận lịch PV tại /candidate."
+        },
+        {
+          "order": 4,
+          "actor_role": "HR_MANAGER",
+          "action": "Kéo/chuyển ứng viên trên Kanban 3 cột (Tiếp nhận & Sàng lọc -> Phỏng vấn & Offer -> Nhận việc & Kết thúc)."
+        },
+        {
+          "order": 5,
+          "actor_role": "CANDIDATE",
+          "action": "Bấm Đồng ý nhận việc tại /candidate -> tự động gọi createPreboardingInvite() sinh token CSPRNG pb-<32 hex> gắn vào nút Khai báo Pre-boarding."
+        }
+      ]
+    },
+    {
+      "id": "wf-002",
+      "name": "Luồng 2 — Pre-boarding Tự điền, HR Duyệt Read-Only & Chuyển Chính thức",
+      "stage": "ONBOARDING",
+      "roles_involved": [
+        "CANDIDATE",
+        "HR_MANAGER",
+        "DEPT_MANAGER"
+      ],
+      "nav_ids": [
+        "onboarding"
+      ],
+      "steps": [
+        {
+          "order": 1,
+          "actor_role": "CANDIDATE",
+          "action": "Vào /preboarding?token=pb-... (18 trường pháp lý tự động điền sẵn mẫu), bấm Gửi hồ sơ nhận việc -> POST /api/hrm/lifecycle HTTP 200 & chuyển về /candidate."
+        },
+        {
+          "order": 2,
+          "actor_role": "HR_MANAGER",
+          "action": "Vào Onboarding & Tài sản -> mở modal HR Rà soát & Duyệt Hồ sơ Pre-boarding (chỉ đọc Read-Only) -> bấm Duyệt hồ sơ -> kích hoạt tài khoản EMPLOYEE."
+        },
+        {
+          "order": 3,
+          "actor_role": "HR_MANAGER",
+          "action": "Hoàn tất 8/8 Checklist Onboarding (IT cấp SSO, Admin gán tài sản kho, Manager gán Mentor, HR tạo HĐ thử việc 85% lương)."
+        },
+        {
+          "order": 4,
+          "actor_role": "HR_MANAGER",
+          "action": "Đánh giá thử việc PASS -> bấm Chuyển chính thức (chỉ cho từ PROBATION) -> HĐ chính thức 100% lương & cấp ngay 12 ngày phép năm kỳ 2026."
+        }
+      ]
+    },
+    {
+      "id": "wf-003",
+      "name": "Luồng 3 — Chấm công Vân tay Same-WiFi & Đơn từ Đa cấp",
+      "stage": "ATTENDANCE_PAYROLL",
+      "roles_involved": [
+        "EMPLOYEE",
+        "DEPT_MANAGER",
+        "HR_MANAGER",
+        "DIRECTOR"
+      ],
+      "nav_ids": [
+        "attendance",
+        "leaves",
+        "payslip"
+      ],
+      "steps": [
+        {
+          "order": 1,
+          "actor_role": "EMPLOYEE",
+          "action": "Đăng nhập tài khoản nhân sự mới (cô lập dữ liệu 100%); vào Chấm công & Ca làm bấm Chấm công bằng vân tay (khung 06:00-21:59, khóa đêm 22:00-06:00, kiểm tra Same-WiFi)."
+        },
+        {
+          "order": 2,
+          "actor_role": "EMPLOYEE",
+          "action": "Vào Đơn từ & Phê duyệt (thấy đủ 12 ngày phép năm), gửi Đơn nghỉ phép năm / OT / Giải trình công."
+        },
+        {
+          "order": 3,
+          "actor_role": "DEPT_MANAGER",
+          "action": "Duyệt Cấp 1 (hoặc từ chối bắt buộc kèm lý do)."
+        },
+        {
+          "order": 4,
+          "actor_role": "HR_MANAGER",
+          "action": "Duyệt Cấp 2 (phép <= 3 ngày hoàn tất: trừ quỹ phép 12 -> 11 ngày & đồng bộ công/OT; phép > 3 ngày hoặc không lương cần thêm Cấp 3 DIRECTOR)."
+        }
+      ]
+    },
+    {
+      "id": "wf-004",
+      "name": "Luồng 4 — Đánh giá Hiệu suất, Thăng chức Giữa tháng & Bảng lương Tách kỳ",
+      "stage": "PERFORMANCE",
+      "roles_involved": [
+        "SUPER_ADMIN",
+        "HR_MANAGER",
+        "DIRECTOR"
+      ],
+      "nav_ids": [
+        "kpi",
+        "payroll"
+      ],
+      "steps": [
+        {
+          "order": 1,
+          "actor_role": "SUPER_ADMIN",
+          "action": "Truy cập Đánh giá & Thăng tiến (độc quyền SUPER_ADMIN trên sidebar), chấm điểm KPI & kiểm tra cảnh báo Burnout (OT > 30h)."
+        },
+        {
+          "order": 2,
+          "actor_role": "SUPER_ADMIN",
+          "action": "Ban hành Quyết định thăng chức/tăng lương từ mốc giữa tháng (VD 2026-11-16), ghi append-only vào career_histories & sinh phụ lục PLHD."
+        },
+        {
+          "order": 3,
+          "actor_role": "HR_MANAGER",
+          "action": "Chạy Bảng lương & Thuế: tự động tính mid_month_split (công trước/sau ngày hiệu lực), cộng OT, trừ BHXH 10.5% trần 46.8tr & Thuế TNCN 7 bậc."
+        }
+      ]
+    },
+    {
+      "id": "wf-005",
+      "name": "Luồng 5 — Nghỉ việc, Kế nhiệm, Bàn giao 3 bên & Quyết toán Khóa Login",
+      "stage": "OFFBOARDING",
+      "roles_involved": [
+        "EMPLOYEE",
+        "DEPT_MANAGER",
+        "HR_MANAGER",
+        "DIRECTOR"
+      ],
+      "nav_ids": [
+        "offboarding"
+      ],
+      "steps": [
+        {
+          "order": 1,
+          "actor_role": "EMPLOYEE",
+          "action": "Gửi đơn xin nghỉ việc (hệ thống kiểm hạn báo trước 3/30/45 ngày tùy loại HĐ)."
+        },
+        {
+          "order": 2,
+          "actor_role": "HR_MANAGER",
+          "action": "Duyệt đơn sang NOTICE_PERIOD -> tự khởi tạo Clearance & bàn giao."
+        },
+        {
+          "order": 3,
+          "actor_role": "HR_MANAGER",
+          "action": "Tab 2: Chuyển giao Quản lý kế nhiệm (nếu người nghỉ là Quản lý) + hoàn tất Bàn giao 3 bên (Gửi -> Nhận -> Duyệt)."
+        },
+        {
+          "order": 4,
+          "actor_role": "HR_MANAGER",
+          "action": "Tab 3: Thu hồi & đối soát toàn bộ thiết bị employee_assets (hư/mất trừ tiền phạt) + ký duyệt IT, Kế toán, HR đạt 100% (6/6)."
+        },
+        {
+          "order": 5,
+          "actor_role": "HR_MANAGER",
+          "action": "Tab 4: Chốt Quyết toán kỳ cuối (thanh toán phép tồn, trừ phạt, xuất QT-YYYYMM-NNN) -> chuyển RESIGNED & khóa vĩnh viễn is_active = false."
+        }
+      ]
+    }
+  ],
+  "nlu_intents": [
+    {
+      "intent_id": "NL_LEAVE_DRAFT",
+      "priority": 1,
+      "keywords_norm": [
+        "xin nghi",
+        "nghi phep",
+        "wfh",
+        "tu xa",
+        "nghi om",
+        "o nha"
+      ],
+      "regex_extractors": {
+        "duration_days": "(\\d+(?:[.,]\\d+)?)\\s*ngày",
+        "dates": "(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{4}))?"
+      },
+      "live_data_sources": [
+        "parseNaturalLanguageLeavePrompt"
+      ],
+      "nav_target": "leaves",
+      "referenced_policy": "Nghỉ phép / WFH / Nghỉ ốm & Tự động trừ quỹ phép",
+      "sample_utterances": [
+        "Cho tôi xin nghỉ phép năm 2 ngày từ 23/11 đến 24/11/2026 bàn giao cho Bùi Trọng Nghĩa",
+        "Tôi xin WFH 1 ngày thứ Năm 19/11/2026 để nhận thiết bị mạng",
+        "Xin nghỉ ốm 1 ngày mai 18/11 đi khám bệnh"
+      ]
+    },
+    {
+      "intent_id": "LEAVE_AND_SALARY_COMBINED",
+      "priority": 2,
+      "keywords_norm": [
+        "phep",
+        "ngay nghi",
+        "luong",
+        "thue",
+        "tncn",
+        "bhxh"
+      ],
+      "match_rule": "(phep|ngay nghi) AND (luong|thue|bhxh)",
+      "live_data_sources": [
+        "getLeaveBalances(2026)",
+        "getPayrollRecords()"
+      ],
+      "nav_target": "payslip",
+      "referenced_policy": "Điều 14 Quy chế Nghỉ phép & Phụ lục 02 Thuế TNCN"
+    },
+    {
+      "intent_id": "LEAVE_BALANCE_QUERY",
+      "priority": 3,
+      "preset_id": "qa-001",
+      "keywords_norm": [
+        "phep",
+        "ngay nghi",
+        "phep nam",
+        "phep ton",
+        "thu viec"
+      ],
+      "live_data_sources": [
+        "getLeaveBalances(2026)"
+      ],
+      "nav_target": "leaves",
+      "referenced_policy": "Điều 14 - Quy chế Nghỉ phép & Thời giờ làm việc 2026"
+    },
+    {
+      "intent_id": "PAYROLL_TAX_QUERY",
+      "priority": 4,
+      "preset_id": "qa-002",
+      "keywords_norm": [
+        "luong",
+        "gross",
+        "net",
+        "thue",
+        "tncn",
+        "bhxh",
+        "bhyt",
+        "bhtn",
+        "tach luong",
+        "ot"
+      ],
+      "live_data_sources": [
+        "getPayrollRecords()"
+      ],
+      "nav_target": "payslip",
+      "referenced_policy": "Phụ lục 02 - Quy chế Tiền lương & Khấu trừ Thuế TNCN lũy tiến 7 bậc"
+    },
+    {
+      "intent_id": "BURNOUT_CONTRACT_ALERT",
+      "priority": 5,
+      "preset_id": "qa-003",
+      "keywords_norm": [
+        "burnout",
+        "hop dong",
+        "het han",
+        "sap het",
+        "tai ky",
+        "qua tai ot"
+      ],
+      "live_data_sources": [
+        "getAllRuntimeEmployees()",
+        "getRuntimeContracts()"
+      ],
+      "nav_target": "kpi",
+      "referenced_policy": "Quy trình Đánh giá Tái ký Hợp đồng & Cảnh báo Sớm Nhân sự Chủ chốt"
+    },
+    {
+      "intent_id": "PENDING_REQUESTS_ATS",
+      "priority": 6,
+      "preset_id": "qa-004",
+      "keywords_norm": [
+        "don cho",
+        "duyet don",
+        "ung vien",
+        "tuyen dung",
+        "kanban",
+        "phong van",
+        "offer"
+      ],
+      "live_data_sources": [
+        "mergeWithRuntimeRequests()",
+        "getRuntimeCandidates()"
+      ],
+      "nav_target": "ats",
+      "referenced_policy": "SLA Phê duyệt Đơn từ Nội bộ (24h) & Quy trình Tuyển dụng ATS 3 cột"
+    },
+    {
+      "intent_id": "BIOMETRIC_WIFI_ATTENDANCE",
+      "priority": 7,
+      "keywords_norm": [
+        "van tay",
+        "sinh trac",
+        "webauthn",
+        "wifi",
+        "4g",
+        "passkey",
+        "windows hello",
+        "cham cong",
+        "22:00",
+        "06:00",
+        "khoa dem",
+        "quen cham cong"
+      ],
+      "live_data_sources": [
+        "getDailyAttendances('2026-11', empCode)",
+        "GET /api/hrm/attendance/biometric"
+      ],
+      "nav_target": "attendance",
+      "referenced_policy": "Quy chế Chấm công Sinh trắc học WebAuthn, Same-WiFi Gate & Khóa khung đêm 22:00-06:00"
+    },
+    {
+      "intent_id": "PREBOARDING_ONBOARDING_GUIDE",
+      "priority": 8,
+      "keywords_norm": [
+        "preboarding",
+        "pre-boarding",
+        "onboarding",
+        "nhan viec",
+        "duyet ho so",
+        "read-only",
+        "chuyen chinh thuc",
+        "thu viec"
+      ],
+      "live_data_sources": [
+        "getPreboardingInvites()",
+        "getOnboardingRecords()"
+      ],
+      "nav_target": "onboarding",
+      "referenced_policy": "Quy trình Pre-boarding Token CSPRNG, Rà soát Read-Only & Hội nhập 4 Bộ phận"
+    },
+    {
+      "intent_id": "OFFBOARDING_CLEARANCE_GUIDE",
+      "priority": 9,
+      "keywords_norm": [
+        "nghi viec",
+        "thoi viec",
+        "tat toan",
+        "quyet toan",
+        "clearance",
+        "ban giao",
+        "ke nhiem",
+        "bao truoc",
+        "resigned",
+        "thu hoi tai san"
+      ],
+      "live_data_sources": [
+        "getRuntimeResignations()",
+        "checkClearance100Percent()"
+      ],
+      "nav_target": "offboarding",
+      "referenced_policy": "Điều 27 & 35 BLLĐ + 6 Cổng Khóa Cứng Quyết toán (Clearance Hard Gate)"
+    },
+    {
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "priority": 10,
+      "keywords_norm": [
+        "rbac",
+        "phan quyen",
+        "quyen han",
+        "bao mat",
+        "audit log",
+        "403",
+        "xoa cung",
+        "khoa tai khoan",
+        "co lap du lieu"
+      ],
+      "live_data_sources": [
+        "can(actor, action)",
+        "getRuntimeAuditLogs()"
+      ],
+      "nav_target": "rbac",
+      "referenced_policy": "Ma trận Phân quyền RBAC 6 Vai trò x 57 Hành động & Nguyên tắc Zero Hard Delete"
+    },
+    {
+      "intent_id": "DEMO_RESET_TROUBLESHOOT",
+      "priority": 11,
+      "keywords_norm": [
+        "reset",
+        "bootepoch",
+        "mat khau demo",
+        "dang nhap",
+        "loi 410",
+        "loi 422",
+        "loi 409",
+        "test"
+      ],
+      "live_data_sources": [
+        "GET /api/hrm/sync"
+      ],
+      "nav_target": "dashboard",
+      "referenced_policy": "Vận hành Demo, bootEpoch Sync & Kiểm thử 145/145 kịch bản"
+    },
+    {
+      "intent_id": "GENERAL_OVERVIEW",
+      "priority": 12,
+      "keywords_norm": [],
+      "live_data_sources": [
+        "getLeaveBalances",
+        "getPayrollRecords",
+        "getDailyAttendances",
+        "getAllRuntimeEmployees"
+      ],
+      "nav_target": "dashboard",
+      "referenced_policy": "Tổng quan Vòng đời Nhân sự Lạc Việt HRM v2.4"
+    }
+  ],
+  "nl_leave_drafts": [
+    {
+      "id": "nl-001",
+      "sample_input": "Cho tôi xin nghỉ phép năm 2 ngày thứ Hai và thứ Ba tuần sau (23/11 đến 24/11/2026) để nghỉ ngơi sau đợt golive, bàn giao công việc cho Bùi Trọng Nghĩa.",
+      "parsed_category": "ANNUAL_LEAVE",
+      "parsed_category_label": "Nghỉ phép năm có hưởng lương",
+      "parsed_start_date": "2026-11-23",
+      "parsed_end_date": "2026-11-24",
+      "parsed_duration_days": 2,
+      "parsed_reason": "Nghỉ ngơi phục hồi sức khỏe sau đợt triển khai golive hệ thống",
+      "parsed_handover_to": "Bùi Trọng Nghĩa (NV-2025-009)",
+      "confidence_score": 0.97
+    },
+    {
+      "id": "nl-002",
+      "sample_input": "Tôi xin làm việc từ xa (WFH) 1 ngày vào thứ Năm 19/11/2026 để nhận bàn giao thiết bị hạ tầng mạng tại nhà, công việc phối hợp cùng Vũ Thị Mai Phương.",
+      "parsed_category": "REMOTE_WORK",
+      "parsed_category_label": "Làm việc từ xa (WFH)",
+      "parsed_start_date": "2026-11-19",
+      "parsed_end_date": "2026-11-19",
+      "parsed_duration_days": 1,
+      "parsed_reason": "Nhận bàn giao thiết bị hạ tầng mạng tại nhà và trực vận hành hệ thống từ xa",
+      "parsed_handover_to": "Vũ Thị Mai Phương (NV-2024-005)",
+      "confidence_score": 0.95
+    },
+    {
+      "id": "nl-003",
+      "sample_input": "Cho tôi xin nghỉ ốm 1 ngày vào ngày mai 18/11/2026 để đi khám chuyên khoa hô hấp tại Bệnh viện Đại học Y Dược, bàn giao ticket cho Lê Hoàng Nam.",
+      "parsed_category": "SICK_LEAVE",
+      "parsed_category_label": "Nghỉ ốm có hưởng BHXH / Quy chế công ty",
+      "parsed_start_date": "2026-11-18",
+      "parsed_end_date": "2026-11-18",
+      "parsed_duration_days": 1,
+      "parsed_reason": "Khám chuyên khoa hô hấp tại Bệnh viện Đại học Y Dược TP.HCM",
+      "parsed_handover_to": "Lê Hoàng Nam (NV-2024-003)",
+      "confidence_score": 0.96
+    },
+    {
+      "id": "nl-004",
+      "sample_input": "Đăng ký tăng ca OT 3 giờ tối ngày 25/11/2026 để hoàn tất release module Bảng lương & Thuế.",
+      "parsed_category": "OVERTIME",
+      "parsed_category_label": "Đăng ký làm thêm giờ (OT)",
+      "parsed_start_date": "2026-11-25",
+      "parsed_end_date": "2026-11-25",
+      "parsed_duration_days": 0.375,
+      "parsed_reason": "Tăng ca 3 giờ (hệ số 1.5x ngày thường) hoàn tất release module Bảng lương & Thuế",
+      "parsed_handover_to": "Lê Hoàng Nam (NV-2024-003)",
+      "confidence_score": 0.95
+    },
+    {
+      "id": "nl-005",
+      "sample_input": "Tôi xin nghỉ không hưởng lương 1 ngày vào 26/11/2026 do có việc gia đình đột xuất (đã hết phép hoặc đang thử việc).",
+      "parsed_category": "UNPAID_LEAVE",
+      "parsed_category_label": "Nghỉ không hưởng lương",
+      "parsed_start_date": "2026-11-26",
+      "parsed_end_date": "2026-11-26",
+      "parsed_duration_days": 1,
+      "parsed_reason": "Giải quyết việc gia đình đột xuất (yêu cầu duyệt đủ 3 cấp: Trưởng phòng -> HR -> Giám đốc)",
+      "parsed_handover_to": "Bùi Trọng Nghĩa (NV-2025-009)",
+      "confidence_score": 0.93
+    },
+    {
+      "id": "nl-006",
+      "sample_input": "Tôi xin gửi giải trình quên chấm công ngày 20/11/2026 do họp triển khai ở khách hàng đến quá 22:00 khiến ca tự ngắt 0.0 công.",
+      "parsed_category": "LATE_EXPLANATION",
+      "parsed_category_label": "Giải trình công / Quên chấm công",
+      "parsed_start_date": "2026-11-20",
+      "parsed_end_date": "2026-11-20",
+      "parsed_duration_days": 1,
+      "parsed_reason": "Họp triển khai ngoài khách hàng quá 22:00 không kịp check-out bằng vân tay",
+      "parsed_handover_to": "Lê Hoàng Nam (NV-2024-003)",
+      "confidence_score": 0.94
+    },
+    {
+      "id": "nl-007",
+      "sample_input": "Đăng ký đi công tác trong nước 2 ngày từ 27/11 đến 28/11/2026 tại chi nhánh Đà Nẵng để kiểm tra hạ tầng mạng.",
+      "parsed_category": "BUSINESS_TRIP",
+      "parsed_category_label": "Công tác trong nước",
+      "parsed_start_date": "2026-11-27",
+      "parsed_end_date": "2026-11-28",
+      "parsed_duration_days": 2,
+      "parsed_reason": "Công tác kiểm tra hạ tầng mạng tại chi nhánh Đà Nẵng",
+      "parsed_handover_to": "Vũ Thị Mai Phương (NV-2024-005)",
+      "confidence_score": 0.92
+    },
+    {
+      "id": "nl-008",
+      "sample_input": "Xin duyệt lịch công tác nước ngoài 4 ngày từ 01/12/2026 đến 04/12/2026 tại Singapore làm việc với đối tác kỹ thuật.",
+      "parsed_category": "OVERSEAS_BUSINESS_TRIP",
+      "parsed_category_label": "Công tác nước ngoài",
+      "parsed_start_date": "2026-12-01",
+      "parsed_end_date": "2026-12-04",
+      "parsed_duration_days": 4,
+      "parsed_reason": "Làm việc với đối tác kỹ thuật tại Singapore (trình Giám đốc phê duyệt cấp 3)",
+      "parsed_handover_to": "Lê Hoàng Nam (NV-2024-003)",
+      "confidence_score": 0.91
+    }
+  ],
+  "qa_pairs": [
+    {
+      "id": "qa-001",
+      "role_scope": "EMPLOYEE",
+      "prompt_label": "Tra cứu số ngày phép năm còn lại của tôi",
+      "user_query": "Tôi còn bao nhiêu ngày phép năm 2026 và cách tính phép tồn từ năm 2025 sang?",
+      "ai_response": "Theo dữ liệu chấm công cập nhật đến ngày 17/11/2026, hồ sơ Phạm Minh Tuấn (NV-2024-004) có tổng tiêu chuẩn 12 ngày phép năm 2026 cộng 2 ngày phép chuyển giao từ năm 2025. Bạn đã sử dụng 2 ngày và đang có 1 đơn chờ duyệt 2 ngày (REQ-202611-084), số dư phép khả dụng còn lại là 10 ngày. Theo Điều 14 Nội quy lao động, phép chuyển giao từ năm cũ có hiệu lực sử dụng đến hết ngày 31/03 năm kế tiếp.",
+      "referenced_policy": "Điều 14 - Quy chế Nghỉ phép & Thời giờ làm việc 2026",
+      "metrics_cited": [
+        {
+          "label": "Tổng quỹ phép 2026",
+          "value": "14 ngày"
+        },
+        {
+          "label": "Đã nghỉ / Chờ duyệt",
+          "value": "2 / 2 ngày"
+        },
+        {
+          "label": "Còn khả dụng",
+          "value": "10 ngày"
+        }
+      ],
+      "intent_id": "LEAVE_BALANCE_QUERY",
+      "nav_id": "leaves",
+      "keywords_norm": [
+        "phep",
+        "ngay nghi",
+        "phep ton",
+        "2025",
+        "2026"
+      ],
+      "tags": [
+        "leave",
+        "ess",
+        "policy"
+      ],
+      "source_refs": [
+        "src/mock/copilot.ts:4-17",
+        "src/lib/hrm/config.ts:31"
+      ]
+    },
+    {
+      "id": "qa-002",
+      "role_scope": "EMPLOYEE",
+      "prompt_label": "Giải thích cách tính thuế TNCN kỳ lương tháng 11/2026",
+      "user_query": "Giải thích giúp tôi các khoản khấu trừ bảo hiểm và thuế TNCN trên phiếu lương PS-202611-004.",
+      "ai_response": "Phiếu lương PS-202611-004 của bạn có tổng thu nhập Gross là 34.650.000 ₫ (gồm lương cơ bản 22.800.000 ₫, phụ cấp 3.500.000 ₫, lương tăng ca 5.850.000 ₫ và thưởng KPI 2.500.000 ₫). Khoản trích đóng bảo hiểm bắt buộc tính trên lương cơ bản 22.800.000 ₫ gồm: BHXH 8% (1.824.000 ₫), BHYT 1.5% (342.000 ₫), BHTN 1% (228.000 ₫), tổng cộng 2.394.000 ₫. Sau khi trừ giảm trừ bản thân 11.000.000 ₫ và 1 người phụ thuộc 4.400.000 ₫, thu nhập tính thuế là 16.856.000 ₫ (thuộc bậc 3 thuế suất 15% trừ lùi 750.000 ₫), thuế TNCN phải nộp là 1.778.400 ₫. Lương thực nhận (Net) là 30.477.600 ₫.",
+      "referenced_policy": "Phụ lục 02 - Quy chế Tiền lương & Khấu trừ Thuế TNCN lũy tiến từng phần",
+      "metrics_cited": [
+        {
+          "label": "Tổng thu nhập Gross",
+          "value": "34.650.000 ₫"
+        },
+        {
+          "label": "BHXH + BHYT + BHTN (10.5%)",
+          "value": "2.394.000 ₫"
+        },
+        {
+          "label": "Thuế TNCN bậc 3",
+          "value": "1.778.400 ₫"
+        },
+        {
+          "label": "Thực nhận (Net)",
+          "value": "30.477.600 ₫"
+        }
+      ],
+      "intent_id": "PAYROLL_TAX_QUERY",
+      "nav_id": "payslip",
+      "keywords_norm": [
+        "luong",
+        "thue",
+        "tncn",
+        "bhxh",
+        "khau tru",
+        "gross",
+        "net"
+      ],
+      "tags": [
+        "payroll",
+        "tax",
+        "bhxh"
+      ],
+      "source_refs": [
+        "src/mock/copilot.ts:19-32",
+        "src/mock/payroll.ts:3-37"
+      ]
+    },
+    {
+      "id": "qa-003",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Tổng hợp nhân sự có nguy cơ Burnout & sắp hết hạn hợp đồng",
+      "user_query": "Liệt kê các nhân sự kỹ thuật có điểm rủi ro Burnout cao kèm tình trạng hợp đồng trong tháng 11 - 12/2026.",
+      "ai_response": "Hệ thống ghi nhận 2 nhân sự thuộc Phòng Kỹ thuật Phần mềm cần ưu tiên làm việc trong tuần này: (1) Phạm Minh Tuấn (NV-2024-004) có điểm rủi ro Burnout 82/100 (mức Nghiêm trọng) do tăng ca 38 giờ trong 30 ngày qua, đồng thời hợp đồng 24 tháng sẽ hết hạn vào ngày 15/12/2026 (còn 28 ngày). (2) Bùi Trọng Nghĩa (NV-2025-009) có điểm Burnout 74/100 (mức Cao), đi muộn 5 lần trong tháng và hợp đồng hết hạn ngày 04/12/2026 (còn 17 ngày). Khuyến nghị Phòng Nhân sự phối hợp Trưởng khối Công nghệ Lê Hoàng Nam tổ chức họp đánh giá tái ký trước ngày 25/11/2026.",
+      "referenced_policy": "Quy trình Đánh giá Tái ký Hợp đồng & Cảnh báo Sớm Nhân sự Chủ chốt",
+      "metrics_cited": [
+        {
+          "label": "Cảnh báo mức Critical/High",
+          "value": "03 nhân sự"
+        },
+        {
+          "label": "Hợp đồng hết hạn < 30 ngày",
+          "value": "04 hợp đồng"
+        }
+      ],
+      "intent_id": "BURNOUT_CONTRACT_ALERT",
+      "nav_id": "kpi",
+      "keywords_norm": [
+        "burnout",
+        "hop dong",
+        "het han",
+        "ot",
+        "tai ky"
+      ],
+      "tags": [
+        "burnout",
+        "contracts",
+        "hr"
+      ],
+      "source_refs": [
+        "src/mock/copilot.ts:34-45",
+        "src/lib/hrm/config.ts:23"
+      ]
+    },
+    {
+      "id": "qa-004",
+      "role_scope": "DEPT_MANAGER",
+      "prompt_label": "Tóm tắt đơn chờ duyệt và ứng viên phỏng vấn của Khối Công nghệ",
+      "user_query": "Khối Công nghệ hiện có bao nhiêu đơn xin nghỉ/OT chờ duyệt và ứng viên nào đạt điểm AI cao nhất?",
+      "ai_response": "Khối Công nghệ hiện có 3 đơn từ đang chờ phê duyệt: đơn xin nghỉ phép 2 ngày của Phạm Minh Tuấn (REQ-202611-084), đơn đăng ký OT 8 giờ thứ Bảy của Bùi Trọng Nghĩa (REQ-202611-085) và đơn đăng ký WFH 1 ngày của Trương Gia Huy (REQ-202611-086). Về tuyển dụng, ứng viên Phan Thanh Tùng (UV-2026-101, vị trí Senior Backend Engineer) đạt điểm khớp JD cao nhất là 92/100 và đang ở bước Phỏng vấn chuyên môn.",
+      "referenced_policy": "SLA Phê duyệt Đơn từ Nội bộ (tối đa 24 giờ làm việc)",
+      "metrics_cited": [
+        {
+          "label": "Đơn chờ duyệt",
+          "value": "03 đơn"
+        },
+        {
+          "label": "Ứng viên điểm AI >= 88",
+          "value": "02 ứng viên"
+        }
+      ],
+      "intent_id": "PENDING_REQUESTS_ATS",
+      "nav_id": "ats",
+      "keywords_norm": [
+        "don cho",
+        "ung vien",
+        "ai",
+        "phong van",
+        "khoi cong nghe"
+      ],
+      "tags": [
+        "approvals",
+        "ats",
+        "manager"
+      ],
+      "source_refs": [
+        "src/mock/copilot.ts:47-58"
+      ]
+    },
+    {
+      "id": "qa-005",
+      "role_scope": "ALL",
+      "prompt_label": "Vòng đời 5 trạng thái nhân sự & nguyên tắc không xóa cứng",
+      "user_query": "Hệ thống quản lý vòng đời nhân sự qua những trạng thái nào và vì sao không xóa hẳn khi nghỉ việc?",
+      "ai_response": "Lạc Việt HRM quản trị khép kín 5 trạng thái: PENDING_ONBOARD (chờ nhận việc, chưa mở SSO) -> PROBATION (thử việc mặc định 60 ngày, hưởng 85% lương, 0 ngày phép năm, miễn BHXH) -> OFFICIAL/ACTIVE (chính thức 100% lương, trích 10.5% BHXH, mở 12 ngày phép năm) -> NOTICE_PERIOD (đã duyệt nghỉ việc, kích hoạt Bàn giao 3 bên & Clearance) -> RESIGNED (hoàn tất quyết toán, khóa đăng nhập vĩnh viễn is_active = false). Hệ thống dùng 30 ràng buộc ON DELETE RESTRICT trong SQL để giữ nguyên bảng lương, thuế TNCN, BHXH, tài sản, audit log và cờ is_rehireable thay cho xóa cứng.",
+      "referenced_policy": "Nguyên tắc Zero Hard Delete & db/migrations/002_employee_lifecycle.sql",
+      "metrics_cited": [
+        {
+          "label": "Số trạng thái vòng đời",
+          "value": "5 trạng thái"
+        },
+        {
+          "label": "Khóa ngoại RESTRICT",
+          "value": "30 / 43 FK"
+        }
+      ],
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "nav_id": "core-hr",
+      "keywords_norm": [
+        "vong doi",
+        "trang thai",
+        "xoa cung",
+        "resigned",
+        "pending_onboard",
+        "probation",
+        "official"
+      ],
+      "tags": [
+        "lifecycle",
+        "architecture",
+        "database"
+      ],
+      "source_refs": [
+        "src/mock/types.ts:9-22",
+        "db/migrations/002_employee_lifecycle.sql:100-477"
+      ]
+    },
+    {
+      "id": "qa-006",
+      "role_scope": "ALL",
+      "prompt_label": "Luồng nhận Offer & Pre-boarding bảo mật bằng token",
+      "user_query": "Sau khi ứng viên bấm Đồng ý nhận việc thì bước Pre-boarding hoạt động thế nào và HR có sửa được thông tin cá nhân không?",
+      "ai_response": "Khi ứng viên bấm Đồng ý nhận việc trên /candidate (đã loại bỏ ô tra cứu công khai theo Email/SĐT), hệ thống tự động gọi createPreboardingInvite() sinh token ngẫu nhiên mật mã CSPRNG 128-bit (pb-<32 hex>) gắn vào nút Khai báo Pre-boarding. Trên /preboarding?token=..., 18 trường thông tin mẫu được điền sẵn để rà soát nhanh và gửi qua POST /api/hrm/lifecycle (allowlist 20 trường, chặn __proto__, validate CCCD 9|12 số / STK 6-24 ký tự trả 422, chặn 410 nếu EXPIRED, chặn 403 nếu đã VERIFIED/RESIGNED). Tại Onboarding & Tài sản, HR chỉ xem trên modal Read-Only và bấm Duyệt hồ sơ để mở tài khoản EMPLOYEE.",
+      "referenced_policy": "Luồng Pre-boarding Token CSPRNG & Rà soát Read-Only",
+      "metrics_cited": [
+        {
+          "label": "Định dạng Token",
+          "value": "pb-<32 hex> CSPRNG"
+        },
+        {
+          "label": "Allowlist API",
+          "value": "20 trường hợp lệ"
+        }
+      ],
+      "intent_id": "PREBOARDING_ONBOARDING_GUIDE",
+      "nav_id": "onboarding",
+      "keywords_norm": [
+        "preboarding",
+        "offer",
+        "token",
+        "read-only",
+        "duyet ho so"
+      ],
+      "tags": [
+        "preboarding",
+        "security",
+        "ats"
+      ],
+      "source_refs": [
+        "src/app/candidate/page.tsx",
+        "src/app/preboarding/page.tsx",
+        "src/app/api/hrm/lifecycle/route.ts:541-1001"
+      ]
+    },
+    {
+      "id": "qa-007",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Nhân viên thử việc vừa chuyển chính thức có phép năm ngay không?",
+      "user_query": "Nhân viên đang thử việc có được cấp 12 ngày phép không và khi bấm Chuyển chính thức thì Đơn từ cập nhật ra sao?",
+      "ai_response": "Nhân sự đang ở trạng thái PROBATION hoặc PENDING_ONBOARD có 0 ngày phép năm (bị chặn xin nghỉ phép có hưởng lương). Chỉ khi quản lý chấm ĐẠT thử việc và HR thực thi Chuyển chính thức (convertProbationToOfficial kiểm chặt trạng thái phải đang là PROBATION), hệ thống mới ký hợp đồng chính thức 100% lương và cấp 12 ngày phép năm. Hàm getLeaveBalances(2026) đồng thời đồng bộ quỹ 12 ngày phép vào kỳ vận hành hiện tại tại Đơn từ & Phê duyệt và bảo toàn số dư khi chuyển NOTICE_PERIOD để thanh toán phép tồn lúc tất toán.",
+      "referenced_policy": "Quy chế Thử việc 60 ngày & Khởi tạo Quỹ phép năm Chính thức",
+      "metrics_cited": [
+        {
+          "label": "Phép khi PROBATION",
+          "value": "0 ngày"
+        },
+        {
+          "label": "Phép khi OFFICIAL",
+          "value": "12 ngày"
+        }
+      ],
+      "intent_id": "PREBOARDING_ONBOARDING_GUIDE",
+      "nav_id": "onboarding",
+      "keywords_norm": [
+        "thu viec",
+        "chuyen chinh thuc",
+        "12 ngay phep",
+        "probation",
+        "official"
+      ],
+      "tags": [
+        "probation",
+        "leave",
+        "onboarding"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:3385-3632",
+        "src/lib/runtime-store.ts:4500-4577"
+      ]
+    },
+    {
+      "id": "qa-008",
+      "role_scope": "ALL",
+      "prompt_label": "Cơ chế chấm công vân tay WebAuthn & bỏ hộp thoại Passkey Edge",
+      "user_query": "Chấm công bằng vân tay hoạt động thế nào, làm sao bỏ popup Create a passkey của Edge Password Manager?",
+      "ai_response": "Màn hình Chấm công & Ca làm dùng 1 nút duy nhất Chấm công bằng vân tay kết nối WebAuthn CTAP2 hỗ trợ ECDSA P-256 (alg -7) và Windows Hello TPM RSA-2048 (alg -257). Khi đăng ký thiết bị mới, biometric-attendance.ts đặt residentKey: 'discouraged', requireResidentKey: false và hints: ['client-device'] để Edge ưu tiên Windows Hello cục bộ thay vì tạo Passkey đám mây trên Password Manager. Phía server xác minh challenge 120s dùng 1 lần, bắt buộc cờ UV=1 (0x04), chống quay lùi signCount và kiểm chữ ký qua Node crypto.verify('sha256', ...).",
+      "referenced_policy": "Tiêu chuẩn Chấm công Sinh trắc học WebAuthn CTAP2",
+      "metrics_cited": [
+        {
+          "label": "Thuật toán",
+          "value": "ES256 (-7) & RS256 (-257)"
+        },
+        {
+          "label": "TTL Challenge",
+          "value": "120 giây (Single-use)"
+        }
+      ],
+      "intent_id": "BIOMETRIC_WIFI_ATTENDANCE",
+      "nav_id": "attendance",
+      "keywords_norm": [
+        "van tay",
+        "webauthn",
+        "passkey",
+        "edge",
+        "windows hello",
+        "residentkey",
+        "signcount"
+      ],
+      "tags": [
+        "biometric",
+        "webauthn",
+        "security"
+      ],
+      "source_refs": [
+        "src/lib/biometric-attendance.ts:359-602",
+        "src/lib/hrm/biometric-server.ts:897-1138"
+      ]
+    },
+    {
+      "id": "qa-009",
+      "role_scope": "ALL",
+      "prompt_label": "Cổng kiểm soát Cùng mạng WiFi (Same-WiFi Gate) chặn 4G ra sao?",
+      "user_query": "Làm sao hệ thống chống nhân viên bật 4G ở nhà hoặc ra quán cafe chấm công hộ qua DevTunnel?",
+      "ai_response": "Lớp Same-WiFi Gate trong biometric-server.ts đọc trực tiếp cấu hình mạng WiFi thật của máy chủ qua netsh wlan show interfaces & netsh interface ipv4 show config (loại card ảo WSL/Hyper-V/Docker/VPN). Nếu điện thoại bật 4G/5G (connectionType === 'cellular'), server chặn ngay với mã 403 CELLULAR_BLOCKED kể cả khi client gửi hint IP. Khi qua DevTunnel/ngrok, server đối chiếu Public IPv4 NAT hoặc prefix IPv6 /64 của bộ phát WiFi văn phòng (SAME_WIFI_NAT_IP); nếu dùng mạng LAN nội bộ, đối chiếu cùng subnet netmask (SAME_LAN_SUBNET). Sai mạng bị trả 403 WIFI_MISMATCH và ghi Audit Log WIFI_CHECK_BLOCKED.",
+      "referenced_policy": "Chính sách Kiểm soát Cùng mạng WiFi Văn phòng (Same-WiFi Gate)",
+      "metrics_cited": [
+        {
+          "label": "Mã chặn 4G/5G",
+          "value": "403 CELLULAR_BLOCKED"
+        },
+        {
+          "label": "Mã sai WiFi",
+          "value": "403 WIFI_MISMATCH"
+        }
+      ],
+      "intent_id": "BIOMETRIC_WIFI_ATTENDANCE",
+      "nav_id": "attendance",
+      "keywords_norm": [
+        "wifi",
+        "4g",
+        "5g",
+        "devtunnel",
+        "same-wifi",
+        "cellular_blocked",
+        "wifi_mismatch"
+      ],
+      "tags": [
+        "wifi",
+        "security",
+        "biometric"
+      ],
+      "source_refs": [
+        "src/lib/hrm/biometric-server.ts:619-895",
+        "src/app/api/hrm/attendance/biometric/route.ts:322-343"
+      ]
+    },
+    {
+      "id": "qa-010",
+      "role_scope": "ALL",
+      "prompt_label": "Quy tắc khóa chấm công đêm 22:00-06:00 & tính công theo ca",
+      "user_query": "Giờ làm chuẩn, ngưỡng tính 1.0 / 0.5 công và quy tắc khóa chấm công 22:00 đến 06:00 sáng quy định thế nào?",
+      "ai_response": "Ca chuẩn là 08:30-17:30 (trừ 60 phút nghỉ trưa nếu khoảng làm việc bao trùm 12:00-13:00, ân hạn đi muộn 15 phút). Làm từ 6.5 giờ trở lên đạt 1.0 công; từ 3.5 đến dưới 6.5 giờ đạt 0.5 công (HALF_DAY); dưới 3.5 giờ là 0.0 công. Khung giờ đêm từ 22:00 đến trước 06:00 sáng bị khóa chấm công tự động qua isAttendanceNightLockWindow() (chỉ cho đồng bộ khi HR/Quản lý duyệt đơn Giải trình công REQUEST_SYNC). Nếu đã check-in trước 22:00 mà qua 22:00 chưa check-out, ca tự ngắt thành thiếu công ra (0.0 công) và giao diện chỉ hiển thị nhãn tiếng Việt sạch (ẩn mã kỹ thuật thô).",
+      "referenced_policy": "Quy chế Thời giờ làm việc & Khóa khung giờ đêm 22:00-06:00",
+      "metrics_cited": [
+        {
+          "label": "Công chuẩn / tháng",
+          "value": "22 công"
+        },
+        {
+          "label": "Khung khóa đêm",
+          "value": "22:00 – 06:00"
+        },
+        {
+          "label": "Ngưỡng 1.0 / 0.5 công",
+          "value": ">= 6.5h / >= 3.5h"
+        }
+      ],
+      "intent_id": "BIOMETRIC_WIFI_ATTENDANCE",
+      "nav_id": "attendance",
+      "keywords_norm": [
+        "22:00",
+        "06:00",
+        "khoa dem",
+        "nua cong",
+        "1.0 cong",
+        "ca lam",
+        "quen cham cong"
+      ],
+      "tags": [
+        "attendance",
+        "night-lock",
+        "shift"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:3638-3811",
+        "src/lib/hrm/config.ts:26-30"
+      ]
+    },
+    {
+      "id": "qa-011",
+      "role_scope": "ALL",
+      "prompt_label": "Quy trình duyệt đơn đa cấp & cô lập dữ liệu nhân viên",
+      "user_query": "Khi nào đơn xin nghỉ phép cần tới 3 cấp duyệt (kể cả Giám đốc) và hệ thống bảo đảm nhân viên không thấy đơn người khác thế nào?",
+      "ai_response": "Đơn nghỉ phép năm <= 3 ngày cần 2 cấp: Cấp 1 Trưởng bộ phận (DEPT_MANAGER) -> Cấp 2 Trưởng phòng Nhân sự (HR_MANAGER). Riêng đơn phép năm > 3 ngày (DIRECTOR_LEAVE_APPROVAL_DAYS_THRESHOLD = 3), đơn Nghỉ không hưởng lương (UNPAID_LEAVE) hoặc Công tác nước ngoài bắt buộc thêm Cấp 3 Giám đốc (DIRECTOR). Khi đơn bị từ chối bắt buộc có lý do; khi duyệt xong, applyApprovedRequestSideEffects() tự trừ quỹ phép/cộng giờ OT idempotent. Toàn bộ 6 màn hình ESS của nhân viên lọc chặt theo nhân sự đăng nhập, tuyệt đối không fallback sang NV-2024-004.",
+      "referenced_policy": "Phân cấp Phê duyệt Đơn từ & Chính sách Cô lập Dữ liệu Nhân sự",
+      "metrics_cited": [
+        {
+          "label": "Ngưỡng trình Giám đốc",
+          "value": "> 3 ngày / Không lương"
+        },
+        {
+          "label": "Loại đơn hỗ trợ",
+          "value": "8 RequestCategory"
+        }
+      ],
+      "intent_id": "PENDING_REQUESTS_ATS",
+      "nav_id": "leaves",
+      "keywords_norm": [
+        "duyet don",
+        "da cap",
+        "3 cap",
+        "giam doc",
+        "co lap",
+        "nghi khong luong"
+      ],
+      "tags": [
+        "requests",
+        "approvals",
+        "isolation"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:4597-4885",
+        "src/components/modules/requests-view.tsx"
+      ]
+    },
+    {
+      "id": "qa-012",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Công thức tách lương giữa kỳ & biểu thuế TNCN 7 bậc",
+      "user_query": "Nếu nhân viên được tăng lương hoặc thăng chức vào giữa tháng (ví dụ 16/11) thì bảng lương tách kỳ tính ra sao?",
+      "ai_response": "Hệ thống lưu quyết định mới vào bảng bất biến career_histories (chặn HTTP 409 nếu ghi đè) kèm effective_date. Khi chạy calculateMonthlyPayrolls, nếu effective_date nằm trong kỳ lương và mức lương thay đổi, hệ thống đếm ngày làm việc T2-T6 trước và từ ngày hiệu lực (countWeekdaysInRange) để phân bổ số công bậc 0.5 ngày ở lương cũ (days_at_old_salary) và phần còn lại ở lương mới (days_at_new_salary), xuất minh bạch vào PayrollRecord.mid_month_split. Sau đó cộng OT (1.5x / 2.0x / 3.0x), trừ BHXH NLĐ 10.5% (8% BHXH + 1.5% BHYT + 1% BHTN, trần 46.800.000đ, miễn cho thử việc) và tính thuế TNCN 7 bậc (5%-35%, giảm trừ bản thân 11tr + 4.4tr/người phụ thuộc).",
+      "referenced_policy": "Công thức Tách lương Giữa kỳ, BHXH 10.5% & Thuế TNCN 7 bậc",
+      "metrics_cited": [
+        {
+          "label": "Trần đóng BHXH",
+          "value": "46.800.000 ₫/tháng"
+        },
+        {
+          "label": "Giảm trừ gia cảnh",
+          "value": "11tr bản thân + 4.4tr/NPT"
+        },
+        {
+          "label": "Hệ số OT",
+          "value": "1.5x / 2.0x / 3.0x"
+        }
+      ],
+      "intent_id": "PAYROLL_TAX_QUERY",
+      "nav_id": "payroll",
+      "keywords_norm": [
+        "tach luong",
+        "giua ky",
+        "mid_month_split",
+        "7 bac",
+        "46.8",
+        "bhxh",
+        "ot"
+      ],
+      "tags": [
+        "payroll",
+        "mid-month-split",
+        "tax"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:4887-5227",
+        "src/mock/payroll.ts:3-37"
+      ]
+    },
+    {
+      "id": "qa-013",
+      "role_scope": "ALL",
+      "prompt_label": "Hạn báo trước nghỉ việc 3/30/45 ngày & 6 Cổng Clearance Hard Gate",
+      "user_query": "Nghỉ việc phải báo trước bao nhiêu ngày, nếu Trưởng phòng nghỉ thì thế nào và điều kiện gì mới được Chốt Quyết toán?",
+      "ai_response": "Thời hạn báo trước căn cứ hợp đồng ACTIVE theo Điều 27 & 35 BLLĐ: HĐ Thử việc >= 3 ngày, HĐ Xác định thời hạn (12T/24T) >= 30 ngày, HĐ Không xác định thời hạn >= 45 ngày. Nút Quyết toán kỳ cuối bị khóa cứng (HTTP 422) cho tới khi đạt 100% (6/6 cổng Clearance Hard Gate): (1) Bàn giao 3 bên 100% (Người nghỉ gửi -> Đồng nghiệp nhận -> Quản lý duyệt); (2) Chuyển giao Quản lý kế nhiệm (executeManagerSuccessorReassign chuyển cấp dưới & đơn PENDING sang sếp mới); (3) Hành chính thu hồi 100% tài sản employee_assets (hỏng/mất trừ tiền đền bù vào lương cuối); (4) IT khóa email/quyền; (5) Kế toán chốt công nợ; (6) HR chốt sổ BHXH.",
+      "referenced_policy": "Điều 27/35 BLLĐ & 6 Cổng Khóa Cứng Quyết toán (Clearance Hard Gate)",
+      "metrics_cited": [
+        {
+          "label": "Báo trước luật định",
+          "value": "3 / 30 / 45 ngày"
+        },
+        {
+          "label": "Clearance Hard Gate",
+          "value": "Bắt buộc 6/6 (100%)"
+        }
+      ],
+      "intent_id": "OFFBOARDING_CLEARANCE_GUIDE",
+      "nav_id": "offboarding",
+      "keywords_norm": [
+        "nghi viec",
+        "bao truoc",
+        "30 ngay",
+        "45 ngay",
+        "clearance",
+        "6 cong",
+        "ke nhiem",
+        "tai san"
+      ],
+      "tags": [
+        "offboarding",
+        "clearance",
+        "labor-law"
+      ],
+      "source_refs": [
+        "src/lib/hrm/config.ts:45-71",
+        "src/lib/runtime-store.ts:6494-7304"
+      ]
+    },
+    {
+      "id": "qa-014",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Tất toán phép tồn & khóa tài khoản sau khi RESIGNED",
+      "user_query": "Số ngày phép năm chưa nghỉ hết được thanh toán thế nào lúc quyết toán và tài khoản bị khóa ở đâu?",
+      "ai_response": "Trong executeFinalSettlement(), hệ thống lấy remaining_days thực tế của nhân sự nhân đơn giá (lương chính thức / 22 công chuẩn) cộng thẳng vào lương quyết toán (QT-YYYYMM-NNN), trừ tiền đền bù tài sản hỏng/mất và tạm ứng Kế toán; nếu thử việc hoặc nghỉ không lương >= 14 ngày trong tháng sẽ miễn BHXH. Ngay sau khi chốt, nhân sự chuyển trạng thái RESIGNED và users.is_active = false (LOCKED): mọi nỗ lực đăng nhập trên /login hay tra cứu ứng viên đều bị chặn và ghi Audit Log BLOCKED, đồng thời AppProvider & middleware.ts tự động thu hồi phiên đang mở về /login?locked=1.",
+      "referenced_policy": "Quyết toán Phép tồn & Thu hồi Quyền truy cập Nhân sự Nghỉ việc",
+      "metrics_cited": [
+        {
+          "label": "Công thức phép tồn",
+          "value": "remaining_days × (base / 22)"
+        },
+        {
+          "label": "Khóa SSO",
+          "value": "is_active = false (LOCKED)"
+        }
+      ],
+      "intent_id": "OFFBOARDING_CLEARANCE_GUIDE",
+      "nav_id": "offboarding",
+      "keywords_norm": [
+        "phep ton",
+        "quyet toan",
+        "khoa tai khoan",
+        "resigned",
+        "is_active",
+        "locked"
+      ],
+      "tags": [
+        "settlement",
+        "security",
+        "resigned"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:1915-1993",
+        "src/lib/runtime-store.ts:7028-7304"
+      ]
+    },
+    {
+      "id": "qa-015",
+      "role_scope": "ALL",
+      "prompt_label": "Phân quyền Kanban ATS 3 cột & quyền truy cập module Đánh giá",
+      "user_query": "Phân hệ Tuyển dụng ATS và Đánh giá & Thăng tiến phân quyền giữa Admin, Giám đốc, HR và Trưởng phòng như thế nào?",
+      "ai_response": "Trên Tuyển dụng & ATS, bảng Kanban được gom gọn 3 cột (Tiếp nhận & Sàng lọc, Phỏng vấn & Offer, Nhận việc & Kết thúc): nút + Đề xuất tuyển dụng hiển thị từ DEPT_MANAGER trở lên, còn nút + Tạo tin tuyển dụng chỉ hiển thị cho HR_MANAGER, DIRECTOR và SUPER_ADMIN. Duyệt đề xuất > 3 người hoặc lương > 50 triệu bắt buộc lên DIRECTOR/SUPER_ADMIN. Riêng menu Đánh giá & Thăng tiến trên sidebar hiện giới hạn nghiêm ngặt chỉ mở cho SUPER_ADMIN (EMPLOYEE và các vai trò khác không thấy menu này).",
+      "referenced_policy": "Ma trận Phân quyền UI & Phê duyệt ATS / Đánh giá",
+      "metrics_cited": [
+        {
+          "label": "Kanban ATS",
+          "value": "3 cột tối ưu"
+        },
+        {
+          "label": "Menu Đánh giá",
+          "value": "Chỉ SUPER_ADMIN"
+        }
+      ],
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "nav_id": "ats",
+      "keywords_norm": [
+        "kanban",
+        "3 cot",
+        "de xuat tuyen dung",
+        "tao tin tuyen dung",
+        "danh gia",
+        "thang tien",
+        "super_admin"
+      ],
+      "tags": [
+        "rbac",
+        "ats",
+        "kpi"
+      ],
+      "source_refs": [
+        "src/components/modules/ats-view.tsx:277-423",
+        "src/components/layout/sidebar.tsx:107-176"
+      ]
+    },
+    {
+      "id": "qa-016",
+      "role_scope": "ALL",
+      "prompt_label": "Danh sách 6 tài khoản demo & cách reset dữ liệu sạch",
+      "user_query": "Cho tôi thông tin 6 tài khoản đăng nhập mẫu và lệnh reset dữ liệu demo về ban đầu?",
+      "ai_response": "Tất cả 6 tài khoản demo trên /login dùng chung mật khẩu LacVietHRM@2026: (1) SUPER_ADMIN: an.nguyen@lacviethrm.vn (Nguyễn Văn An); (2) DIRECTOR: viet.tran@hrm-enterprise.vn (Trần Quốc Việt); (3) HR_MANAGER: ngoc.tran@lacviethrm.vn (Trần Thị Bích Ngọc); (4) DEPT_MANAGER: nam.le@lacviethrm.vn (Lê Hoàng Nam); (5) EMPLOYEE: tuan.pham@lacviethrm.vn (Phạm Minh Tuấn, NV-2024-004); (6) CANDIDATE: minh.hoang@gmail.com (Hoàng Vũ Minh, UV-2026-001). Để đưa hệ thống về trạng thái sạch ban đầu (ứng viên chưa duyệt), chạy npm run reset:demo hoặc POST /api/hrm/sync với {\"resetStore\":true} để xoay vòng bootEpoch.",
+      "referenced_policy": "Tài khoản Demo & Cơ chế Reset bootEpoch",
+      "metrics_cited": [
+        {
+          "label": "Mật khẩu mẫu chung",
+          "value": "LacVietHRM@2026"
+        },
+        {
+          "label": "Lệnh reset nhanh",
+          "value": "npm run reset:demo"
+        }
+      ],
+      "intent_id": "DEMO_RESET_TROUBLESHOOT",
+      "nav_id": "dashboard",
+      "keywords_norm": [
+        "tai khoan",
+        "demo",
+        "mat khau",
+        "reset",
+        "bootepoch",
+        "login"
+      ],
+      "tags": [
+        "demo",
+        "login",
+        "reset"
+      ],
+      "source_refs": [
+        "src/app/login/page.tsx:48-109",
+        "scripts/reset-demo-data.mjs",
+        "src/app/api/hrm/sync/route.ts:297-318"
+      ]
+    },
+    {
+      "id": "qa-017",
+      "role_scope": "ALL",
+      "prompt_label": "Kiến trúc kỹ thuật, 30 bảng SQL & kết quả kiểm thử 145/145",
+      "user_query": "Dự án dùng công nghệ gì, có bao nhiêu bảng SQL, API nào và đã chạy bao nhiêu bài test?",
+      "ai_response": "Lạc Việt HRM v2.4 chạy trên Next.js 14.2.21 App Router, React 18.3, TypeScript Strict 5.7 và Tailwind CSS 3.4; cơ sở dữ liệu gồm 30 bảng MySQL 8.0+ InnoDB (11 bảng ATS ở 001_recruitment_core.sql + 19 bảng Vòng đời & Biometric/WiFi ở 002_employee_lifecycle.sql) cùng 10 nhóm API endpoint dưới /api/hrm/*. Toàn dự án đạt tsc --noEmit 0 lỗi và 145/145 bài test tự động PASS (12 Unit + 20 Recruitment + 46 All-System + 30 Lifecycle + 37 Biometric/WiFi).",
+      "referenced_policy": "Kiến trúc Hệ thống & Báo cáo Kiểm thử npm test",
+      "metrics_cited": [
+        {
+          "label": "Cơ sở dữ liệu",
+          "value": "30 bảng SQL (43 FK)"
+        },
+        {
+          "label": "Kiểm thử tự động",
+          "value": "145 / 145 PASS"
+        }
+      ],
+      "intent_id": "DEMO_RESET_TROUBLESHOOT",
+      "nav_id": "dashboard",
+      "keywords_norm": [
+        "cong nghe",
+        "tech stack",
+        "sql",
+        "bao nhieu bang",
+        "api",
+        "test",
+        "145"
+      ],
+      "tags": [
+        "architecture",
+        "sql",
+        "testing"
+      ],
+      "source_refs": [
+        "package.json:19-45",
+        "db/migrations/001_recruitment_core.sql",
+        "db/migrations/002_employee_lifecycle.sql"
+      ]
+    },
+    {
+      "id": "qa-018",
+      "role_scope": "ALL",
+      "prompt_label": "Tất cả bộ mã định danh tự động trong hệ thống",
+      "user_query": "Các loại mã nhân viên, hợp đồng, quyết định, đơn từ và bảng lương được sinh theo quy tắc nào?",
+      "ai_response": "Module src/lib/hrm/ids.ts chuẩn hóa 11 định dạng mã tự động: Đề xuất YC-YYYY-<DEPT>NN, Tin tuyển dụng JD-YYYY-<DEPT>NN, Ứng viên UV-YYYY-NNN, Nhân viên NV-YYYY-NNN, HĐ Thử việc HDTV-YYYY-NNN, HĐ Chính thức HDLD-YYYY-NNN, Phụ lục PLHD-YYYY-NNN, Quyết định QD-YYYY-<CAT>NNN, Đơn thôi việc TV-YYYY-NNN, Bảng lương tháng BL-YYYYMM-NNN, Bảng quyết toán QT-YYYYMM-NNN, Đơn nghỉ phép NP-YYYY-NNN và Đánh giá DG-YYYY-NNN.",
+      "referenced_policy": "Chuẩn sinh mã Định danh src/lib/hrm/ids.ts",
+      "metrics_cited": [
+        {
+          "label": "Số bộ sinh mã",
+          "value": "11 hàm chuẩn hóa"
+        },
+        {
+          "label": "Token Pre-boarding",
+          "value": "pb-<32 hex>"
+        }
+      ],
+      "intent_id": "GENERAL_OVERVIEW",
+      "nav_id": "core-hr",
+      "keywords_norm": [
+        "ma nhan vien",
+        "sinh ma",
+        "hdld",
+        "hdtv",
+        "plhd",
+        "bl-",
+        "qt-",
+        "uv-"
+      ],
+      "tags": [
+        "ids",
+        "conventions"
+      ],
+      "source_refs": [
+        "src/lib/hrm/ids.ts:1-78"
+      ]
+    },
+    {
+      "id": "qa-019",
+      "role_scope": "CANDIDATE",
+      "prompt_label": "Quy tắc rút đơn & dời lịch phỏng vấn của ứng viên",
+      "user_query": "Ứng viên có thể rút hồ sơ ứng tuyển hoặc đề xuất dời lịch phỏng vấn ở những bước nào?",
+      "ai_response": "Trên /candidate, ứng viên chỉ được phép rút hồ sơ khi đơn đang ở bước Mới nhận hoặc Đang sàng lọc (APPLIED / AI_SCREENED); từ vòng Phỏng vấn, Offer hoặc Nhận việc trở đi nút rút đơn bị khóa. Với lịch phỏng vấn, ứng viên có thể gửi yêu cầu đề xuất dời lịch để HR duyệt; nhưng sau khi đã bấm xác nhận chốt lịch (confirmed), chức năng dời lịch tiếp sẽ bị khóa ở cả API PATCH /api/hrm/interviews và giao diện.",
+      "referenced_policy": "Quy tắc Cổng Ứng viên /candidate & Giao tiếp Phỏng vấn",
+      "metrics_cited": [
+        {
+          "label": "Bước cho rút đơn",
+          "value": "Mới nhận / Sàng lọc"
+        },
+        {
+          "label": "Khóa dời lịch",
+          "value": "Sau khi confirmed"
+        }
+      ],
+      "intent_id": "PENDING_REQUESTS_ATS",
+      "nav_id": "ats",
+      "keywords_norm": [
+        "rut ho so",
+        "doi lich",
+        "phong van",
+        "candidate",
+        "xac nhan lich"
+      ],
+      "tags": [
+        "candidate",
+        "interview",
+        "ats"
+      ],
+      "source_refs": [
+        "src/app/api/hrm/interviews/route.ts",
+        "scripts/test-recruitment-workflows.mjs:170-260"
+      ]
+    },
+    {
+      "id": "qa-020",
+      "role_scope": "SUPER_ADMIN",
+      "prompt_label": "Nhật ký kiểm toán bảo mật bất biến (Audit Logs)",
+      "user_query": "Hệ thống ghi log những sự kiện nào và có chỉnh sửa hay xóa nhật ký được không?",
+      "ai_response": "Bảng audit_logs và phân hệ Nhật ký bảo mật (chỉ mở cho SUPER_ADMIN) lưu theo cơ chế Append-Only chỉ đọc: không có bất kỳ API hay giao diện UPDATE/DELETE nào. Mọi thao tác đăng nhập bị chặn (RESIGNED/LOCKED), thay đổi RBAC, chuyển bước ATS, xác minh Pre-boarding, đăng ký/chấm công WebAuthn, chặn 4G/sai WiFi (WIFI_CHECK_BLOCKED), điều chỉnh lương/thăng chức và quyết toán nghỉ việc đều được ghi kèm actor, role, module, timestamp và status.",
+      "referenced_policy": "Kiến trúc Audit Trail Bất biến & Tuân thủ Kiểm toán",
+      "metrics_cited": [
+        {
+          "label": "Cơ chế lưu trữ",
+          "value": "Immutable Append-Only"
+        },
+        {
+          "label": "Quyền xem log",
+          "value": "SUPER_ADMIN"
+        }
+      ],
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "nav_id": "audit-logs",
+      "keywords_norm": [
+        "audit",
+        "nhat ky",
+        "bat bien",
+        "bao mat",
+        "log"
+      ],
+      "tags": [
+        "audit",
+        "security",
+        "immutable"
+      ],
+      "source_refs": [
+        "src/components/modules/admin-audit-view.tsx",
+        "db/migrations/001_recruitment_core.sql:172-186"
+      ]
+    },
+    {
+      "id": "qa-021",
+      "role_scope": "DEPT_MANAGER",
+      "prompt_label": "Ngưỡng phê duyệt Đề xuất tuyển dụng & Thăng chức",
+      "user_query": "Khi nào đề xuất tuyển dụng hoặc quyết định thăng chức bắt buộc phải trình lên Giám đốc duyệt?",
+      "ai_response": "Theo HRM_CONFIG và permissions.ts: HR_MANAGER được duyệt đề xuất định biên tối đa <= 3 người và mức lương <= 50.000.000 ₫; nếu vượt quá 3 người hoặc lương > 50 triệu bắt buộc trình DIRECTOR hoặc SUPER_ADMIN. Tương tự với quyết định thăng chức/điều chỉnh lương, HR_MANAGER bị chặn nếu chức danh mới là DEPT_MANAGER/DIRECTOR hoặc lương mới > 50.000.000 ₫.",
+      "referenced_policy": "Phân cấp Phê duyệt Định biên & Thăng chức theo Ngưỡng",
+      "metrics_cited": [
+        {
+          "label": "Ngưỡng nhân sự đề xuất",
+          "value": "> 3 người"
+        },
+        {
+          "label": "Ngưỡng lương trình GĐ",
+          "value": "> 50.000.000 ₫"
+        }
+      ],
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "nav_id": "ats",
+      "keywords_norm": [
+        "de xuat tuyen dung",
+        "50 trieu",
+        "3 nguoi",
+        "giam doc",
+        "thang chuc",
+        "nguong duyet"
+      ],
+      "tags": [
+        "ats",
+        "rbac",
+        "thresholds"
+      ],
+      "source_refs": [
+        "src/lib/hrm/config.ts:3-4,42",
+        "src/lib/hrm/permissions.ts:97-107,218-228"
+      ]
+    },
+    {
+      "id": "qa-022",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Quy tắc nộp CV & chặn chuyển cột Phỏng vấn trên ATS",
+      "user_query": "Trang /careers giới hạn file CV ra sao và vì sao kéo ứng viên sang Phỏng vấn lại bị hệ thống chặn?",
+      "ai_response": "Cổng việc làm /careers và API POST /api/hrm/applications chỉ nhận tệp CV dung lượng <= 5 MB (5.242.880 bytes) thuộc định dạng .pdf, .doc, .docx (cho phép tùy chọn không bắt buộc CV nếu điền đủ họ tên/email/SĐT) và chặn nộp trùng cùng một job_id khi hồ sơ đang xét. Trên ATS Kanban, hệ thống áp dụng Interview Gate chặn kéo sang cột Phỏng vấn nếu hồ sơ chưa có lịch phỏng vấn hợp lệ.",
+      "referenced_policy": "Quy chuẩn Nộp CV & Cổng Kiểm soát Phỏng vấn ATS",
+      "metrics_cited": [
+        {
+          "label": "Dung lượng CV tối đa",
+          "value": "5 MB (.pdf/.doc/.docx)"
+        },
+        {
+          "label": "Interview Gate",
+          "value": "Bắt buộc có lịch PV"
+        }
+      ],
+      "intent_id": "PENDING_REQUESTS_ATS",
+      "nav_id": "ats",
+      "keywords_norm": [
+        "cv",
+        "5mb",
+        "pdf",
+        "nop trung",
+        "chuyen phong van",
+        "interview gate"
+      ],
+      "tags": [
+        "ats",
+        "careers",
+        "validation"
+      ],
+      "source_refs": [
+        "src/lib/hrm/config.ts:6-12",
+        "src/app/api/hrm/applications/route.ts",
+        "src/app/api/hrm/applications/transition/route.ts"
+      ]
+    },
+    {
+      "id": "qa-023",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "4 nhóm việc tự động trong Checklist Onboarding",
+      "user_query": "Khi duyệt nhân viên mới vào Onboarding & Tài sản thì 4 nhóm công việc IT, Hành chính, Manager, HR chạy tác dụng gì?",
+      "ai_response": "Thẻ Checklist Onboarding gom gọn 4 bộ phận phụ trách 8 đầu việc: (1) IT: cấp email doanh nghiệp & kích hoạt SSO (is_active = true); (2) Hành chính (ADMIN): gán thiết bị kho (MacBook/Màn hình/Thẻ từ) vào employee_assets; (3) Manager: chỉ định Mentor (mentor_id) & giao KPI thử việc; (4) HR: tạo hợp đồng thử việc PROBATION_2M (85% lương) và chuyển trạng thái từ PENDING_ONBOARD sang PROBATION.",
+      "referenced_policy": "Quy trình Hội nhập 4 Bộ phận (Onboarding Workflow)",
+      "metrics_cited": [
+        {
+          "label": "Số đầu việc chuẩn",
+          "value": "8 task / 4 nhóm"
+        },
+        {
+          "label": "Lương HĐ thử việc",
+          "value": "85% mức chính thức"
+        }
+      ],
+      "intent_id": "PREBOARDING_ONBOARDING_GUIDE",
+      "nav_id": "onboarding",
+      "keywords_norm": [
+        "checklist onboarding",
+        "4 bo phan",
+        "it",
+        "hanh chinh",
+        "mentor",
+        "hdtv"
+      ],
+      "tags": [
+        "onboarding",
+        "checklist",
+        "assets"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:3053-3332",
+        "src/components/modules/onboarding-view.tsx"
+      ]
+    },
+    {
+      "id": "qa-024",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Liên kết tài sản từ lúc Onboarding sang thu hồi Offboarding",
+      "user_query": "Thiết bị đã cấp cho nhân viên khi mới vào làm liên kết thế nào với màn hình thu hồi tài sản nghỉ việc?",
+      "ai_response": "Khi Hành chính gán thiết bị ở bước Onboarding, tài sản trong bảng assets chuyển từ AVAILABLE sang ASSIGNED và sinh bản ghi liên kết trong employee_assets. Lúc HR duyệt đơn nghỉ việc sang NOTICE_PERIOD, hệ thống tự quét toàn bộ thiết bị đang ASSIGNED của nhân sự đó đưa vào Tab 3 Offboarding: trả tốt (GOOD) máy tự quay về kho AVAILABLE (phạt 0đ); nếu hư hỏng/mất (DAMAGED/LOST) máy sang MAINTENANCE/LOST và tiền đền bù cộng vào penalty_deduction_vnd trừ thẳng trên phiếu lương quyết toán Tab 4.",
+      "referenced_policy": "Quản lý Vòng đời Tài sản & Đối soát Thu hồi",
+      "metrics_cited": [
+        {
+          "label": "Trạng thái trả tốt",
+          "value": "GOOD -> AVAILABLE"
+        },
+        {
+          "label": "Hỏng / Mất",
+          "value": "DAMAGED/LOST -> Trừ lương cuối"
+        }
+      ],
+      "intent_id": "OFFBOARDING_CLEARANCE_GUIDE",
+      "nav_id": "offboarding",
+      "keywords_norm": [
+        "tai san",
+        "thu hoi",
+        "employee_assets",
+        "damaged",
+        "lost",
+        "available",
+        "den bu"
+      ],
+      "tags": [
+        "assets",
+        "offboarding",
+        "clearance"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:6766-6836"
+      ]
+    },
+    {
+      "id": "qa-025",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Chuyển giao Quản lý kế nhiệm khi Trưởng phòng nghỉ việc",
+      "user_query": "Nếu một Trưởng phòng xin nghỉ việc thì nhân viên cấp dưới và các đơn xin nghỉ đang chờ ông ấy duyệt xử lý ra sao?",
+      "ai_response": "Hàm getManagerOffboardingDependencies() tự động phát hiện nhân sự đang là quản lý phòng ban, có cấp dưới (manager_id) hoặc còn đơn PENDING/IN_PROGRESS gắn current_approver_id. Cổng Clearance sẽ khóa cho tới khi HR/Admin chạy bước Chọn Quản lý kế nhiệm (executeManagerSuccessorReassign) ở Tab 2 để chuyển đồng bộ toàn bộ cấp dưới, quyền trưởng phòng và đơn chờ duyệt sang người kế nhiệm.",
+      "referenced_policy": "Kiểm soát Phụ thuộc Quản lý & Kế nhiệm (Re-assign)",
+      "metrics_cited": [
+        {
+          "label": "Hạng mục chuyển giao",
+          "value": "Cấp dưới + Phòng ban + Đơn PENDING"
+        },
+        {
+          "label": "Vị trí thao tác",
+          "value": "Offboarding Tab 2"
+        }
+      ],
+      "intent_id": "OFFBOARDING_CLEARANCE_GUIDE",
+      "nav_id": "offboarding",
+      "keywords_norm": [
+        "quan ly ke nhiem",
+        "truong phong nghi",
+        "cap duoi",
+        "don cho duyet",
+        "re-assign"
+      ],
+      "tags": [
+        "offboarding",
+        "manager",
+        "handover"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:6494-6737"
+      ]
+    },
+    {
+      "id": "qa-026",
+      "role_scope": "ALL",
+      "prompt_label": "Cơ chế Bàn giao công việc 3 bên (Sender -> Receiver -> Manager)",
+      "user_query": "Quy trình Bàn giao công việc 3 bên ở Tab 2 Nghỉ việc & Tất toán gồm những bước xác nhận nào?",
+      "ai_response": "Mỗi đầu việc bàn giao (handover_items) bắt buộc đi qua đủ 3 chữ ký tuần tự: (1) Người nghỉ (sender_confirmed) xác nhận đã đóng gói tài liệu/source code; (2) Đồng nghiệp nhận bàn giao (receiver_confirmed) xác nhận đã tiếp nhận đủ quyền & công việc; (3) Quản lý trực tiếp (manager_approved) nghiệm thu chuyển trạng thái COMPLETED. Thiếu dù chỉ 1 đầu việc chưa đạt 3 chữ ký hoặc tổng đầu việc = 0, Cổng 1 Clearance sẽ chặn chốt quyết toán.",
+      "referenced_policy": "Quy chuẩn Bàn giao Công việc 3 bên (Three-Party Handover)",
+      "metrics_cited": [
+        {
+          "label": "3 bước bắt buộc",
+          "value": "Sender -> Receiver -> Manager"
+        },
+        {
+          "label": "Điều kiện pass",
+          "value": "100% COMPLETED"
+        }
+      ],
+      "intent_id": "OFFBOARDING_CLEARANCE_GUIDE",
+      "nav_id": "offboarding",
+      "keywords_norm": [
+        "ban giao 3 ben",
+        "handover",
+        "sender_confirmed",
+        "receiver_confirmed",
+        "manager_approved"
+      ],
+      "tags": [
+        "handover",
+        "offboarding"
+      ],
+      "source_refs": [
+        "src/lib/runtime-store.ts:6942-6976"
+      ]
+    },
+    {
+      "id": "qa-027",
+      "role_scope": "HR_MANAGER",
+      "prompt_label": "Tỷ lệ đóng bảo hiểm phía Doanh nghiệp (23.5%) & miễn BHXH thử việc",
+      "user_query": "Ngoài 10.5% của người lao động, doanh nghiệp đóng bao nhiêu % bảo hiểm bắt buộc và trường hợp nào được miễn?",
+      "ai_response": "Phía doanh nghiệp (NSDLĐ) đóng tổng cộng 23.5% trên quỹ lương tham gia BHXH (gồm BHXH 17.5%, BHYT 3%, BHTN 1% và Kinh phí Công đoàn 2%), còn NLĐ đóng 10.5% (8% BHXH + 1.5% BHYT + 1% BHTN, áp dụng mức trần lương đóng 46.800.000 ₫/tháng). Trường hợp hợp đồng thử việc (PROBATION_2M) hoặc người lao động nghỉ không hưởng lương từ 14 ngày làm việc trở lên trong tháng được miễn trích đóng BHXH tháng đó.",
+      "referenced_policy": "Phụ lục 02 — Tỷ lệ BHXH NLĐ (10.5%) & NSDLĐ (23.5%)",
+      "metrics_cited": [
+        {
+          "label": "DN đóng (NSDLĐ)",
+          "value": "23.5% (17.5+3+1+2)"
+        },
+        {
+          "label": "Miễn BHXH tháng",
+          "value": "Thử việc / Nghỉ >= 14d"
+        }
+      ],
+      "intent_id": "PAYROLL_TAX_QUERY",
+      "nav_id": "payroll",
+      "keywords_norm": [
+        "23.5%",
+        "doanh nghiep dong",
+        "kpcd",
+        "mien bhxh",
+        "14 ngay",
+        "46.800.000"
+      ],
+      "tags": [
+        "payroll",
+        "insurance"
+      ],
+      "source_refs": [
+        "src/mock/payroll.ts:3-17,95",
+        "src/lib/runtime-store.ts:5109-5124,7136-7145"
+      ]
+    },
+    {
+      "id": "qa-028",
+      "role_scope": "EMPLOYEE",
+      "prompt_label": "Giải thích chi tiết công thức 7 bậc Thuế TNCN lũy tiến",
+      "user_query": "Biểu thuế TNCN 7 bậc trong calculateProgressivePitVnd() tính như thế nào?",
+      "ai_response": "Thu nhập tính thuế = Thu nhập chịu thuế - BHXH bắt buộc NLĐ (10.5%) - Giảm trừ bản thân (11.000.000 ₫) - (Số người phụ thuộc × 4.400.000 ₫). Nếu > 0, áp dụng lũy tiến 7 bậc theo phương pháp rút gọn: Bậc 1 (<=5tr: 5%), Bậc 2 (<=10tr: 10% - 250k), Bậc 3 (<=18tr: 15% - 750k), Bậc 4 (<=32tr: 20% - 1.65tr), Bậc 5 (<=52tr: 25% - 3.25tr), Bậc 6 (<=80tr: 30% - 5.85tr), Bậc 7 (>80tr: 35% - 9.85tr).",
+      "referenced_policy": "Biểu thuế Thu nhập Cá nhân Lũy tiến 7 bậc",
+      "metrics_cited": [
+        {
+          "label": "Giảm trừ gia cảnh",
+          "value": "11tr + 4.4tr/người"
+        },
+        {
+          "label": "Thuế suất",
+          "value": "5% -> 35% (7 bậc)"
+        }
+      ],
+      "intent_id": "PAYROLL_TAX_QUERY",
+      "nav_id": "payslip",
+      "keywords_norm": [
+        "7 bac",
+        "tncn",
+        "thue suat",
+        "giam tru",
+        "11 trieu",
+        "4.4 trieu"
+      ],
+      "tags": [
+        "tax",
+        "payroll"
+      ],
+      "source_refs": [
+        "src/mock/payroll.ts:18-37",
+        "src/lib/hrm/config.ts:38-39"
+      ]
+    },
+    {
+      "id": "qa-029",
+      "role_scope": "ALL",
+      "prompt_label": "Cơ chế đồng bộ 2 chiều PC ↔ Mobile & chống mất dữ liệu",
+      "user_query": "Hệ thống đồng bộ dữ liệu thời gian thực giữa Laptop HR và Điện thoại ứng viên/nhân viên như thế nào?",
+      "ai_response": "Client khởi chạy initRuntimeSync() polling GET /api/hrm/sync mỗi 3 giây kết hợp sự kiện focus/visibilitychange và đồng bộ tức thời khi ghi dữ liệu. API POST /api/hrm/sync dùng mergeArrayById giữ nguyên tiến trình cao nhất của ứng viên (không cho ghi đè lùi bước) và bảo vệ chống prototype pollution. Đặc biệt, preboarding/page.tsx gộp mảng server hiện có trước khi submit để không làm mất hồ sơ nhân sự khác.",
+      "referenced_policy": "Kiến trúc Đồng bộ Đa thiết bị (/api/hrm/sync)",
+      "metrics_cited": [
+        {
+          "label": "Chu kỳ đồng bộ",
+          "value": "3 giây + Focus/Storage"
+        },
+        {
+          "label": "Giới hạn payload",
+          "value": "5 MB (Allowlist hrm_*)"
+        }
+      ],
+      "intent_id": "DEMO_RESET_TROUBLESHOOT",
+      "nav_id": "settings",
+      "keywords_norm": [
+        "dong bo",
+        "sync",
+        "mobile",
+        "pc",
+        "devtunnel",
+        "merge"
+      ],
+      "tags": [
+        "sync",
+        "architecture"
+      ],
+      "source_refs": [
+        "src/app/api/hrm/sync/route.ts:14-116,251-351",
+        "src/lib/runtime-store.ts:7503-7817"
+      ]
+    },
+    {
+      "id": "qa-030",
+      "role_scope": "EMPLOYEE",
+      "prompt_label": "Cách khắc phục lỗi 409 khi chỉnh sửa lịch sử công tác career_histories",
+      "user_query": "Tại sao khi gọi API ghi đè bản ghi cũ trong career_histories hệ thống lại trả lỗi HTTP 409 Conflict?",
+      "ai_response": "Bảng career_histories (chuyển chính thức, thăng chức, điều chuyển, điều chỉnh lương) được thiết kế bất biến theo chuẩn sổ cái Append-Only để phục vụ đối soát tách lương giữa kỳ và kiểm toán. Nếu gửi cùng ID hoặc cố ghi đè một bản ghi lịch sử công tác đã tồn tại qua POST /api/hrm/lifecycle (append_career_history), server sẽ trả HTTP 409; mọi thay đổi mới bắt buộc thêm một bản ghi nối tiếp với effective_date mới.",
+      "referenced_policy": "Sổ cái Lịch sử Công tác Bất biến (Append-Only Career History)",
+      "metrics_cited": [
+        {
+          "label": "Mã chặn ghi đè",
+          "value": "HTTP 409 Conflict"
+        },
+        {
+          "label": "Quy tắc ghi",
+          "value": "Append-Only + effective_date"
+        }
+      ],
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "nav_id": "kpi",
+      "keywords_norm": [
+        "409",
+        "career_histories",
+        "append-only",
+        "thang chuc",
+        "bat bien"
+      ],
+      "tags": [
+        "career-history",
+        "security",
+        "api"
+      ],
+      "source_refs": [
+        "src/app/api/hrm/lifecycle/route.ts:1070-1127",
+        "scripts/test-employee-lifecycle.mjs:1345-1401"
+      ]
+    },
+    {
+      "id": "qa-031",
+      "role_scope": "EMPLOYEE",
+      "prompt_label": "Nhân viên mới có bị lẫn dữ liệu hay nhìn thấy việc HR trên Tổng quan không?",
+      "user_query": "Sau khi ứng viên được HR duyệt thành Nhân viên mới, màn hình Tổng quan và Đơn từ có bị hiển thị nhầm dữ liệu người khác không?",
+      "ai_response": "Không. Toàn bộ 6 view nội bộ của nhân viên (Tổng quan, Chấm công, Đơn từ, Phiếu lương cá nhân, Đánh giá, Nghỉ việc) đã được cô lập chặt theo đúng mã/ID tài khoản đang đăng nhập và bỏ hoàn toàn fallback sang Phạm Minh Tuấn (NV-2024-004). Với vai EMPLOYEE, Tổng quan ẩn các biểu đồ nhân sự toàn công ty và các thẻ tác vụ ưu tiên của HR, còn menu Đánh giá & Thăng tiến bị ẩn hoàn toàn.",
+      "referenced_policy": "Chính sách Cô lập Dữ liệu Cá nhân & Giao diện Theo Vai trò",
+      "metrics_cited": [
+        {
+          "label": "Phạm vi dữ liệu",
+          "value": "100% theo NV đăng nhập"
+        },
+        {
+          "label": "Số màn hình ESS đã khóa",
+          "value": "6 views cô lập chặt"
+        }
+      ],
+      "intent_id": "RBAC_SECURITY_POLICY",
+      "nav_id": "dashboard",
+      "keywords_norm": [
+        "co lap",
+        "du lieu khac",
+        "nham tai khoan",
+        "dashboard",
+        "employee",
+        "tong quan"
+      ],
+      "tags": [
+        "isolation",
+        "employee",
+        "rbac"
+      ],
+      "source_refs": [
+        "src/components/modules/dashboard-view.tsx",
+        "src/components/modules/requests-view.tsx"
+      ]
+    },
+    {
+      "id": "qa-032",
+      "role_scope": "ALL",
+      "prompt_label": "Hệ thống mô hình AI xây dựng dự án & AI Copilot NLU tích hợp",
+      "user_query": "Dự án Lạc Việt HRM sử dụng những công nghệ/mô hình AI nào cả trong phát triển lẫn tính năng sản phẩm?",
+      "ai_response": "Về phát triển (Vibe Coding & Multi-Agent QA trên Google Antigravity): đội 666 sử dụng nhóm mô hình từ Gemini 4 Hydrogen trở lên, trong đó Gemini 4 Carbon là thành phần cốt lõi (~70% khối lượng xây lõi 4 giai đoạn, C&B, Biometric & SQL), kết hợp Gemini 4 Hydrogen / Argon / Neon (~20%), Claude Opus 5.5 (~10%) và Gemini Flash cho kiểm thử trình duyệt. Về tính năng sản phẩm: tích hợp AI HR Copilot (NLU tiếng Việt tạo nháp 8 loại đơn từ & tra cứu phép/lương/quy chế), AI chấm điểm khớp CV–JD (0–100) và AI cảnh báo nguy cơ Burnout/hợp đồng sắp hết hạn.",
+      "referenced_policy": "Tài liệu Kiến trúc AI & Pitch Deck AI Buildathon 2026",
+      "metrics_cited": [
+        {
+          "label": "Model cốt lõi build app",
+          "value": "Gemini 4 Carbon (~70%)"
+        },
+        {
+          "label": "AI trong sản phẩm",
+          "value": "Copilot NLU · CV Score · Burnout"
+        }
+      ],
+      "intent_id": "GENERAL_OVERVIEW",
+      "nav_id": "dashboard",
+      "keywords_norm": [
+        "ai",
+        "model",
+        "gemini",
+        "carbon",
+        "claude",
+        "copilot",
+        "vibe coding"
+      ],
+      "tags": [
+        "ai",
+        "models",
+        "architecture"
+      ],
+      "source_refs": [
+        "src/components/copilot/ai-copilot-widget.tsx",
+        "src/mock/copilot.ts",
+        "docs/PITCH_DECK_AI_BUILDATHON_2026_DOI_666.pptx"
+      ]
+    }
+  ],
+  "troubleshooting": [
+    {
+      "id": "ts-001",
+      "symptom": "Chấm công báo lỗi HTTP 403 CELLULAR_BLOCKED",
+      "root_cause": "Điện thoại đang bật mạng di động 4G/5G thay vì WiFi công ty; cổng Same-WiFi Gate chặn tuyệt đối ngay từ bước issue_challenge.",
+      "resolution_steps": [
+        "Tắt dữ liệu di động 4G/5G trên điện thoại và kết nối đúng WiFi văn phòng.",
+        "Bấm Kiểm tra lại WiFi trên thẻ chấm công rồi quét vân tay lại."
+      ],
+      "roles_affected": [
+        "ALL_INTERNAL"
+      ],
+      "nav_target": "attendance"
+    },
+    {
+      "id": "ts-002",
+      "symptom": "Chấm công báo lỗi HTTP 403 WIFI_MISMATCH",
+      "root_cause": "Thiết bị dùng WiFi ngoài quán cafe/LAN khác subnet với máy chủ, hoặc máy chủ bị ngắt toàn bộ kết nối mạng.",
+      "resolution_steps": [
+        "Đảm bảo laptop/điện thoại cùng kết nối mạng nội bộ văn phòng (hoặc cùng Public IPv4 bộ phát khi chạy qua DevTunnel).",
+        "Nếu là văn phòng phụ, Admin/HR vào Tham số & Chính sách bổ sung IP/CIDR vào whitelist hoặc tắt tạm enforce_same_wifi nếu đang test ngoại mạng."
+      ],
+      "roles_affected": [
+        "ALL_INTERNAL"
+      ],
+      "nav_target": "settings"
+    },
+    {
+      "id": "ts-003",
+      "symptom": "Trình duyệt Edge hiện hộp thoại 'Create a passkey - Microsoft Password Manager' thay vì Windows Hello",
+      "root_cause": "Tài khoản nhân sự hiện chưa có khóa vân tay trên máy (Quản lý 0) nên chuyển sang đăng ký mới, hoặc cache frontend trước bản vá residentKey: 'discouraged'.",
+      "resolution_steps": [
+        "Nhấn F5 tải lại trang để nhận cấu hình residentKey: 'discouraged', requireResidentKey: false, hints: ['client-device'] trong src/lib/biometric-attendance.ts.",
+        "Nếu bản Edge vẫn hiện popup ở lần đăng ký đầu, bấm Save another way -> Windows Hello; từ lần chấm công sau đã có credential nên quét thẳng Windows Hello."
+      ],
+      "roles_affected": [
+        "ALL_INTERNAL"
+      ],
+      "nav_target": "attendance"
+    },
+    {
+      "id": "ts-004",
+      "symptom": "Không chấm công được trong khoảng 22:00 đến 06:00 sáng",
+      "root_cause": "Hàm isAttendanceNightLockWindow() khóa thao tác chấm công ban đêm (22:00-06:00) theo quy chế giờ làm việc.",
+      "resolution_steps": [
+        "Thực hiện chấm công bình thường trong khung 06:00-21:59 giờ Việt Nam.",
+        "Nếu phát sinh làm việc ngoài giờ hoặc lỡ ca qua 22:00, gửi Đơn OT hoặc Đơn Giải trình công trong Đơn từ & Phê duyệt."
+      ],
+      "roles_affected": [
+        "ALL_INTERNAL"
+      ],
+      "nav_target": "leaves"
+    },
+    {
+      "id": "ts-005",
+      "symptom": "Thẻ chấm công ngày hôm qua hiển thị 'Quên chấm công (Tự ngắt ca 22:00)' và 0.0 công",
+      "root_cause": "Nhân viên có check-in nhưng không check-out trước 22:00 nên hệ thống tự ngắt ca (0.0 công).",
+      "resolution_steps": [
+        "Bấm nút Giải trình ngay trên dòng công thiếu (hoặc vào Đơn từ & Phê duyệt tạo đơn LATE_EXPLANATION).",
+        "Khi Quản lý & HR phê duyệt, hệ thống tự đồng bộ REQUEST_SYNC khôi phục lại 1.0 công hợp lệ."
+      ],
+      "roles_affected": [
+        "ALL_INTERNAL"
+      ],
+      "nav_target": "leaves"
+    },
+    {
+      "id": "ts-006",
+      "symptom": "Gửi Pre-boarding báo HTTP 410 (EXPIRED) hoặc 403 (VERIFIED/RESIGNED) hoặc 422",
+      "root_cause": "Link token đã quá hạn 7 ngày (410), hồ sơ đã được HR xác minh/đã lên chính thức/nghỉ việc (403), hoặc CCCD không đủ 9/12 số / STK không hợp lệ (422).",
+      "resolution_steps": [
+        "Nếu 422: kiểm tra đúng CCCD 9 hoặc 12 chữ số, STK ngân hàng 6-24 ký tự và tên ngân hàng.",
+        "Nếu 410: nhờ HR mở lại invite Pre-boarding mới từ phân hệ Onboarding & Tài sản."
+      ],
+      "roles_affected": [
+        "CANDIDATE",
+        "HR_MANAGER"
+      ],
+      "nav_target": "onboarding"
+    },
+    {
+      "id": "ts-007",
+      "symptom": "Nút 'Chốt bảng lương Quyết toán kỳ cuối' bị khóa / API trả HTTP 422",
+      "root_cause": "Clearance Hard Gate chưa đạt 100% (thiếu bàn giao 3 bên, chưa chọn Quản lý kế nhiệm, chưa thu hồi hết tài sản kho hoặc thiếu chữ ký IT/Kế toán/HR).",
+      "resolution_steps": [
+        "Kiểm tra Tab 2 (chọn Quản lý kế nhiệm & hoàn tất đủ 3 bước trên mọi đầu việc bàn giao).",
+        "Kiểm tra Tab 3 (đối soát hết tài sản employee_assets và bấm ký xác nhận đủ cả IT, Kế toán, Nhân sự)."
+      ],
+      "roles_affected": [
+        "HR_MANAGER",
+        "SUPER_ADMIN"
+      ],
+      "nav_target": "offboarding"
+    },
+    {
+      "id": "ts-008",
+      "symptom": "Đăng nhập báo tài khoản bị khóa do RESIGNED hoặc tự động đá ra /login?locked=1",
+      "root_cause": "Nhân sự đã hoàn tất thủ tục nghỉ việc (RESIGNED, is_active = false) hoặc vừa chạy npm run reset:demo làm xoay bootEpoch.",
+      "resolution_steps": [
+        "Nếu là tài khoản đã nghỉ việc RESIGNED: đây là cơ chế bảo mật bắt buộc, không cho phép đăng nhập lại.",
+        "Nếu vừa reset demo: chọn lại 1 trong 6 tài khoản mẫu trên /login để bắt đầu phiên mới sạch."
+      ],
+      "roles_affected": [
+        "ALL"
+      ],
+      "nav_target": "dashboard"
+    }
+  ],
+  "training_examples_chatml": [
+    {
+      "id": "train-001",
+      "category": "nlu_leave_extraction",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot. Khi người dùng xin nghỉ phép/WFH/nghỉ ốm, hãy bóc tách chính xác thành JSON chuẩn NaturalLanguageLeaveDraft."
+        },
+        {
+          "role": "user",
+          "content": "Cho tôi xin nghỉ phép năm 2 ngày thứ Hai và thứ Ba (23/11 đến 24/11/2026) để nghỉ ngơi sau đợt golive, bàn giao công việc cho Bùi Trọng Nghĩa."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"parsed_category\":\"ANNUAL_LEAVE\",\"parsed_category_label\":\"Nghỉ phép năm có hưởng lương\",\"parsed_start_date\":\"2026-11-23\",\"parsed_end_date\":\"2026-11-24\",\"parsed_duration_days\":2,\"parsed_reason\":\"Nghỉ ngơi phục hồi sức khỏe sau đợt triển khai golive hệ thống\",\"parsed_handover_to\":\"Bùi Trọng Nghĩa (NV-2025-009)\",\"confidence_score\":0.97}"
+        }
+      ]
+    },
+    {
+      "id": "train-002",
+      "category": "nlu_wfh_extraction",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot. Hãy bóc tách yêu cầu WFH thành JSON chuẩn NaturalLanguageLeaveDraft."
+        },
+        {
+          "role": "user",
+          "content": "Ngày 19/11/2026 tôi xin làm việc từ xa 1 ngày để nhận thiết bị hạ tầng tại nhà, phối hợp với Vũ Thị Mai Phương."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"parsed_category\":\"REMOTE_WORK\",\"parsed_category_label\":\"Làm việc từ xa (WFH)\",\"parsed_start_date\":\"2026-11-19\",\"parsed_end_date\":\"2026-11-19\",\"parsed_duration_days\":1,\"parsed_reason\":\"Nhận bàn giao thiết bị hạ tầng mạng tại nhà và trực vận hành hệ thống từ xa\",\"parsed_handover_to\":\"Vũ Thị Mai Phương (NV-2024-005)\",\"confidence_score\":0.95}"
+        }
+      ]
+    },
+    {
+      "id": "train-003",
+      "category": "biometric_wifi_security",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — chuyên gia nghiệp vụ & kỹ thuật Lạc Việt HRM v2.4."
+        },
+        {
+          "role": "user",
+          "content": "Tại sao điện thoại của tôi mở link DevTunnel ở ngoài dùng 4G bấm Chấm công bằng vân tay lại bị lỗi 403?"
+        },
+        {
+          "role": "assistant",
+          "content": "Cổng kiểm soát Cùng mạng WiFi (Same-WiFi Gate) trong /api/hrm/attendance/biometric đã chặn yêu cầu trước khi cấp challenge vì phát hiện kết nối di động 4G/5G (mã 403 CELLULAR_BLOCKED) và địa chỉ IP không trùng bộ phát WiFi văn phòng. Bạn cần tắt 4G, kết nối đúng WiFi công ty (trùng Public IPv4 NAT hoặc subnet LAN máy chủ) rồi bấm Chấm công bằng vân tay lại trong khung 06:00–21:59."
+        }
+      ]
+    },
+    {
+      "id": "train-004",
+      "category": "night_lock_window",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — chuyên gia nghiệp vụ & kỹ thuật Lạc Việt HRM v2.4."
+        },
+        {
+          "role": "user",
+          "content": "23 giờ tối tôi mới làm xong nhưng bấm nút Chấm công bằng vân tay hệ thống không cho check-out, xử lý sao?"
+        },
+        {
+          "role": "assistant",
+          "content": "Theo quy chế giờ làm việc trong runtime-store.ts, hàm isAttendanceNightLockWindow() tạm khóa chấm công trực tiếp trong khung đêm từ 22:00 đến 06:00 sáng hôm sau, và các ca chưa check-out quá 22:00 sẽ tự ngắt thành 'Quên chấm công (Tự ngắt ca 22:00)' (0.0 công). Bạn hãy vào Đơn từ & Phê duyệt (hoặc bấm nút Giải trình ngay trên dòng công đó) để gửi đơn Giải trình công (LATE_EXPLANATION); sau khi Quản lý & HR phê duyệt, hệ thống tự đồng bộ REQUEST_SYNC khôi phục lại 1.0 công."
+        }
+      ]
+    },
+    {
+      "id": "train-005",
+      "category": "rbac_guard_refusal",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot. Người hỏi hiện đang đăng nhập với vai trò EMPLOYEE (NV-2024-004). Tuyệt đối không lộ dữ liệu lương/đơn của nhân viên khác."
+        },
+        {
+          "role": "user",
+          "content": "Cho tôi xem mức lương Net tháng 11 và các đơn xin nghỉ phép của đồng nghiệp Lê Hoàng Nam hoặc mở trang Đánh giá & Thăng tiến."
+        },
+        {
+          "role": "assistant",
+          "content": "Theo chính sách phân quyền RBAC 6 vai trò và cô lập dữ liệu cá nhân của Lạc Việt HRM, tài khoản Nhân viên (EMPLOYEE) chỉ được phép tra cứu công, đơn từ và Phiếu lương cá nhân của chính mình, không được xem thông tin thu nhập hay đơn từ của nhân sự khác. Ngoài ra, phân hệ Đánh giá & Thăng tiến hiện chỉ mở quyền truy cập cho Quản trị hệ thống (SUPER_ADMIN)."
+        }
+      ]
+    },
+    {
+      "id": "train-006",
+      "category": "payroll_formula",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — chuyên gia tính lương C&B Lạc Việt HRM v2.4."
+        },
+        {
+          "role": "user",
+          "content": "Nhân viên thử việc có phải đóng 10.5% BHXH không? Nếu tăng lương từ 24 triệu lên 36 triệu ngày 16/11 thì tính thế nào?"
+        },
+        {
+          "role": "assistant",
+          "content": "1) Nhân viên thử việc theo hợp đồng PROBATION_2M hưởng 85% lương thỏa thuận, được miễn đóng 10.5% bảo hiểm bắt buộc và có 0 ngày phép năm.\n2) Khi tăng lương từ 24tr lên 36tr có hiệu lực giữa tháng 16/11, quyết định được ghi bất biến vào career_histories và hàm calculateMonthlyPayrolls tự động kích hoạt chế độ tách lương giữa kỳ (mid_month_split): đếm số ngày làm việc T2–T6 trước 16/11 tính theo đơn giá 24tr/22 công, và từ 16/11 trở đi tính theo đơn giá 36tr/22 công; sau đó cộng OT (1.5x/2.0x/3.0x), trừ 10.5% BHXH (trần 46.8tr) và tính Thuế TNCN 7 bậc (giảm trừ bản thân 11tr + 4.4tr/người phụ thuộc)."
+        }
+      ]
+    },
+    {
+      "id": "train-007",
+      "category": "preboarding_flow",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — hướng dẫn quy trình Tuyển dụng & Onboarding."
+        },
+        {
+          "role": "user",
+          "content": "Vì sao HR mở duyệt Pre-boarding của ứng viên mới lại không sửa được số CCCD hay số tài khoản?"
+        },
+        {
+          "role": "assistant",
+          "content": "Để bảo đảm tính chính xác pháp lý và chống sai lệch khi chi lương/nộp BHXH, ứng viên tự kiểm tra và gửi hồ sơ qua liên kết CSPRNG (/preboarding?token=pb-...) đã điền sẵn dữ liệu mẫu. Khi về trang Onboarding & Tài sản, modal 'HR Rà soát & Duyệt Hồ sơ Pre-boarding' được thiết kế ở chế độ Read-Only (chỉ đọc) để HR đối chiếu và bấm 'Duyệt hồ sơ', kích hoạt tài khoản EMPLOYEE mà không ghi đè thủ công dữ liệu của ứng viên."
+        }
+      ]
+    },
+    {
+      "id": "train-008",
+      "category": "offboarding_clearance",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — chuyên gia quy trình Offboarding & Tất toán."
+        },
+        {
+          "role": "user",
+          "content": "Tôi đóng vai HR muốn chốt Quyết toán kỳ cuối cho Trưởng phòng nghỉ việc nhưng nút bấm bị mờ, lý do gì?"
+        },
+        {
+          "role": "assistant",
+          "content": "Hệ thống đang kích hoạt cổng khóa cứng Clearance Hard Gate 6/6 (bắt buộc đủ 100%). Do người nghỉ là Trưởng phòng, bạn cần kiểm tra: (1) Tab 2 đã chọn Quản lý kế nhiệm để chuyển toàn bộ cấp dưới & đơn PENDING sang sếp mới chưa, và các đầu việc bàn giao đã đủ 3 bước (Gửi -> Nhận -> Quản lý duyệt) chưa; (2) Tab 3 đã đối soát thu hồi 100% tài sản kho và bấm ký xác nhận đủ 3 phòng ban IT, Kế toán, Nhân sự chưa. Đạt đủ 6/6 cổng thì nút Chốt Quyết toán ở Tab 4 sẽ tự mở khóa."
+        }
+      ]
+    },
+    {
+      "id": "train-009",
+      "category": "nlu_sick_leave_extraction",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot. Khi người dùng xin nghỉ ốm/khám bệnh, hãy bóc tách chính xác thành JSON chuẩn NaturalLanguageLeaveDraft."
+        },
+        {
+          "role": "user",
+          "content": "Cho tôi xin nghỉ ốm 1 ngày vào 18/11/2026 để đi khám chuyên khoa hô hấp, bàn giao ticket cho Lê Hoàng Nam."
+        },
+        {
+          "role": "assistant",
+          "content": "{\"parsed_category\":\"SICK_LEAVE\",\"parsed_category_label\":\"Nghỉ ốm có hưởng BHXH / Quy chế công ty\",\"parsed_start_date\":\"2026-11-18\",\"parsed_end_date\":\"2026-11-18\",\"parsed_duration_days\":1,\"parsed_reason\":\"Khám chuyên khoa hô hấp\",\"parsed_handover_to\":\"Lê Hoàng Nam (NV-2024-003)\",\"confidence_score\":0.96}"
+        }
+      ]
+    },
+    {
+      "id": "train-010",
+      "category": "probation_vs_official_leave",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — nắm rõ chính sách phép năm thử việc và chính thức của Lạc Việt HRM v2.4."
+        },
+        {
+          "role": "user",
+          "content": "Nhân viên mới vừa ký hợp đồng thử việc PROBATION_2M hôm nay muốn xin nghỉ phép năm có hưởng lương 1 ngày được không?"
+        },
+        {
+          "role": "assistant",
+          "content": "Không. Nhân sự đang ở trạng thái PROBATION hoặc PENDING_ONBOARD có 0 ngày phép năm nên bị khóa gửi đơn 'Nghỉ phép năm có hưởng lương' (có thể gửi 'Nghỉ không hưởng lương' trình duyệt 3 cấp nếu cần thiết). Chỉ sau khi hoàn tất thử việc, đạt đánh giá PASS và HR thực thi 'Chuyển chính thức' (OFFICIAL), hệ thống mới mở ngay quỹ 12 ngày phép năm trong kỳ 2026 tại Đơn từ & Phê duyệt."
+        }
+      ]
+    },
+    {
+      "id": "train-011",
+      "category": "resignation_notice_period_and_settlement",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — tuân thủ Bộ luật Lao động VN (Điều 27 & 35) và công thức tất toán Lạc Việt HRM."
+        },
+        {
+          "role": "user",
+          "content": "Nhân viên hợp đồng 24 tháng còn 11 ngày phép năm chưa nghỉ, làm mất tai nghe phạt 1.200.000đ và gửi đơn nghỉ chỉ báo trước 8 ngày thì hệ thống xử lý thế nào?"
+        },
+        {
+          "role": "assistant",
+          "content": "1) Thời hạn báo trước: Với HĐ Xác định thời hạn (12T/24T), hệ thống bắt buộc báo trước tối thiểu 30 ngày theo Luật Lao động -> nộp trước 8 ngày sẽ bật cảnh báo vàng thiếu 22 ngày và gợi ý 'Chọn mốc hợp pháp'.\n2) Quyết toán kỳ cuối Tab 4: Sau khi hoàn tất 6/6 cổng Clearance (bàn giao 3 bên, thu hồi tài sản & ký IT/Kế toán/HR), hệ thống tự động thanh toán 11 ngày phép tồn theo đơn giá (lương chính thức / 22 công chuẩn), khấu trừ thẳng -1.200.000 ₫ tiền đền bù, chuyển nhân sự sang RESIGNED và khóa vĩnh viễn tài khoản đăng nhập (is_active = false)."
+        }
+      ]
+    },
+    {
+      "id": "train-012",
+      "category": "troubleshoot_passkey_and_reset",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bạn là Lạc Việt Copilot — hỗ trợ kỹ thuật vận hành & demo Lạc Việt HRM v2.4."
+        },
+        {
+          "role": "user",
+          "content": "Làm sao để đưa toàn bộ dữ liệu demo về lại ban đầu trước khi thuyết trình và vì sao nhân viên khác không bị lẫn session cũ?"
+        },
+        {
+          "role": "assistant",
+          "content": "Bạn chỉ cần chạy lệnh `npm run reset:demo` (hoặc gọi POST /api/hrm/sync với {\"resetStore\":true}). Máy chủ sẽ tạo mã `bootEpoch` mới trong `.data/runtime-sync.json`. Khi trình duyệt mở lại trang, `initRuntimeSync()` phát hiện lệch `bootEpoch` và lập tức dọn sạch 25 keys localStorage đồng bộ lẫn session auth/cookie cũ qua `clearStaleRuntimeAuthSession()`, bảo đảm mọi vai trò bắt đầu ở trạng thái sạch ban đầu không bị lẫn dữ liệu."
+        }
+      ]
+    }
+  ],
+  "integration_guide": {
+    "target_files": [
+      "src/components/copilot/ai-copilot-widget.tsx",
+      "src/mock/copilot.ts",
+      "src/app/api/hrm/copilot/route.ts (tùy chọn khi nối LLM API thật)"
+    ],
+    "how_to_use_for_ai_training_or_rag": [
+      "1. Fine-tuning (OpenAI / Gemini / Llama): trích xuất trực tiếp mảng `training_examples_chatml` kết hợp sinh thêm biến thể từ `qa_pairs` + `nl_leave_drafts` theo chuẩn JSONL `{\"messages\": [...]}`.",
+      "2. RAG / Vector DB: tách từng phần tử trong `qa_pairs`, `business_rules_and_policies`, `api_reference`, `database_schema.migrations` và `troubleshooting` làm document chunk kèm metadata `nav_id`, `role_scope`, `source_refs`.",
+      "3. System Prompting: nạp `system_prompt_template` làm system instruction kèm dữ liệu live của nhân viên đang đăng nhập."
+    ],
+    "how_to_integrate_into_this_repo": [
+      "1. Import trực tiếp `import copilotKnowledge from '../../../docs/data.json'` (bật resolveJsonModule trong tsconfig.json đã sẵn có ở Next.js/TS) hoặc copy ra `public/mock/copilot-knowledge.json` để fetch động.",
+      "2. Trong `src/components/copilot/ai-copilot-widget.tsx`, giữ nguyên luồng ưu tiên live-data (phép năm, bảng lương, chấm công, đơn chờ) và thay nhánh fallback tĩnh bằng tra cứu trên `data.nlu_intents` + `data.qa_pairs` + `data.troubleshooting` theo `normalizeViText()`, lọc theo `role_scope` của người dùng hiện tại.",
+      "3. Nếu gọi LLM thật (Google Gemini API) ở `/api/hrm/copilot`, truyền `data.system_prompt_template` + top-K chunk từ `qa_pairs`/`policies` kèm context an toàn của đúng nhân viên đang đăng nhập (không gửi bảng lương người khác nếu role là EMPLOYEE).",
+      "4. Giữ nguyên `MOCK_COPILOT_QA` (`qa-001`..`qa-004`) và `parseNaturalLanguageLeavePrompt()` trong `src/mock/copilot.ts` để `scripts/test-all-system-workflows.mjs` tiếp tục đạt 46/46 PASS."
+    ]
+  }
+}

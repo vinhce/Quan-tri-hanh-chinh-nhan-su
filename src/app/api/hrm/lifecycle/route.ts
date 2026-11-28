@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import type { RouterStateStore } from '@/lib/hrm/copilot-router';
 import { HRM_CONFIG, getRequiredNoticeDays } from '@/lib/hrm/config';
 import {
   formatContractCode,
@@ -18,6 +19,12 @@ import type { Actor, RoleCode } from '@/lib/hrm/types';
 declare global {
   // eslint-disable-next-line no-var
   var _hrmSyncStore: Record<string, unknown> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmSyncStoreDiskSig: string | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmSyncStoreBootEpoch: string | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmCopilotRouterStore: RouterStateStore | undefined;
   // eslint-disable-next-line no-var
   var _hrmPreboardingIpRateLimit:
     | Map<string, { count: number; resetAt: number }>
@@ -42,6 +49,16 @@ const EMPLOYEE_STORE_KEYS = [
 ] as const;
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const RUNTIME_SYNC_KEY_REGEX = /^hrm_runtime_[a-z0-9_]+$/i;
+
+function isValidRuntimeSyncKey(rawKey: unknown): rawKey is string {
+  if (typeof rawKey !== 'string') return false;
+  const trimmed = rawKey.trim();
+  if (!trimmed || trimmed.length > 96 || FORBIDDEN_KEYS.has(trimmed.toLowerCase())) {
+    return false;
+  }
+  return RUNTIME_SYNC_KEY_REGEX.test(trimmed);
+}
 const LOCKED_PREBOARDING_EMPLOYEE_STATUSES = new Set([
   'OFFICIAL',
   'ACTIVE',
@@ -62,21 +79,62 @@ const ALLOWED_ROLES: ReadonlySet<RoleCode> = new Set<RoleCode>([
   'CANDIDATE',
 ]);
 
+function getDiskSignature(): string {
+  try {
+    const stat = fs.statSync(DATA_FILE);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return 'MISSING';
+  }
+}
+
+function clearCopilotRouterStoreIfPresent(): void {
+  if (globalThis._hrmCopilotRouterStore) {
+    const maybeClearable = globalThis._hrmCopilotRouterStore as RouterStateStore & {
+      clear?: () => void;
+    };
+    if (typeof maybeClearable.clear === 'function') {
+      maybeClearable.clear();
+    }
+    globalThis._hrmCopilotRouterStore = undefined;
+  }
+}
+
 function getStore(): Record<string, unknown> {
-  if (globalThis._hrmSyncStore && Object.keys(globalThis._hrmSyncStore).length > 0) {
+  const diskSig = getDiskSignature();
+  if (globalThis._hrmSyncStore && globalThis._hrmSyncStoreDiskSig === diskSig) {
     return globalThis._hrmSyncStore;
   }
-  try {
-    if (fs.existsSync(DATA_FILE)) {
+  if (diskSig !== 'MISSING') {
+    try {
       const content = fs.readFileSync(DATA_FILE, 'utf-8');
-      globalThis._hrmSyncStore = JSON.parse(content);
-      return globalThis._hrmSyncStore || {};
+      const parsed = JSON.parse(content) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const parsedObj = parsed as Record<string, unknown>;
+        const rawEpoch = parsedObj._bootEpoch;
+        const parsedBootEpoch =
+          typeof rawEpoch === 'string' && rawEpoch.trim().length > 0
+            ? rawEpoch.trim()
+            : undefined;
+        if (parsedBootEpoch !== globalThis._hrmSyncStoreBootEpoch) {
+          globalThis._hrmSyncStoreBootEpoch = parsedBootEpoch;
+          clearCopilotRouterStoreIfPresent();
+        }
+        globalThis._hrmSyncStore = parsedObj;
+        globalThis._hrmSyncStoreDiskSig = diskSig;
+        return parsedObj;
+      }
+    } catch {
+      // ignore corrupt/unavailable local sync file
     }
-  } catch {
-    // ignore corrupt/unavailable local sync file
   }
-  if (!globalThis._hrmSyncStore) {
-    globalThis._hrmSyncStore = {};
+  if (globalThis._hrmSyncStoreBootEpoch !== undefined) {
+    globalThis._hrmSyncStoreBootEpoch = undefined;
+    clearCopilotRouterStoreIfPresent();
+  }
+  globalThis._hrmSyncStore = {};
+  if (diskSig === 'MISSING') {
+    globalThis._hrmSyncStoreDiskSig = diskSig;
   }
   return globalThis._hrmSyncStore;
 }
@@ -86,7 +144,15 @@ function persistStore(): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(globalThis._hrmSyncStore || {}, null, 2), 'utf-8');
+    const store = globalThis._hrmSyncStore || {};
+    const bootEpoch =
+      typeof globalThis._hrmSyncStoreBootEpoch === 'string' &&
+      globalThis._hrmSyncStoreBootEpoch.trim().length > 0
+        ? globalThis._hrmSyncStoreBootEpoch.trim()
+        : undefined;
+    const payload = bootEpoch ? { ...store, _bootEpoch: bootEpoch } : store;
+    fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+    globalThis._hrmSyncStoreDiskSig = getDiskSignature();
   } catch {
     // ignore write errors in read-only environments
   }
@@ -496,11 +562,27 @@ export async function POST(req: Request) {
     const body = (await req.json()) as Record<string, unknown>;
     const action = String(body.action || 'sync').trim();
     const actor = parseActor(body.actor);
+    const hasRawActor = body.actor !== undefined && body.actor !== null;
+    const hasRawActorRole = body.actorRole !== undefined && body.actorRole !== null;
+    const rawActorRole = hasRawActorRole ? String(body.actorRole).trim() : '';
+    const invalidActorInput =
+      (hasRawActor && !actor) ||
+      (hasRawActorRole && (!rawActorRole || !ALLOWED_ROLES.has(rawActorRole as RoleCode))) ||
+      Boolean(hasRawActor && hasRawActorRole && actor && actor.role !== rawActorRole);
+    const effectiveActor: Actor | null =
+      actor ??
+      (hasRawActorRole && ALLOWED_ROLES.has(rawActorRole as RoleCode)
+        ? {
+            id: `actor-${rawActorRole}`,
+            name: String(body.actorName || rawActorRole),
+            role: rawActorRole as RoleCode,
+          }
+        : null);
     const permissionAction = body.permissionAction as HrmAction | undefined;
     const permissionContext = body.permissionContext as EntityPermissionContext | undefined;
 
     if (permissionAction) {
-      if (!actor || !can(actor, permissionAction, permissionContext)) {
+      if (invalidActorInput || !effectiveActor || !can(effectiveActor, permissionAction, permissionContext)) {
         return NextResponse.json(
           {
             success: false,
@@ -516,20 +598,50 @@ export async function POST(req: Request) {
     // 1. Generic store sync / upsert (compatible with /api/hrm/sync)
     if (action === 'sync' || action === 'upsert') {
       const { key, items, item, fullSync } = body;
-      if (fullSync && typeof fullSync === 'object') {
-        Object.assign(store, fullSync);
-      } else if (typeof key === 'string' && key.trim()) {
+      if (fullSync !== undefined) {
+        if (!isPlainObject(fullSync) || hasForbiddenPrototypeKey(fullSync)) {
+          return NextResponse.json(
+            { success: false, error: 'Dữ liệu fullSync không hợp lệ.' },
+            { status: 400 }
+          );
+        }
+        const syncKeys = Object.getOwnPropertyNames(fullSync);
+        for (const k of syncKeys) {
+          if (!isValidRuntimeSyncKey(k)) {
+            return NextResponse.json(
+              { success: false, error: `Khóa đồng bộ '${k}' không hợp lệ.` },
+              { status: 400 }
+            );
+          }
+        }
+        for (const k of syncKeys) {
+          store[k.trim()] = fullSync[k];
+        }
+      } else if (key !== undefined) {
+        if (!isValidRuntimeSyncKey(key)) {
+          return NextResponse.json(
+            { success: false, error: 'Khóa đồng bộ không hợp lệ.' },
+            { status: 400 }
+          );
+        }
+        const safeKey = key.trim();
         if (items !== undefined) {
-          store[key] = items;
-        } else if (item && typeof item === 'object') {
-          const obj = item as Record<string, unknown>;
-          const current = readStoreArray(store, key);
+          store[safeKey] = items;
+        } else if (item !== undefined) {
+          if (!isPlainObject(item) || hasForbiddenPrototypeKey(item)) {
+            return NextResponse.json(
+              { success: false, error: 'Dữ liệu bản ghi đồng bộ không hợp lệ.' },
+              { status: 400 }
+            );
+          }
+          const obj = item;
+          const current = readStoreArray(store, safeKey);
           const idx = current.findIndex((entry) => entry.id && entry.id === obj.id);
           if (idx >= 0) {
             current[idx] = { ...current[idx], ...obj };
-            store[key] = current;
+            store[safeKey] = current;
           } else {
-            store[key] = [obj, ...current];
+            store[safeKey] = [obj, ...current];
           }
         }
       }
@@ -1002,7 +1114,12 @@ export async function POST(req: Request) {
 
     // 3. Activate or Lock System User Account (Stage 1 IT Activation & Stage 4 Offboarding Lock)
     if (action === 'set_user_active') {
-      if (actor && !can(actor, 'complete_onboarding_task') && !can(actor, 'execute_final_settlement')) {
+      if (
+        invalidActorInput ||
+        !effectiveActor ||
+        (!can(effectiveActor, 'complete_onboarding_task', { deptScope: 'IT' }) &&
+          !can(effectiveActor, 'execute_final_settlement'))
+      ) {
         return NextResponse.json(
           { success: false, error: 'Chỉ IT / HR / Ban Giám đốc mới có quyền kích hoạt hoặc khóa tài khoản.' },
           { status: 403 }
@@ -1020,6 +1137,26 @@ export async function POST(req: Request) {
         );
       }
 
+      const hasRoleCodeParam =
+        body.role_code !== undefined &&
+        body.role_code !== null &&
+        String(body.role_code).trim() !== '';
+      const requestedRoleCode = hasRoleCodeParam
+        ? (String(body.role_code).trim() as RoleCode)
+        : 'EMPLOYEE';
+      if (!ALLOWED_ROLES.has(requestedRoleCode)) {
+        return NextResponse.json(
+          { success: false, error: 'Mã vai trò (role_code) không hợp lệ.' },
+          { status: 422 }
+        );
+      }
+      if (requestedRoleCode === 'SUPER_ADMIN' && effectiveActor.role !== 'SUPER_ADMIN') {
+        return NextResponse.json(
+          { success: false, error: 'Chỉ SUPER_ADMIN mới có quyền cấp vai trò SUPER_ADMIN.' },
+          { status: 403 }
+        );
+      }
+
       const users = readStoreArray(store, 'hrm_runtime_users');
       const idx = users.findIndex(
         (u) =>
@@ -1027,10 +1164,22 @@ export async function POST(req: Request) {
           (email && String(u.email || '').toLowerCase() === email)
       );
 
+      if (
+        idx >= 0 &&
+        users[idx].role_code === 'SUPER_ADMIN' &&
+        effectiveActor.role !== 'SUPER_ADMIN'
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Chỉ SUPER_ADMIN mới có quyền thay đổi trạng thái tài khoản SUPER_ADMIN.' },
+          { status: 403 }
+        );
+      }
+
       const now = new Date().toISOString();
       if (idx >= 0) {
         users[idx] = {
           ...users[idx],
+          ...(hasRoleCodeParam ? { role_code: requestedRoleCode } : {}),
           is_active: isActive,
           account_status: accountStatus,
           ...(isActive ? { activated_at: now } : { locked_at: now }),
@@ -1042,15 +1191,15 @@ export async function POST(req: Request) {
           email: email || `${employeeId}@lacviethrm.vn`,
           is_active: isActive,
           account_status: accountStatus,
-          role_code: String(body.role_code || 'EMPLOYEE'),
+          role_code: requestedRoleCode,
           updated_at: now,
         });
       }
       store['hrm_runtime_users'] = users;
 
       appendServerAuditLog(store, {
-        actorName: actor?.name || 'Hệ thống HRM',
-        actorRole: actor?.role || 'HR_MANAGER',
+        actorName: effectiveActor.name,
+        actorRole: effectiveActor.role,
         action: isActive ? 'ACTIVATE_USER_ACCOUNT' : 'LOCK_USER_ACCOUNT',
         target: employeeId || email,
         detail: isActive
@@ -1068,18 +1217,64 @@ export async function POST(req: Request) {
 
     // 4. Append-only Immutable Career History Entry (Stage 3)
     if (action === 'append_career_history') {
-      const entry = body.entry as Record<string, unknown> | undefined;
-      if (!entry || !entry.employee_id || !entry.effective_date) {
+      if (invalidActorInput || !effectiveActor) {
+        return NextResponse.json(
+          { success: false, error: 'Bắt buộc xác thực vai trò người thực hiện hợp lệ.' },
+          { status: 403 }
+        );
+      }
+      const rawEntry = body.entry;
+      if (!isPlainObject(rawEntry) || hasForbiddenPrototypeKey(rawEntry)) {
+        return NextResponse.json(
+          { success: false, error: 'Dữ liệu lịch sử công tác (entry) không hợp lệ.' },
+          { status: 400 }
+        );
+      }
+      const entry = rawEntry;
+      const empId = String(entry.employee_id || '').trim();
+      const effectiveDate = String(entry.effective_date || '').trim();
+      if (!empId || !effectiveDate) {
         return NextResponse.json(
           { success: false, error: 'Thiếu thông tin employee_id hoặc effective_date cho lịch sử công tác.' },
           { status: 400 }
         );
       }
+
+      const rawNewRole =
+        entry.new_role_code !== undefined &&
+        entry.new_role_code !== null &&
+        String(entry.new_role_code).trim() !== ''
+          ? (String(entry.new_role_code).trim() as RoleCode)
+          : undefined;
+      if (rawNewRole !== undefined && !ALLOWED_ROLES.has(rawNewRole)) {
+        return NextResponse.json(
+          { success: false, error: 'Vai trò mới (new_role_code) không hợp lệ.' },
+          { status: 422 }
+        );
+      }
+      if (rawNewRole === 'SUPER_ADMIN' && effectiveActor.role !== 'SUPER_ADMIN') {
+        return NextResponse.json(
+          { success: false, error: 'Chỉ SUPER_ADMIN mới có quyền bổ nhiệm vai trò SUPER_ADMIN.' },
+          { status: 403 }
+        );
+      }
+
+      const rawOldRole =
+        entry.old_role_code !== undefined &&
+        entry.old_role_code !== null &&
+        ALLOWED_ROLES.has(String(entry.old_role_code).trim() as RoleCode)
+          ? (String(entry.old_role_code).trim() as RoleCode)
+          : undefined;
+
+      const parsedNewSalary = Number(entry.new_salary_vnd ?? entry.new_salary ?? 0);
+      const safeNewSalary = Number.isFinite(parsedNewSalary) && parsedNewSalary >= 0 ? parsedNewSalary : 0;
+      const parsedOldSalary = Number(entry.old_salary_vnd ?? entry.old_salary ?? 0);
+      const safeOldSalary = Number.isFinite(parsedOldSalary) && parsedOldSalary >= 0 ? parsedOldSalary : 0;
+
       if (
-        actor &&
-        !can(actor, 'approve_promotion_or_salary_change', {
-          salary: Number(entry.new_salary_vnd || entry.new_salary || 0),
-          newRole: entry.new_role_code as RoleCode | undefined,
+        !can(effectiveActor, 'approve_promotion_or_salary_change', {
+          salary: safeNewSalary,
+          newRole: rawNewRole,
         })
       ) {
         return NextResponse.json(
@@ -1092,7 +1287,8 @@ export async function POST(req: Request) {
       }
 
       const histories = readStoreArray(store, 'hrm_runtime_career_histories');
-      if (entry.id && histories.some((h) => h.id === entry.id)) {
+      const customId = typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : '';
+      if (customId && histories.some((h) => h.id === customId)) {
         return NextResponse.json(
           {
             success: false,
@@ -1103,22 +1299,85 @@ export async function POST(req: Request) {
       }
 
       const currentYear = new Date().getFullYear();
-      const newRecord = {
-        ...entry,
-        id: String(entry.id || `ch-${Date.now()}`),
-        decision_no: String(
-          entry.decision_no || formatDecisionNo(currentYear, histories.length + 1)
-        ),
+      const newRecord: Record<string, unknown> = {
+        id: customId || `ch-${Date.now()}`,
+        decision_no:
+          typeof entry.decision_no === 'string' && entry.decision_no.trim()
+            ? entry.decision_no.trim().slice(0, 64)
+            : formatDecisionNo(currentYear, histories.length + 1),
+        employee_id: empId.slice(0, 64),
+        effective_date: effectiveDate.slice(0, 32),
+        new_salary_vnd: safeNewSalary,
         created_at: new Date().toISOString(),
       };
+      if (typeof entry.employee_code === 'string' && entry.employee_code.trim()) {
+        newRecord.employee_code = entry.employee_code.trim().slice(0, 32);
+      }
+      if (typeof entry.full_name === 'string' && entry.full_name.trim()) {
+        newRecord.full_name = entry.full_name.trim().slice(0, 120);
+      }
+      if (typeof entry.change_type === 'string' && entry.change_type.trim()) {
+        newRecord.change_type = entry.change_type.trim().slice(0, 48);
+      }
+      if (typeof entry.old_department_id === 'string') {
+        newRecord.old_department_id = entry.old_department_id.trim().slice(0, 64);
+      }
+      if (typeof entry.old_department_name === 'string') {
+        newRecord.old_department_name = entry.old_department_name.trim().slice(0, 120);
+      }
+      if (typeof entry.new_department_id === 'string') {
+        newRecord.new_department_id = entry.new_department_id.trim().slice(0, 64);
+      }
+      if (typeof entry.new_department_name === 'string') {
+        newRecord.new_department_name = entry.new_department_name.trim().slice(0, 120);
+      }
+      if (typeof entry.old_position_id === 'string') {
+        newRecord.old_position_id = entry.old_position_id.trim().slice(0, 64);
+      }
+      if (typeof entry.old_position_name === 'string') {
+        newRecord.old_position_name = entry.old_position_name.trim().slice(0, 120);
+      }
+      if (typeof entry.new_position_id === 'string') {
+        newRecord.new_position_id = entry.new_position_id.trim().slice(0, 64);
+      }
+      if (typeof entry.new_position_name === 'string') {
+        newRecord.new_position_name = entry.new_position_name.trim().slice(0, 120);
+      }
+      if (entry.old_salary_vnd !== undefined || entry.old_salary !== undefined) {
+        newRecord.old_salary_vnd = safeOldSalary;
+      }
+      if (rawOldRole !== undefined) {
+        newRecord.old_role_code = rawOldRole;
+      }
+      if (rawNewRole !== undefined) {
+        newRecord.new_role_code = rawNewRole;
+      }
+      if (typeof entry.reason === 'string' && entry.reason.trim()) {
+        newRecord.reason = entry.reason.trim().slice(0, 500);
+      }
+      if (typeof entry.signed_by_name === 'string' && entry.signed_by_name.trim()) {
+        newRecord.signed_by_name = entry.signed_by_name.trim().slice(0, 120);
+      }
+      if (entry.addendum_contract_id !== undefined) {
+        newRecord.addendum_contract_id =
+          typeof entry.addendum_contract_id === 'string'
+            ? entry.addendum_contract_id.trim().slice(0, 64)
+            : null;
+      }
+      if (entry.addendum_contract_number !== undefined) {
+        newRecord.addendum_contract_number =
+          typeof entry.addendum_contract_number === 'string'
+            ? entry.addendum_contract_number.trim().slice(0, 64)
+            : null;
+      }
 
       store['hrm_runtime_career_histories'] = [newRecord, ...histories];
       appendServerAuditLog(store, {
-        actorName: actor?.name || 'HR Manager',
-        actorRole: actor?.role || 'HR_MANAGER',
+        actorName: effectiveActor.name,
+        actorRole: effectiveActor.role,
         action: 'ISSUE_CAREER_DECISION',
-        target: newRecord.decision_no,
-        detail: `Ban hành quyết định ${newRecord.decision_no} có hiệu lực từ ${entry.effective_date}.`,
+        target: String(newRecord.decision_no),
+        detail: `Ban hành quyết định ${String(newRecord.decision_no)} có hiệu lực từ ${effectiveDate}.`,
         module: 'CORE_HR',
       });
       persistStore();
@@ -1259,7 +1518,22 @@ export async function POST(req: Request) {
 
     // 8. Reset Demo Sync Store
     if (action === 'reset_demo_sync') {
+      if (
+        invalidActorInput ||
+        !effectiveActor ||
+        !can(effectiveActor, 'execute_final_settlement')
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Chỉ Quản trị hệ thống / HR Manager / Ban Giám đốc mới có quyền đặt lại dữ liệu đồng bộ.',
+          },
+          { status: 403 }
+        );
+      }
       globalThis._hrmSyncStore = {};
+      globalThis._hrmSyncStoreBootEpoch = undefined;
+      clearCopilotRouterStoreIfPresent();
       persistStore();
       return NextResponse.json({ success: true });
     }

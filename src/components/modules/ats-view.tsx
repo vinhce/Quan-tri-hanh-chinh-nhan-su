@@ -27,6 +27,7 @@ import {
   History,
   Laptop,
   Layers,
+  Lock,
   Mail,
   MapPin,
   MessageSquarePlus,
@@ -57,6 +58,7 @@ import {
   getCompanyAssets,
   getDepartmentRecruitmentRequests,
   getOnboardingRecords,
+  getRuntimeDepartments,
   HRM_RUNTIME_EVENT,
   initiateCandidateOnboarding,
   mergeWithRuntimeCandidates,
@@ -410,9 +412,49 @@ function parseOfferSalaryVnd(rawInput: string): number {
   return Number.isNaN(parsed) || parsed <= 0 ? 0 : parsed;
 }
 
+function extractMaxSalaryFromRange(rawInput: string): number {
+  if (!rawInput || !rawInput.trim()) return 0;
+  const parts = rawInput.split(/\s*(?:[-–—~]|đến|den|to|\/)\s*/i);
+  let maxVal = 0;
+  for (const part of parts) {
+    const cleaned = part
+      .replace(/^(?:từ|tu|khoảng|khoang|mức|muc|tối đa|toi da|up to)\s+/i, '')
+      .trim();
+    const val = parseOfferSalaryVnd(cleaned);
+    if (val > maxVal) maxVal = val;
+  }
+  return maxVal;
+}
+
+function requiresDirectorForProposal(req: DepartmentRecruitmentRequest): boolean {
+  const maxSalary = extractMaxSalaryFromRange(req.expected_salary_range || '');
+  return req.quantity > 3 || maxSalary > 50_000_000;
+}
+
+function maskSalaryInText(rawText: string, shouldMask: boolean): string {
+  if (!shouldMask || !rawText) return rawText;
+  return rawText
+    .replace(/Đề xuất mức lương:\s*[^.\n]+/gi, 'Đề xuất mức lương: [Bảo mật theo phân quyền]')
+    .replace(
+      /\b\d[\d.,]*\s*(?:₫|đ\b|vnđ|vnd|triệu|trieu|tr\b)(?:\s*\/\s*tháng)?/gi,
+      '[Bảo mật lương]'
+    );
+}
+
 export function AtsView() {
-  const { role, currentUserProfile, showToast, navigateWithIntent, navIntent, clearNavIntent } = useApp();
-  const hideSalary = role === 'DEPT_MANAGER';
+  const {
+    role,
+    currentUserProfile,
+    currentUserEmail,
+    showToast,
+    navigateWithIntent,
+    navIntent,
+    clearNavIntent,
+    setActiveNav,
+  } = useApp();
+  const isAccessDenied = role === 'EMPLOYEE' || role === 'CANDIDATE';
+  const isDeptManager = role === 'DEPT_MANAGER';
+  const hideSalary = isDeptManager;
   const canProposeRecruitment =
     role === 'SUPER_ADMIN' ||
     role === 'DIRECTOR' ||
@@ -420,6 +462,14 @@ export function AtsView() {
     role === 'HR_MANAGER';
   const canPostJob =
     role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
+  const canReviewDeptRequest =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR' || role === 'HR_MANAGER';
+  const canOfferOrHire =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR' || role === 'HR_MANAGER';
+  const canApproveHighThreshold =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR';
+  const canResetData =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR' || role === 'HR_MANAGER';
   const defaultProfile = ROLE_DEFAULT_PROFILES[role];
   const actorName = currentUserProfile?.fullName || defaultProfile.fullName;
   const actorCode = currentUserProfile?.employee_code || defaultProfile.employee_code;
@@ -544,6 +594,10 @@ export function AtsView() {
   const [approvePreviewReq, setApprovePreviewReq] = useState<DepartmentRecruitmentRequest | null>(null);
 
   const syncRuntimeData = useCallback(() => {
+    const rtDepts = getRuntimeDepartments();
+    if (rtDepts.length > 0) {
+      setDepartments(rtDepts);
+    }
     if (baseJobsRef.current.length > 0) {
       setJobs(mergeWithRuntimeJobs(baseJobsRef.current));
     }
@@ -557,6 +611,7 @@ export function AtsView() {
   }, []);
 
   const handleResetCandidatesData = () => {
+    if (!canResetData) return;
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.removeItem('hrm_runtime_candidates_v1');
@@ -578,11 +633,14 @@ export function AtsView() {
   };
 
   const handleExportCandidatesCsv = () => {
-    const header = 'Mã UV,Họ tên,Vị trí,Phòng ban,Bước tuyển dụng,Nguồn,Ngày nộp,Lương kỳ vọng (VND)\n';
+    const header = hideSalary
+      ? 'Mã UV,Họ tên,Vị trí,Phòng ban,Bước tuyển dụng,Nguồn,Ngày nộp\n'
+      : 'Mã UV,Họ tên,Vị trí,Phòng ban,Bước tuyển dụng,Nguồn,Ngày nộp,Lương kỳ vọng (VND)\n';
     const rows = filteredCandidates
-      .map(
-        (c) =>
-          `"${c.candidate_code}","${c.full_name}","${c.job_title}","${c.department_name}","${c.stage}","${c.source}","${c.applied_date}","${c.expected_salary_vnd}"`
+      .map((c) =>
+        hideSalary
+          ? `"${c.candidate_code}","${c.full_name}","${c.job_title}","${c.department_name}","${c.stage}","${c.source}","${c.applied_date}"`
+          : `"${c.candidate_code}","${c.full_name}","${c.job_title}","${c.department_name}","${c.stage}","${c.source}","${c.applied_date}","${c.expected_salary_vnd}"`
       )
       .join('\n');
     const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -611,7 +669,8 @@ export function AtsView() {
         setJobs(mergeWithRuntimeJobs(atsData.MOCK_JOB_POSTINGS));
         setCandidates(mergeWithRuntimeCandidates(atsData.MOCK_CANDIDATES));
         setEmployees(mergeWithRuntimeEmployees(empData.MOCK_EMPLOYEES));
-        setDepartments(empData.MOCK_DEPARTMENTS);
+        const rtDepts = getRuntimeDepartments();
+        setDepartments(rtDepts.length > 0 ? rtDepts : empData.MOCK_DEPARTMENTS);
         setDeptRequests(getDepartmentRecruitmentRequests());
         if (empData.MOCK_DEPARTMENTS[2]?.id) {
           setNewJobDeptId(empData.MOCK_DEPARTMENTS[2].id);
@@ -638,26 +697,158 @@ export function AtsView() {
     };
   }, [syncRuntimeData]);
 
+  const actorEmployee = useMemo(() => {
+    if (isAccessDenied) return null;
+    const explicitCode = currentUserProfile?.employee_code?.trim();
+    if (explicitCode && !explicitCode.toUpperCase().startsWith('UV-')) {
+      const byCode = employees.find(
+        (e) => e.employee_code.toLowerCase() === explicitCode.toLowerCase()
+      );
+      if (byCode) return byCode;
+    }
+    const rawEmail = (currentUserProfile?.email || currentUserEmail || '')
+      .trim()
+      .toLowerCase();
+    if (rawEmail) {
+      const byEmail = employees.find(
+        (e) =>
+          e.email.toLowerCase() === rawEmail ||
+          (e.personal_email && e.personal_email.toLowerCase() === rawEmail)
+      );
+      if (byEmail) return byEmail;
+      if (
+        rawEmail.endsWith('@lacviethrm.vn') ||
+        rawEmail.endsWith('@hrm-enterprise.vn')
+      ) {
+        const local = rawEmail.split('@')[0];
+        const byLocal = employees.find(
+          (e) => e.email.toLowerCase().split('@')[0] === local
+        );
+        if (byLocal) return byLocal;
+      }
+    }
+    if (!explicitCode && !rawEmail) {
+      const defCode = ROLE_DEFAULT_PROFILES[role]?.employee_code;
+      if (defCode && !defCode.startsWith('UV-')) {
+        return employees.find((e) => e.employee_code === defCode) ?? null;
+      }
+    }
+    return null;
+  }, [isAccessDenied, currentUserProfile, currentUserEmail, employees, role]);
+
+  const managerDeptIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isDeptManager) return ids;
+    const explicitDeptId = currentUserProfile?.department_id?.trim();
+    if (explicitDeptId) {
+      ids.add(explicitDeptId);
+    }
+    if (
+      actorEmployee &&
+      (!explicitDeptId || actorEmployee.department_id === explicitDeptId)
+    ) {
+      if (actorEmployee.department_id) ids.add(actorEmployee.department_id);
+      for (const d of departments) {
+        if (d.manager_id === actorEmployee.id) {
+          ids.add(d.id);
+        }
+      }
+    }
+    return ids;
+  }, [isDeptManager, currentUserProfile?.department_id, actorEmployee, departments]);
+
+  const managerDeptNames = useMemo(() => {
+    const names = new Set<string>();
+    if (!isDeptManager) return names;
+    for (const d of departments) {
+      if (managerDeptIds.has(d.id)) {
+        names.add(d.department_name.trim().toLowerCase());
+      }
+    }
+    return names;
+  }, [isDeptManager, departments, managerDeptIds]);
+
+  const managerLockedDeptId = useMemo(() => {
+    if (!isDeptManager) return '';
+    const explicitDeptId = currentUserProfile?.department_id?.trim();
+    if (explicitDeptId) return explicitDeptId;
+    if (actorEmployee) {
+      const managedLeaf = departments.find(
+        (d) => d.manager_id === actorEmployee.id && d.parent_id === actorEmployee.department_id
+      );
+      return managedLeaf?.id || actorEmployee.department_id;
+    }
+    return Array.from(managerDeptIds)[0] ?? '';
+  }, [isDeptManager, currentUserProfile?.department_id, actorEmployee, departments, managerDeptIds]);
+
+  useEffect(() => {
+    if (isDeptManager && managerLockedDeptId) {
+      setReqDeptId(managerLockedDeptId);
+    }
+  }, [isDeptManager, managerLockedDeptId]);
+
+  const scopedJobs = useMemo(
+    () =>
+      isDeptManager
+        ? jobs.filter(
+            (j) =>
+              managerDeptIds.has(j.department_id) ||
+              managerDeptNames.has(j.department_name.trim().toLowerCase())
+          )
+        : jobs,
+    [isDeptManager, jobs, managerDeptIds, managerDeptNames]
+  );
+
+  const scopedJobIds = useMemo(
+    () => new Set(scopedJobs.map((j) => j.id)),
+    [scopedJobs]
+  );
+
+  const scopedCandidates = useMemo(
+    () =>
+      isDeptManager
+        ? candidates.filter(
+            (c) =>
+              scopedJobIds.has(c.job_id) ||
+              managerDeptNames.has(c.department_name.trim().toLowerCase())
+          )
+        : candidates,
+    [isDeptManager, candidates, scopedJobIds, managerDeptNames]
+  );
+
+  const scopedDeptRequests = useMemo(
+    () =>
+      isDeptManager
+        ? deptRequests.filter(
+            (r) =>
+              managerDeptIds.has(r.department_id) ||
+              managerDeptNames.has(r.department_name.trim().toLowerCase())
+          )
+        : deptRequests,
+    [isDeptManager, deptRequests, managerDeptIds, managerDeptNames]
+  );
+
   useEffect(() => {
     if (
+      !isAccessDenied &&
       navIntent &&
       (navIntent.navId === 'ats' || navIntent.navId === 'recruitment') &&
       navIntent.entityId
     ) {
-      const match = candidates.find(
+      const match = scopedCandidates.find(
         (c) => c.id === navIntent.entityId || c.candidate_code === navIntent.entityId
       );
       if (match) {
         setSelectedCandidate(match);
-        clearNavIntent();
       }
+      clearNavIntent();
     }
-  }, [navIntent, candidates, clearNavIntent]);
+  }, [isAccessDenied, navIntent, scopedCandidates, clearNavIntent]);
 
   const stageOrder = useMemo(() => kanbanStages.map((s) => s.stage), [kanbanStages]);
 
   const filteredCandidates = useMemo(() => {
-    let list = candidates;
+    let list = scopedCandidates;
     if (selectedJobId !== 'ALL') {
       list = list.filter((c) => c.job_id === selectedJobId);
     }
@@ -704,9 +895,17 @@ export function AtsView() {
     }
 
     return list;
-  }, [candidates, selectedJobId, selectedStageFilter, selectedSource, timeFilter, candidateSearch]);
+  }, [scopedCandidates, selectedJobId, selectedStageFilter, selectedSource, timeFilter, candidateSearch]);
 
   const openOnboardingInitDialog = (candidate: Candidate) => {
+    if (!canOfferOrHire) {
+      showToast(
+        'Không đủ quyền tiếp nhận',
+        'Chỉ bộ phận Nhân sự (HR Manager) hoặc Ban Giám đốc mới được khởi tạo Onboarding và gán tài sản.',
+        'warning'
+      );
+      return;
+    }
     const currentMergedEmployees = mergeWithRuntimeEmployees(
       baseEmployeesRef.current.length > 0 ? baseEmployeesRef.current : employees
     );
@@ -762,7 +961,7 @@ export function AtsView() {
 
   const handleConfirmInitiateOnboarding = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onboardingCandidate) return;
+    if (!canOfferOrHire || !onboardingCandidate) return;
 
     const trimmedCode = onbEmpCode.trim().toUpperCase();
     const trimmedEmail = onbEmail.trim();
@@ -788,6 +987,15 @@ export function AtsView() {
       Number(onbSalary) ||
       onboardingCandidate.offered_salary_vnd ||
       onboardingCandidate.expected_salary_vnd;
+
+    if (!canApproveHighThreshold && salaryNum > 50_000_000) {
+      showToast(
+        'Cần Giám đốc duyệt',
+        'Tiếp nhận ứng viên có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
 
     const result = initiateCandidateOnboarding({
       candidate: onboardingCandidate,
@@ -1126,6 +1334,15 @@ export function AtsView() {
 
   const handleUndoStageMove = () => {
     if (!lastMovedAction) return;
+    if (
+      !canOfferOrHire &&
+      (lastMovedAction.fromStage === 'OFFER' ||
+        lastMovedAction.fromStage === 'ONBOARDED' ||
+        lastMovedAction.toStage === 'OFFER' ||
+        lastMovedAction.toStage === 'ONBOARDED')
+    ) {
+      return;
+    }
     const cand = candidates.find((c) => c.id === lastMovedAction.candidateId);
     if (!cand) return;
     const targetStage = lastMovedAction.fromStage;
@@ -1147,6 +1364,11 @@ export function AtsView() {
 
   useEffect(() => {
     if (offerDialogCandidate) {
+      if (!canOfferOrHire || hideSalary) {
+        setOfferSalaryInput('');
+        setOfferNotesInput('');
+        return;
+      }
       const prefill =
         offerDialogCandidate.offered_salary_vnd && offerDialogCandidate.offered_salary_vnd > 0
           ? String(offerDialogCandidate.offered_salary_vnd)
@@ -1156,12 +1378,27 @@ export function AtsView() {
       setOfferSalaryInput(prefill);
       setOfferNotesInput('');
     }
-  }, [offerDialogCandidate]);
+  }, [offerDialogCandidate, canOfferOrHire, hideSalary]);
 
   const handleConfirmOfferDialog = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!offerDialogCandidate) return;
+    if (!canOfferOrHire || !offerDialogCandidate) {
+      showToast(
+        'Không đủ quyền gửi Offer',
+        'Chỉ bộ phận Nhân sự (HR Manager) hoặc Ban Giám đốc mới được tạo/gửi thư mời nhận việc.',
+        'warning'
+      );
+      return;
+    }
     const parsedVnd = parseOfferSalaryVnd(offerSalaryInput);
+    if (!canApproveHighThreshold && parsedVnd > 50_000_000) {
+      showToast(
+        'Cần Giám đốc duyệt',
+        'Offer mức lương trên 50.000.000 VNĐ vượt thẩm quyền HR Manager — cần Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     const formattedSalary =
       parsedVnd > 0 ? formatVND(parsedVnd) : `${offerSalaryInput.trim()} đ`;
     const noteContent = `Đề xuất mức lương: ${formattedSalary}. Ngày bắt đầu: ${formatDateVN(offerStartDateInput)}. Ghi chú: ${offerNotesInput.trim()}`;
@@ -1212,6 +1449,20 @@ export function AtsView() {
   };
 
   const handleMoveStage = (candidate: Candidate, targetStage: AtsStage) => {
+    if (
+      !canOfferOrHire &&
+      (targetStage === 'OFFER' ||
+        targetStage === 'ONBOARDED' ||
+        candidate.stage === 'OFFER' ||
+        candidate.stage === 'ONBOARDED')
+    ) {
+      showToast(
+        'Không đủ quyền thực hiện',
+        'Trưởng bộ phận không có quyền gửi Offer hoặc chuyển ứng viên sang Onboarding.',
+        'warning'
+      );
+      return;
+    }
     if (targetStage === 'ONBOARDED') {
       openOnboardingInitDialog(candidate);
       return;
@@ -1256,6 +1507,20 @@ export function AtsView() {
   const handleQuickStageChange = (newStage: AtsStage) => {
     if (!selectedCandidate) return;
     if (newStage === selectedCandidate.stage) return;
+    if (
+      !canOfferOrHire &&
+      (newStage === 'OFFER' ||
+        newStage === 'ONBOARDED' ||
+        selectedCandidate.stage === 'OFFER' ||
+        selectedCandidate.stage === 'ONBOARDED')
+    ) {
+      showToast(
+        'Không đủ quyền thực hiện',
+        'Chỉ HR Manager hoặc Ban Giám đốc mới được phát hành Offer và tiếp nhận Onboarding.',
+        'warning'
+      );
+      return;
+    }
     if (newStage === 'OFFER') {
       setOfferDialogCandidate(selectedCandidate);
       return;
@@ -1318,6 +1583,9 @@ export function AtsView() {
 
   const handleDownloadCvPdf = () => {
     if (!selectedCandidate) return;
+    const salaryLine = hideSalary
+      ? ''
+      : `\n- Mức lương kỳ vọng: ${formatVND(selectedCandidate.expected_salary_vnd)} / tháng`;
     const cvText = `=====================================================
 HỒ SƠ ỨNG VIÊN (CURRICULUM VITAE)
 Tổng Công ty Công nghệ Lạc Việt - Ban Tuyển dụng ATS
@@ -1332,8 +1600,7 @@ Tổng Công ty Công nghệ Lạc Việt - Ban Tuyển dụng ATS
 - Ngày nộp hồ sơ: ${formatDateVN(selectedCandidate.applied_date)}
 - Email: ${selectedCandidate.email}
 - Điện thoại: ${selectedCandidate.phone}
-- Công ty hiện tại: ${selectedCandidate.current_company}
-- Mức lương kỳ vọng: ${formatVND(selectedCandidate.expected_salary_vnd)} / tháng
+- Công ty hiện tại: ${selectedCandidate.current_company}${salaryLine}
 
 2. TRÌNH ĐỘ HỌC VẤN & BẰNG CẤP
 - ${selectedCandidate.ai_evaluation.education_fit}
@@ -1395,15 +1662,15 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
     if (direction === 1) {
       if (currentCol === 0) {
         handleMoveStage(candidate, 'INTERVIEW');
-      } else if (currentCol === 1) {
+      } else if (currentCol === 1 && canOfferOrHire) {
         handleMoveStage(candidate, 'OFFER');
-      } else if (currentCol === 2 && candidate.stage === 'OFFER') {
+      } else if (currentCol === 2 && candidate.stage === 'OFFER' && canOfferOrHire) {
         openOnboardingInitDialog(candidate);
       }
     } else if (direction === -1) {
       if (currentCol === 1) {
         handleMoveStage(candidate, 'APPLIED');
-      } else if (currentCol === 2) {
+      } else if (currentCol === 2 && canOfferOrHire) {
         if (candidate.stage === 'ONBOARDED') {
           handleMoveStage(candidate, 'OFFER');
         } else {
@@ -1415,14 +1682,26 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
 
   const handleCreateDeptRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canProposeRecruitment) return;
     if (!reqPositionTitle.trim()) {
       showToast('Thiếu tiêu đề vị trí', 'Vui lòng nhập tên vị trí cần tuyển dụng.', 'warning');
       return;
     }
-    const dept = departments.find((d) => d.id === reqDeptId) ?? departments[0];
+    const effectiveDeptId = isDeptManager
+      ? managerLockedDeptId || reqDeptId
+      : reqDeptId;
+    const dept =
+      departments.find((d) => d.id === effectiveDeptId) ??
+      (isDeptManager
+        ? departments.find((d) => managerDeptIds.has(d.id))
+        : departments[0]);
+    if (!dept) {
+      showToast('Không xác định được phòng ban', 'Tài khoản Trưởng phòng chưa gắn phòng ban hợp lệ.', 'warning');
+      return;
+    }
     const createdReq = createDepartmentRecruitmentRequest({
-      department_id: dept?.id ?? 'dept-tech-swe',
-      department_name: dept?.department_name ?? 'Phòng Kỹ thuật Phần mềm',
+      department_id: dept.id,
+      department_name: dept.department_name,
       position_title: reqPositionTitle.trim(),
       level: reqLevel,
       quantity: Math.max(1, Number(reqQuantity) || 1),
@@ -1444,12 +1723,37 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
     );
   };
 
+  const isHrBlockedOnProposal = useCallback(
+    (req: DepartmentRecruitmentRequest | null | undefined) => {
+      if (!req) return false;
+      return !canApproveHighThreshold && requiresDirectorForProposal(req);
+    },
+    [canApproveHighThreshold]
+  );
+
   const handleOpenApprovePreview = (req: DepartmentRecruitmentRequest) => {
+    if (!canReviewDeptRequest) return;
+    if (isHrBlockedOnProposal(req)) {
+      showToast(
+        'Cần Giám đốc duyệt',
+        'Đề xuất tuyển dụng trên 3 định biên hoặc mức lương tối đa trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     setApprovePreviewReq(req);
   };
 
   const handleConfirmApproveDeptRequest = () => {
-    if (!approvePreviewReq) return;
+    if (!canReviewDeptRequest || !approvePreviewReq) return;
+    if (isHrBlockedOnProposal(approvePreviewReq)) {
+      showToast(
+        'Cần Giám đốc duyệt',
+        'Đề xuất tuyển dụng trên 3 định biên hoặc mức lương tối đa trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     const result = approveDepartmentRecruitmentRequest(approvePreviewReq.id, actorName);
     if (!result) return;
     setDeptRequests(getDepartmentRecruitmentRequests());
@@ -1466,6 +1770,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
   };
 
   const handleOpenRejectDialog = (req: DepartmentRecruitmentRequest) => {
+    if (!canReviewDeptRequest) return;
     setRejectTargetReq(req);
     setRejectReasonInput('');
     setRejectReasonError(null);
@@ -1473,7 +1778,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
 
   const handleConfirmRejectDeptRequest = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!rejectTargetReq) return;
+    if (!canReviewDeptRequest || !rejectTargetReq) return;
     const trimmed = rejectReasonInput.trim();
     if (!trimmed) {
       setRejectReasonError('Vui lòng nhập lý do từ chối (bắt buộc).');
@@ -1505,6 +1810,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
 
   const handleAddJob = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canPostJob) return;
     if (!newJobTitle.trim()) {
       showToast('Thiếu tiêu đề vị trí', 'Vui lòng nhập tên vị trí cần tuyển dụng.', 'warning');
       return;
@@ -1515,6 +1821,16 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
     const nextNum = jobs.length + 1;
     const minSal = Number(newJobMinSalary) || 25000000;
     const maxSal = Number(newJobMaxSalary) || 40000000;
+    const targetHeadcount = Math.max(1, Number(newJobTarget) || 1);
+
+    if (!canApproveHighThreshold && (targetHeadcount > 3 || maxSal > 50_000_000)) {
+      showToast(
+        'Cần Giám đốc duyệt',
+        'Tin tuyển dụng có chỉ tiêu trên 3 nhân sự hoặc mức lương tối đa trên 50.000.000 VNĐ cần Giám đốc (DIRECTOR) phê duyệt.',
+        'warning'
+      );
+      return;
+    }
 
     const created: JobPosting = {
       id: `job-${Date.now()}`,
@@ -1523,7 +1839,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
       department_id: dept.id,
       department_name: dept.department_name,
       level: newJobLevel.trim() || 'Mid',
-      headcount_target: Math.max(1, Number(newJobTarget) || 1),
+      headcount_target: targetHeadcount,
       hired_count: 0,
       applicants_count: 0,
       salary_range_min_vnd: minSal,
@@ -1587,11 +1903,41 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
     );
   };
 
-  const openJobsCount = jobs.filter((j) => j.status === 'OPEN' || j.status === 'URGENT').length;
-  const newCandidatesCount = candidates.filter((c) => c.stage === 'APPLIED').length;
-  const interviewCandidatesCount = candidates.filter((c) => c.stage === 'INTERVIEW').length;
-  const offerCandidatesCount = candidates.filter((c) => c.stage === 'OFFER').length;
-  const pendingDeptRequestsCount = deptRequests.filter((r) => r.status === 'PENDING').length;
+  const openJobsCount = scopedJobs.filter((j) => j.status === 'OPEN' || j.status === 'URGENT').length;
+  const newCandidatesCount = scopedCandidates.filter((c) => c.stage === 'APPLIED').length;
+  const interviewCandidatesCount = scopedCandidates.filter((c) => c.stage === 'INTERVIEW').length;
+  const offerCandidatesCount = scopedCandidates.filter((c) => c.stage === 'OFFER').length;
+  const pendingDeptRequestsCount = scopedDeptRequests.filter((r) => r.status === 'PENDING').length;
+
+  if (isAccessDenied) {
+    return (
+      <div className="mx-auto max-w-xl py-16">
+        <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/15">
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+              <Lock className="h-6 w-6" strokeWidth={1.75} />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Không đủ quyền truy cập Tuyển dụng ATS (403)
+              </h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Phân hệ Quản trị Tuyển dụng &amp; Sàng lọc CV chỉ dành cho Ban Giám đốc, Quản trị Nhân sự và Trưởng bộ phận.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setActiveNav('dashboard')}
+            >
+              Quay về Bảng điều khiển
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -1623,8 +1969,8 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             value={selectedJobId}
             onValueChange={setSelectedJobId}
             options={[
-              { label: `Tất cả vị trí (${candidates.length} ứng viên)`, value: 'ALL' },
-              ...jobs.map((j) => ({
+              { label: `Tất cả vị trí (${scopedCandidates.length} ứng viên)`, value: 'ALL' },
+              ...scopedJobs.map((j) => ({
                 label: `${j.job_code} — ${j.title}`,
                 value: j.id,
               })),
@@ -1753,7 +2099,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
               Ứng viên ({filteredCandidates.length})
             </TabsTrigger>
             <TabsTrigger value="jobs" className="text-xs font-semibold px-4 py-1.5">
-              Tin tuyển dụng ({jobs.length})
+              Tin tuyển dụng ({scopedJobs.length})
             </TabsTrigger>
             <TabsTrigger value="requests" className="text-xs font-semibold px-4 py-1.5 flex items-center gap-1.5">
               <span>Đề xuất tuyển dụng</span>
@@ -1803,13 +2149,13 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             <div className="flex items-center gap-2">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                 <Building className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                Đề xuất Tuyển dụng từ các Phòng ban ({deptRequests.length})
+                Đề xuất Tuyển dụng từ các Phòng ban ({scopedDeptRequests.length})
               </h2>
               <Badge
-                variant={deptRequests.some((r) => r.status === 'PENDING') ? 'warning' : 'outline'}
+                variant={scopedDeptRequests.some((r) => r.status === 'PENDING') ? 'warning' : 'outline'}
                 className="font-mono text-[11px] tabular-nums"
               >
-                {deptRequests.filter((r) => r.status === 'PENDING').length} Chờ duyệt
+                {scopedDeptRequests.filter((r) => r.status === 'PENDING').length} Chờ duyệt
               </Badge>
             </div>
             <span className="text-xs text-[#5C7871] dark:text-zinc-400">
@@ -1830,10 +2176,11 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800">
-                {deptRequests.map((req) => {
+                {scopedDeptRequests.map((req) => {
                   const isPending = req.status === 'PENDING';
                   const isApproved = req.status === 'APPROVED';
                   const isRejected = req.status === 'REJECTED';
+                  const needDirector = isHrBlockedOnProposal(req);
 
                   return (
                     <tr
@@ -1874,7 +2221,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        {isPending && (
+                        {isPending && canReviewDeptRequest && (
                           <div className="inline-flex items-center gap-1.5">
                             <button
                               type="button"
@@ -1883,14 +2230,29 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                             >
                               Từ chối
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleApproveDeptRequest(req)}
-                              className="rounded bg-[#0F766E] px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-[#0B5C56] dark:bg-teal-600 dark:hover:bg-teal-500"
-                            >
-                              Duyệt & Tạo tin
-                            </button>
+                            {needDirector ? (
+                              <span
+                                className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                title="Đề xuất trên 3 định biên hoặc mức lương > 50 triệu VNĐ cần Giám đốc phê duyệt"
+                              >
+                                <Lock className="h-3 w-3" />
+                                Cần Giám đốc duyệt
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveDeptRequest(req)}
+                                className="rounded bg-[#0F766E] px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-[#0B5C56] dark:bg-teal-600 dark:hover:bg-teal-500"
+                              >
+                                Duyệt & Tạo tin
+                              </button>
+                            )}
                           </div>
+                        )}
+                        {isPending && !canReviewDeptRequest && (
+                          <span className="text-[11px] text-[#5C7871] dark:text-zinc-400">
+                            Đang chờ duyệt
+                          </span>
                         )}
                         {isApproved && req.job_code_created && (
                           <span className="font-mono text-[11px] font-semibold text-[#0F766E] dark:text-teal-400">
@@ -1919,7 +2281,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             <div>
               <h2 className="flex items-center gap-2 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
                 <Briefcase className="h-4 w-4 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                Tin tuyển dụng đang mở ({jobs.length})
+                Tin tuyển dụng đang mở ({scopedJobs.length})
               </h2>
               <p className="text-xs text-[#5C7871] dark:text-zinc-400">
                 Nhấn vào thẻ tin để lọc danh sách ứng viên theo vị trí tuyển dụng tương ứng
@@ -1933,13 +2295,13 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
             )}
           </div>
 
-          {jobs.length === 0 ? (
+          {scopedJobs.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[#C6D9D3] bg-[#FCFEFD] p-8 text-center text-sm text-[#5C7871] dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
               Hiện chưa có tin tuyển dụng nào đang mở.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {jobs.map((job) => {
+              {scopedJobs.map((job) => {
                 const statusMeta = JOB_STATUS_BADGE[job.status];
                 const isSelected = selectedJobId === job.id;
                 return (
@@ -2071,14 +2433,16 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     onClick={() => setIsMenuToolbarOpen(false)}
                     className="absolute right-0 top-full mt-1 z-30 w-40 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
                   >
-                    <button
-                      type="button"
-                      onClick={handleResetCandidatesData}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#11221E] hover:bg-[#F2F7F5] dark:text-zinc-200 dark:hover:bg-zinc-800/60"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" />
-                      <span>Đặt lại dữ liệu</span>
-                    </button>
+                    {canResetData && (
+                      <button
+                        type="button"
+                        onClick={handleResetCandidatesData}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#11221E] hover:bg-[#F2F7F5] dark:text-zinc-200 dark:hover:bg-zinc-800/60"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 text-[#5C7871] dark:text-zinc-400" />
+                        <span>Đặt lại dữ liệu</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleExportCandidatesCsv}
@@ -2306,61 +2670,76 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
 
                         <div className="flex items-center gap-1.5 shrink-0">
                           {/* Chuyển bước dropdown for touch/keyboard */}
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveCardMenuId(activeCardMenuId === cand.id ? null : cand.id);
-                              }}
-                              className="inline-flex items-center gap-0.5 rounded border border-[#C6D9D3] bg-[#FCFEFD] px-1.5 py-0.5 text-[10px] font-medium text-[#415A54] hover:border-[#0F766E] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-teal-400 min-h-[26px]"
-                              aria-label={`Chuyển bước cho ${cand.full_name}`}
-                              title="Chuyển bước (thao tác phím/touch)"
-                            >
-                              <span>Chuyển</span>
-                              <ChevronDown className="h-2.5 w-2.5" />
-                            </button>
-                            {activeCardMenuId === cand.id && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 bottom-full mb-1 z-30 w-44 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                          {(canOfferOrHire ||
+                            (cand.stage !== 'OFFER' && cand.stage !== 'ONBOARDED')) && (
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveCardMenuId(activeCardMenuId === cand.id ? null : cand.id);
+                                }}
+                                className="inline-flex items-center gap-0.5 rounded border border-[#C6D9D3] bg-[#FCFEFD] px-1.5 py-0.5 text-[10px] font-medium text-[#415A54] hover:border-[#0F766E] hover:text-[#0F766E] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-teal-400 min-h-[26px]"
+                                aria-label={`Chuyển bước cho ${cand.full_name}`}
+                                title="Chuyển bước (thao tác phím/touch)"
                               >
-                                <div className="px-2 py-1 text-[10px] font-semibold text-[#5C7871] dark:text-zinc-400 border-b border-[#D5E3DF] dark:border-zinc-800">
-                                  Chuyển đến bước:
+                                <span>Chuyển</span>
+                                <ChevronDown className="h-2.5 w-2.5" />
+                              </button>
+                              {activeCardMenuId === cand.id && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="absolute right-0 bottom-full mb-1 z-30 w-44 rounded-lg border border-[#C6D9D3] bg-[#FCFEFD] py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                                >
+                                  <div className="px-2 py-1 text-[10px] font-semibold text-[#5C7871] dark:text-zinc-400 border-b border-[#D5E3DF] dark:border-zinc-800">
+                                    Chuyển đến bước:
+                                  </div>
+                                  {(
+                                    [
+                                      'APPLIED',
+                                      'AI_SCREENED',
+                                      'INTERVIEW',
+                                      ...(canOfferOrHire
+                                        ? (['OFFER', 'ONBOARDED'] as AtsStage[])
+                                        : []),
+                                      'REJECTED',
+                                    ] as AtsStage[]
+                                  ).map((st) => (
+                                    <button
+                                      key={st}
+                                      type="button"
+                                      disabled={cand.stage === st}
+                                      onClick={() => {
+                                        setActiveCardMenuId(null);
+                                        if (st === 'INTERVIEW' && !cand.interview_schedule?.date) {
+                                          openInterviewScheduleModal(cand);
+                                        } else if (st === 'OFFER') {
+                                          if (!canOfferOrHire) return;
+                                          setOfferDialogCandidate(cand);
+                                        } else if (st === 'ONBOARDED') {
+                                          if (!canOfferOrHire) return;
+                                          openOnboardingInitDialog(cand);
+                                        } else if (st === 'REJECTED') {
+                                          setRejectDialogCandidate(cand);
+                                        } else {
+                                          handleMoveStage(cand, st);
+                                        }
+                                      }}
+                                      className={cn(
+                                        'flex w-full items-center justify-between px-2.5 py-1.5 text-left text-xs transition-colors',
+                                        cand.stage === st
+                                          ? 'bg-[#E8F1EE] font-bold text-[#0F766E] dark:bg-zinc-800 dark:text-teal-300'
+                                          : 'text-[#11221E] hover:bg-[#F2F7F5] dark:text-zinc-200 dark:hover:bg-zinc-800/60'
+                                      )}
+                                    >
+                                      <span>{getStageDisplayLabel(st)}</span>
+                                      {cand.stage === st && <Check className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />}
+                                    </button>
+                                  ))}
                                 </div>
-                                {(['APPLIED', 'AI_SCREENED', 'INTERVIEW', 'OFFER', 'ONBOARDED', 'REJECTED'] as AtsStage[]).map((st) => (
-                                  <button
-                                    key={st}
-                                    type="button"
-                                    disabled={cand.stage === st}
-                                    onClick={() => {
-                                      setActiveCardMenuId(null);
-                                      if (st === 'INTERVIEW' && !cand.interview_schedule?.date) {
-                                        openInterviewScheduleModal(cand);
-                                      } else if (st === 'OFFER') {
-                                        setOfferDialogCandidate(cand);
-                                      } else if (st === 'ONBOARDED') {
-                                        openOnboardingInitDialog(cand);
-                                      } else if (st === 'REJECTED') {
-                                        setRejectDialogCandidate(cand);
-                                      } else {
-                                        handleMoveStage(cand, st);
-                                      }
-                                    }}
-                                    className={cn(
-                                      'flex w-full items-center justify-between px-2.5 py-1.5 text-left text-xs transition-colors',
-                                      cand.stage === st
-                                        ? 'bg-[#E8F1EE] font-bold text-[#0F766E] dark:bg-zinc-800 dark:text-teal-300'
-                                        : 'text-[#11221E] hover:bg-[#F2F7F5] dark:text-zinc-200 dark:hover:bg-zinc-800/60'
-                                    )}
-                                  >
-                                    <span>{getStageDisplayLabel(st)}</span>
-                                    {cand.stage === st && <Check className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                              )}
+                            </div>
+                          )}
 
                           <span className="text-[11px] font-medium text-[#0F766E] hover:underline dark:text-teal-400">
                             Chi tiết ›
@@ -2466,9 +2845,23 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                       e.preventDefault();
                       setDragOverColStage(null);
                       const candId = e.dataTransfer.getData('text/plain');
-                      const droppedCand = candidates.find((c) => c.id === candId);
+                      const droppedCand = scopedCandidates.find((c) => c.id === candId);
                       if (!droppedCand) return;
                       const targetStage = col.defaultDropStage;
+                      if (
+                        !canOfferOrHire &&
+                        (targetStage === 'OFFER' ||
+                          targetStage === 'ONBOARDED' ||
+                          droppedCand.stage === 'OFFER' ||
+                          droppedCand.stage === 'ONBOARDED')
+                      ) {
+                        showToast(
+                          'Không đủ quyền thực hiện',
+                          'Trưởng bộ phận không có quyền gửi Offer hoặc chuyển ứng viên sang Onboarding.',
+                          'warning'
+                        );
+                        return;
+                      }
                       if (targetStage === 'INTERVIEW') {
                         if (!droppedCand.interview_schedule?.date) {
                           openInterviewScheduleModal(droppedCand);
@@ -2661,13 +3054,24 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     <div className="flex-1">
                       <Select
                         value={selectedCandidate.stage}
+                        disabled={
+                          !canOfferOrHire &&
+                          (selectedCandidate.stage === 'OFFER' ||
+                            selectedCandidate.stage === 'ONBOARDED')
+                        }
                         onValueChange={(val) => handleQuickStageChange(val as AtsStage)}
                         options={[
                           { label: 'Hồ sơ mới', value: 'APPLIED' },
                           { label: 'Sàng lọc', value: 'AI_SCREENED' },
                           { label: 'Phỏng vấn', value: 'INTERVIEW' },
-                          { label: 'Đề nghị', value: 'OFFER' },
-                          { label: 'Đã nhận việc', value: 'ONBOARDED' },
+                          ...(canOfferOrHire ||
+                          selectedCandidate.stage === 'OFFER'
+                            ? [{ label: 'Đề nghị', value: 'OFFER' }]
+                            : []),
+                          ...(canOfferOrHire ||
+                          selectedCandidate.stage === 'ONBOARDED'
+                            ? [{ label: 'Đã nhận việc', value: 'ONBOARDED' }]
+                            : []),
                           { label: 'Đã loại', value: 'REJECTED' },
                         ]}
                       />
@@ -2829,7 +3233,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                             </div>
                           </div>
                           <p className="mt-1.5 text-[#415A54] dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                            {note.content}
+                            {maskSalaryInText(note.content, hideSalary)}
                           </p>
                         </div>
                       ))}
@@ -3153,7 +3557,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                               </span>
                             </div>
                             <p className="mt-0.5 text-[#415A54] dark:text-zinc-300 leading-relaxed">
-                              {item.description}
+                              {maskSalaryInText(item.description, hideSalary)}
                             </p>
                             <span className="mt-1 block text-[10px] text-[#5C7871] dark:text-zinc-400">
                               Người thực hiện: <strong className="text-zinc-700 dark:text-zinc-300">{item.actor_name}</strong>
@@ -3438,7 +3842,9 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                 {/* 1. Contact Info */}
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#0F766E] dark:text-teal-400">
-                    1. Thông tin liên hệ &amp; Kỳ vọng đãi ngộ
+                    {hideSalary
+                      ? '1. Thông tin liên hệ'
+                      : '1. Thông tin liên hệ & Kỳ vọng đãi ngộ'}
                   </h4>
                   <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 text-xs">
                     <div className="flex items-center gap-2 text-[#415A54] dark:text-zinc-300">
@@ -3959,9 +4365,19 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                 Phòng ban đề xuất *
               </label>
               <Select
-                value={reqDeptId}
-                onValueChange={setReqDeptId}
-                options={departments.map((d) => ({
+                value={isDeptManager && managerLockedDeptId ? managerLockedDeptId : reqDeptId}
+                disabled={isDeptManager}
+                onValueChange={(val) => {
+                  if (!isDeptManager) setReqDeptId(val);
+                }}
+                options={(isDeptManager
+                  ? departments.filter((d) =>
+                      managerLockedDeptId
+                        ? d.id === managerLockedDeptId
+                        : managerDeptIds.has(d.id)
+                    )
+                  : departments
+                ).map((d) => ({
                   label: `${d.department_name} (${d.manager_name})`,
                   value: d.id,
                 }))}
@@ -4215,7 +4631,7 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                 <Button variant="outline" size="sm" onClick={() => setSelectedDeptReq(null)}>
                   Đóng
                 </Button>
-                {selectedDeptReq.status === 'PENDING' && (
+                {selectedDeptReq.status === 'PENDING' && canReviewDeptRequest && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -4227,15 +4643,22 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                     >
                       Từ chối
                     </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        handleOpenApprovePreview(selectedDeptReq);
-                      }}
-                    >
-                      Duyệt & Tạo tin
-                    </Button>
+                    {isHrBlockedOnProposal(selectedDeptReq) ? (
+                      <Badge variant="warning" className="px-2.5 py-1 text-xs">
+                        <Lock className="mr-1 h-3 w-3" />
+                        Cần Giám đốc duyệt
+                      </Badge>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          handleOpenApprovePreview(selectedDeptReq);
+                        }}
+                      >
+                        Duyệt & Tạo tin
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -4389,15 +4812,22 @@ Ngày xuất: ${new Date().toLocaleString('vi-VN')}
                 >
                   Hủy
                 </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={handleConfirmApproveDeptRequest}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                  Xác nhận Duyệt &amp; Đăng tin
-                </Button>
+                {isHrBlockedOnProposal(approvePreviewReq) ? (
+                  <Button type="button" variant="outline" size="sm" disabled>
+                    <Lock className="h-4 w-4 mr-1" />
+                    Cần Giám đốc duyệt
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleConfirmApproveDeptRequest}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Xác nhận Duyệt &amp; Đăng tin
+                  </Button>
+                )}
               </DialogFooter>
             </div>
           )}

@@ -57,6 +57,7 @@ import {
   getMonthlyAttendances,
   getPayrollRecords,
   getResignations,
+  getRuntimeDepartments,
   getSystemUsers,
   reconcileClearanceAsset,
   rejectResignation,
@@ -71,14 +72,16 @@ import {
 } from '@/lib/swal';
 import { cn, formatDateVN, formatVND } from '@/lib/utils';
 import {
-  MOCK_PAYROLL_FORMULA,
-  calculateProgressivePitVnd,
-} from '@/mock/payroll';
+  calculateProgressivePitByPeriod,
+  getPitTaxConfigForPeriod,
+} from '@/lib/hrm/config';
+import { MOCK_PAYROLL_FORMULA } from '@/mock/payroll';
 import type {
   AssetConditionStatus,
   ClearanceAssetItem,
   ClearanceChecklist,
   ContractType,
+  Department,
   Employee,
   HandoverItem,
   HandoverItemCategory,
@@ -229,7 +232,7 @@ const HANDOVER_CATEGORY_OPTIONS: Array<{
   label: string;
 }> = [
   { value: 'PROJECT', label: 'Đầu việc / Dự án đang triển khai' },
-  { value: 'DOCUMENT', label: 'Tài liệu nghiệp vụ & Mã nguồn (Source code)' },
+  { value: 'DOCUMENT', label: 'Tài liệu nghiệp vụ & Mã nguồn' },
   { value: 'SYSTEM_ACCESS', label: 'Tài khoản hệ thống / Quyền quản trị dịch vụ' },
   { value: 'CLIENT_ACCOUNT', label: 'Danh mục khách hàng / Đối tác phụ trách' },
   { value: 'MANAGEMENT_DUTY', label: 'Trách nhiệm điều hành & Nhân sự cấp dưới' },
@@ -237,31 +240,29 @@ const HANDOVER_CATEGORY_OPTIONS: Array<{
 
 const HANDOVER_CATEGORY_LABEL: Record<HandoverItemCategory, string> = {
   PROJECT: 'Dự án / Đầu việc',
-  DOCUMENT: 'Tài liệu / Source code',
+  DOCUMENT: 'Tài liệu / Mã nguồn',
   SYSTEM_ACCESS: 'Tài khoản dịch vụ',
   CLIENT_ACCOUNT: 'Khách hàng / Đối tác',
   MANAGEMENT_DUTY: 'Điều hành quản lý',
+};
+
+const ASSET_CONDITION_LABEL: Record<AssetConditionStatus, string> = {
+  NEW: 'Mới / Nguyên vẹn',
+  GOOD: 'Tốt / Nguyên vẹn',
+  FAIR: 'Hao mòn tự nhiên',
+  DAMAGED: 'Hư hỏng - Đền bù',
+  LOST: 'Làm mất thiết bị - Đền bù',
 };
 
 const ASSET_CONDITION_OPTIONS: Array<{
   value: AssetConditionStatus;
   label: string;
 }> = [
-  { value: 'GOOD', label: 'Tốt / Nguyên vẹn (GOOD)' },
-  { value: 'FAIR', label: 'Hao mòn tự nhiên (FAIR)' },
-  { value: 'DAMAGED', label: 'Hư hỏng - Đền bù (DAMAGED)' },
-  { value: 'LOST', label: 'Làm mất thiết bị - Đền bù (LOST)' },
+  { value: 'GOOD', label: ASSET_CONDITION_LABEL.GOOD },
+  { value: 'FAIR', label: ASSET_CONDITION_LABEL.FAIR },
+  { value: 'DAMAGED', label: ASSET_CONDITION_LABEL.DAMAGED },
+  { value: 'LOST', label: ASSET_CONDITION_LABEL.LOST },
 ];
-
-const TECH_SCOPE_SET = new Set([
-  'dept-tech',
-  'dept-tech-swe',
-  'dept-tech-data',
-  'dept-data',
-  'Khối Công nghệ',
-  'Phòng Kỹ thuật Phần mềm',
-  'Phòng Dữ liệu & AI',
-]);
 
 function normalizeSearchVN(value: string): string {
   return value
@@ -310,9 +311,13 @@ export function OffboardingView() {
     navIntent,
     clearNavIntent,
     showToast,
+    setActiveNav,
   } = useApp();
 
+  const isAccessDenied = role === 'CANDIDATE';
+
   const [isLoading, setIsLoading] = useState(true);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [resignations, setResignations] = useState<ResignationRequest[]>([]);
   const [allHandovers, setAllHandovers] = useState<HandoverItem[]>([]);
@@ -362,6 +367,7 @@ export function OffboardingView() {
   const [rehireNote, setRehireNote] = useState<string>('');
 
   const syncAllRuntime = useCallback(() => {
+    setDepartments(getRuntimeDepartments());
     setEmployees(getAllRuntimeEmployees());
     setResignations(getResignations());
     setAllHandovers(getHandoverItems());
@@ -382,6 +388,7 @@ export function OffboardingView() {
 
   // Resolve current logged-in actor
   const actorEmployee = useMemo(() => {
+    if (isAccessDenied) return null;
     const defaultProfile = ROLE_DEFAULT_PROFILES[role];
     const explicitCode = currentUserProfile?.employee_code?.trim();
     const hasExplicitCode = Boolean(
@@ -412,6 +419,16 @@ export function OffboardingView() {
           e.personal_email?.trim().toLowerCase() === emailHint
       );
       if (byEmail) return byEmail;
+      if (
+        emailHint.endsWith('@lacviethrm.vn') ||
+        emailHint.endsWith('@hrm-enterprise.vn')
+      ) {
+        const localPart = emailHint.split('@')[0];
+        const byLocal = employees.find(
+          (e) => e.email.trim().toLowerCase().split('@')[0] === localPart
+        );
+        if (byLocal) return byLocal;
+      }
     }
 
     if (hasExplicitCode) {
@@ -419,12 +436,12 @@ export function OffboardingView() {
     }
 
     const fallbackCode = defaultProfile?.employee_code;
-    if (fallbackCode) {
+    if (fallbackCode && !fallbackCode.toLowerCase().startsWith('uv-')) {
       return employees.find((e) => e.employee_code === fallbackCode) ?? null;
     }
 
     return null;
-  }, [employees, role, currentUserProfile, currentUserEmail]);
+  }, [isAccessDenied, employees, role, currentUserProfile, currentUserEmail]);
 
   const actorName =
     actorEmployee?.full_name ||
@@ -434,23 +451,83 @@ export function OffboardingView() {
 
   const canManageAll =
     role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
-  const canApproveResignation =
-    canManageAll || role === 'DEPT_MANAGER';
+  const canSubmitResignation =
+    role === 'SUPER_ADMIN' ||
+    role === 'HR_MANAGER' ||
+    role === 'DEPT_MANAGER' ||
+    role === 'EMPLOYEE';
+
+  const managerDeptIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (role !== 'DEPT_MANAGER') return ids;
+    const explicitDeptId = currentUserProfile?.department_id?.trim();
+    if (explicitDeptId) {
+      ids.add(explicitDeptId);
+    }
+    if (
+      actorEmployee &&
+      (!explicitDeptId || actorEmployee.department_id === explicitDeptId)
+    ) {
+      if (actorEmployee.department_id) ids.add(actorEmployee.department_id);
+      for (const d of departments) {
+        if (d.manager_id === actorEmployee.id) {
+          ids.add(d.id);
+        }
+      }
+    }
+    return ids;
+  }, [role, currentUserProfile?.department_id, actorEmployee, departments]);
+
+  const managerDeptNames = useMemo(() => {
+    const names = new Set<string>();
+    if (role !== 'DEPT_MANAGER') return names;
+    for (const d of departments) {
+      if (managerDeptIds.has(d.id)) {
+        names.add(d.department_name.trim().toLowerCase());
+      }
+    }
+    return names;
+  }, [role, departments, managerDeptIds]);
+
+  const canActorApproveResignationRecord = useCallback(
+    (req: ResignationRequest | null | undefined): boolean => {
+      if (!req) return false;
+      if (canManageAll) {
+        return req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR';
+      }
+      if (role === 'DEPT_MANAGER') {
+        if (req.status !== 'PENDING_MANAGER') return false;
+        if (
+          actorEmployee &&
+          (req.employee_id === actorEmployee.id ||
+            req.employee_code === actorEmployee.employee_code)
+        ) {
+          return false;
+        }
+        return (
+          managerDeptIds.has(req.department_id) ||
+          managerDeptNames.has(req.department_name.trim().toLowerCase())
+        );
+      }
+      return false;
+    },
+    [canManageAll, role, actorEmployee, managerDeptIds, managerDeptNames]
+  );
 
   // Role-scoped resignations (EMPLOYEE sees own resignations + resignations where they are handover receiver)
   const scopedResignations = useMemo(() => {
+    if (isAccessDenied) return [];
     if (canManageAll) return resignations;
 
     if (role === 'DEPT_MANAGER') {
-      const deptKey =
-        actorEmployee?.department_id ||
-        currentUserProfile?.department_id ||
-        currentUserProfile?.department ||
-        'dept-tech';
-      const inTech = TECH_SCOPE_SET.has(deptKey);
-
       return resignations.filter((r) => {
-        if (actorEmployee && r.employee_id === actorEmployee.id) return true;
+        if (
+          actorEmployee &&
+          (r.employee_id === actorEmployee.id ||
+            r.employee_code === actorEmployee.employee_code)
+        ) {
+          return true;
+        }
         const isReceiver = allHandovers.some(
           (h) =>
             h.resignation_id === r.id &&
@@ -459,15 +536,9 @@ export function OffboardingView() {
               h.receiver_employee_code === actorEmployee.employee_code)
         );
         if (isReceiver) return true;
-        if (inTech) {
-          return (
-            TECH_SCOPE_SET.has(r.department_id) ||
-            TECH_SCOPE_SET.has(r.department_name)
-          );
-        }
         return (
-          r.department_id === deptKey ||
-          r.department_name === (actorEmployee?.department_name || currentUserProfile?.department)
+          managerDeptIds.has(r.department_id) ||
+          managerDeptNames.has(r.department_name.trim().toLowerCase())
         );
       });
     }
@@ -490,12 +561,14 @@ export function OffboardingView() {
       );
     });
   }, [
+    isAccessDenied,
     resignations,
     allHandovers,
     canManageAll,
     role,
     actorEmployee,
-    currentUserProfile,
+    managerDeptIds,
+    managerDeptNames,
   ]);
 
   // Pending receiver handovers assigned to current actor
@@ -511,33 +584,39 @@ export function OffboardingView() {
 
   // Eligible employees for creating a resignation
   const eligibleEmployeesForResignation = useMemo(() => {
-    const nonResigned = employees.filter((e) => e.employment_status !== 'RESIGNED');
-    if (role === 'EMPLOYEE') {
-      return actorEmployee ? [actorEmployee] : [];
-    }
-    if (role === 'DEPT_MANAGER' && actorEmployee) {
-      const deptKey = actorEmployee.department_id;
-      const inTech = TECH_SCOPE_SET.has(deptKey);
-      return nonResigned.filter((e) =>
-        inTech
-          ? TECH_SCOPE_SET.has(e.department_id)
-          : e.department_id === deptKey || e.manager_id === actorEmployee.id || e.id === actorEmployee.id
-      );
+    if (!canSubmitResignation) return [];
+    const nonResigned = employees.filter(
+      (e) => e.employment_status !== 'RESIGNED' && e.role_code !== 'DIRECTOR'
+    );
+    if (role === 'EMPLOYEE' || role === 'DEPT_MANAGER') {
+      return actorEmployee && actorEmployee.employment_status !== 'RESIGNED'
+        ? [actorEmployee]
+        : [];
     }
     return nonResigned;
-  }, [employees, role, actorEmployee]);
+  }, [canSubmitResignation, employees, role, actorEmployee]);
 
   // Open Create Modal helper
   const openCreateResignationModal = useCallback(
     (preselectedEmpId?: string) => {
-      const targetEmp =
-        (preselectedEmpId
-          ? employees.find(
-              (e) => e.id === preselectedEmpId || e.employee_code === preselectedEmpId
-            )
-          : null) ??
-        (role === 'EMPLOYEE' ? actorEmployee : eligibleEmployeesForResignation[0]) ??
-        null;
+      if (!canSubmitResignation) {
+        showToast(
+          'Không thể nộp đơn tự nghỉ việc',
+          'Vai trò hiện tại không thuộc đối tượng nộp đơn thôi việc trực tiếp trên hệ thống.',
+          'warning'
+        );
+        return;
+      }
+      const selfOnly = role === 'EMPLOYEE' || role === 'DEPT_MANAGER';
+      const targetEmp = selfOnly
+        ? actorEmployee
+        : (preselectedEmpId
+            ? eligibleEmployeesForResignation.find(
+                (e) => e.id === preselectedEmpId || e.employee_code === preselectedEmpId
+              )
+            : null) ??
+          eligibleEmployeesForResignation[0] ??
+          null;
 
       const todayIso = new Date().toISOString().slice(0, 10);
       setFormSubmittedDate(todayIso);
@@ -563,21 +642,27 @@ export function OffboardingView() {
       setFormReason('');
       setCreateModalOpen(true);
     },
-    [employees, role, actorEmployee, eligibleEmployeesForResignation]
+    [
+      canSubmitResignation,
+      showToast,
+      role,
+      actorEmployee,
+      eligibleEmployeesForResignation,
+    ]
   );
 
   // Handle cross-module navIntent (e.g. from Core HR "Khởi tạo nghỉ việc" or Notification)
   useEffect(() => {
-    if (!navIntent || isLoading) return;
+    if (!navIntent || isLoading || isAccessDenied) return;
     if (navIntent.navId !== 'offboarding') return;
 
     const targetId = navIntent.entityId;
-    if (navIntent.subTab) {
+    if (navIntent.subTab && (canManageAll || navIntent.subTab !== 'settlement')) {
       setDetailTab(navIntent.subTab);
     }
 
     if (targetId) {
-      const matchedRes = resignations.find(
+      const matchedRes = scopedResignations.find(
         (r) =>
           r.id === targetId ||
           r.resignation_code === targetId ||
@@ -588,11 +673,16 @@ export function OffboardingView() {
 
       if (matchedRes) {
         setSelectedResignationId(matchedRes.id);
-      } else {
+      } else if (canManageAll) {
         const matchedEmp = employees.find(
           (e) => e.id === targetId || e.employee_code === targetId
         );
-        if (matchedEmp && matchedEmp.employment_status !== 'RESIGNED') {
+        if (
+          matchedEmp &&
+          matchedEmp.employment_status !== 'RESIGNED' &&
+          matchedEmp.role_code !== 'DIRECTOR' &&
+          canSubmitResignation
+        ) {
           openCreateResignationModal(matchedEmp.id);
         }
       }
@@ -602,7 +692,10 @@ export function OffboardingView() {
   }, [
     navIntent,
     isLoading,
-    resignations,
+    isAccessDenied,
+    canManageAll,
+    canSubmitResignation,
+    scopedResignations,
     employees,
     clearNavIntent,
     openCreateResignationModal,
@@ -697,8 +790,52 @@ export function OffboardingView() {
     }
   }, [selectedResignation, allClearances]);
 
+  const isSelectedOwn = useMemo(
+    () =>
+      Boolean(
+        selectedResignation &&
+          actorEmployee &&
+          (selectedResignation.employee_id === actorEmployee.id ||
+            selectedResignation.employee_code === actorEmployee.employee_code)
+      ),
+    [selectedResignation, actorEmployee]
+  );
+
+  const isSelectedInManagerDept = useMemo(
+    () =>
+      Boolean(
+        selectedResignation &&
+          role === 'DEPT_MANAGER' &&
+          (managerDeptIds.has(selectedResignation.department_id) ||
+            managerDeptNames.has(
+              selectedResignation.department_name.trim().toLowerCase()
+            ))
+      ),
+    [selectedResignation, role, managerDeptIds, managerDeptNames]
+  );
+
+  const isColleagueReceiverOnly = useMemo(
+    () =>
+      Boolean(
+        selectedResignation &&
+          !canManageAll &&
+          !isSelectedOwn &&
+          !isSelectedInManagerDept
+      ),
+    [selectedResignation, canManageAll, isSelectedOwn, isSelectedInManagerDept]
+  );
+
+  useEffect(() => {
+    if (isColleagueReceiverOnly && detailTab !== 'handover') {
+      setDetailTab('handover');
+    } else if (!canManageAll && detailTab === 'settlement') {
+      setDetailTab('overview');
+    }
+  }, [isColleagueReceiverOnly, canManageAll, detailTab]);
+
   // KPI Strip Metrics
   const kpiStats = useMemo(() => {
+    const scopedIds = new Set(scopedResignations.map((r) => r.id));
     const pendingApprovalCount = scopedResignations.filter(
       (r) => r.status === 'PENDING_MANAGER' || r.status === 'PENDING_HR'
     ).length;
@@ -709,15 +846,19 @@ export function OffboardingView() {
       : scopedResignations.filter((r) => r.status === 'NOTICE_PERIOD').length;
 
     const openHandovers = allHandovers.filter(
-      (h) => h.status !== 'COMPLETED'
+      (h) =>
+        (canManageAll || scopedIds.has(h.resignation_id)) &&
+        h.status !== 'COMPLETED'
     ).length;
-    const openAssets = allClearances.reduce(
-      (sum, cl) =>
-        sum +
-        cl.assets.filter((a) => !a.returned && a.return_condition !== 'LOST')
-          .length,
-      0
-    );
+    const openAssets = allClearances
+      .filter((cl) => canManageAll || scopedIds.has(cl.resignation_id))
+      .reduce(
+        (sum, cl) =>
+          sum +
+          cl.assets.filter((a) => !a.returned && a.return_condition !== 'LOST')
+            .length,
+        0
+      );
 
     const resignedSettledCount = canManageAll
       ? employees.filter((e) => e.employment_status === 'RESIGNED').length
@@ -734,24 +875,35 @@ export function OffboardingView() {
   // Selected resignation sub-entities
   const selectedHandovers = useMemo(() => {
     if (!selectedResignation) return [];
-    return allHandovers.filter((h) => h.resignation_id === selectedResignation.id);
-  }, [allHandovers, selectedResignation]);
+    const list = allHandovers.filter(
+      (h) => h.resignation_id === selectedResignation.id
+    );
+    if (isColleagueReceiverOnly) {
+      if (!actorEmployee) return [];
+      return list.filter(
+        (h) =>
+          h.receiver_employee_id === actorEmployee.id ||
+          h.receiver_employee_code === actorEmployee.employee_code
+      );
+    }
+    return list;
+  }, [allHandovers, selectedResignation, isColleagueReceiverOnly, actorEmployee]);
 
   const selectedClearance = useMemo(() => {
-    if (!selectedResignation) return null;
+    if (!selectedResignation || isColleagueReceiverOnly) return null;
     return (
       allClearances.find((c) => c.resignation_id === selectedResignation.id) ??
       null
     );
-  }, [allClearances, selectedResignation]);
+  }, [allClearances, selectedResignation, isColleagueReceiverOnly]);
 
   const managerDependency = useMemo(() => {
-    if (!selectedResignation) return null;
+    if (!selectedResignation || isColleagueReceiverOnly) return null;
     return getManagerOffboardingDependencies(selectedResignation.employee_id);
-  }, [selectedResignation, employees, resignations]);
+  }, [selectedResignation, isColleagueReceiverOnly, employees, resignations]);
 
   const clearanceGate = useMemo(() => {
-    if (!selectedResignation) return null;
+    if (!selectedResignation || isColleagueReceiverOnly) return null;
     if (
       selectedResignation.status === 'PENDING_MANAGER' ||
       selectedResignation.status === 'PENDING_HR' ||
@@ -761,7 +913,7 @@ export function OffboardingView() {
       return null;
     }
     return checkClearance100Percent(selectedResignation.id);
-  }, [selectedResignation, allHandovers, allClearances, employees]);
+  }, [selectedResignation, isColleagueReceiverOnly, allHandovers, allClearances, employees]);
 
   // Live Notice Calculation inside Create Modal
   const selectedFormEmployee = useMemo(
@@ -790,9 +942,9 @@ export function OffboardingView() {
     });
   }, [selectedFormContractType, formSubmittedDate, formDesiredLastDay]);
 
-  // Live Final Settlement Preview Calculation (Tab 4)
+  // Live Final Settlement Preview Calculation (Tab 4 — restricted strictly to canManageAll)
   const settlementPreview = useMemo(() => {
-    if (!selectedResignation) return null;
+    if (!canManageAll || !selectedResignation) return null;
     const emp = employees.find(
       (e) =>
         e.id === selectedResignation.employee_id ||
@@ -882,16 +1034,20 @@ export function OffboardingView() {
         insuranceBaseVnd * MOCK_PAYROLL_FORMULA.total_insurance_employee_rate
       );
 
-    const personalDeduction = MOCK_PAYROLL_FORMULA.personal_deduction_vnd;
+    const pitConfig = getPitTaxConfigForPeriod(periodMonth);
+    const personalDeduction =
+      existingFinalPayslip?.personal_deduction_vnd ??
+      pitConfig.personal_deduction_vnd;
     const dependentDeduction =
-      emp.dependents_count * MOCK_PAYROLL_FORMULA.dependent_deduction_vnd;
+      existingFinalPayslip?.dependent_deduction_vnd ??
+      emp.dependents_count * pitConfig.dependent_deduction_vnd;
     const taxableIncomeVnd = Math.max(
       0,
       grossSalaryVnd - totalInsuranceVnd - personalDeduction - dependentDeduction
     );
     const pitTaxVnd =
       existingFinalPayslip?.pit_tax_vnd ??
-      calculateProgressivePitVnd(taxableIncomeVnd);
+      calculateProgressivePitByPeriod(taxableIncomeVnd, periodMonth);
 
     const penaltyDeductionVnd =
       existingFinalPayslip?.penalty_deduction_vnd ??
@@ -932,10 +1088,11 @@ export function OffboardingView() {
       advanceDeductionVnd,
       netSalaryVnd,
     };
-  }, [selectedResignation, employees, payrolls, selectedClearance]);
+  }, [canManageAll, selectedResignation, employees, payrolls, selectedClearance]);
 
   // Handlers
   const handleSelectEmployeeInForm = (empId: string) => {
+    if (role === 'EMPLOYEE' || role === 'DEPT_MANAGER') return;
     setFormEmployeeId(empId);
     const emp = employees.find((e) => e.id === empId);
     if (!emp) return;
@@ -952,6 +1109,27 @@ export function OffboardingView() {
 
   const handleSubmitResignationForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canSubmitResignation) return;
+    if (
+      (role === 'EMPLOYEE' || role === 'DEPT_MANAGER') &&
+      (!actorEmployee || formEmployeeId !== actorEmployee.id)
+    ) {
+      showToast(
+        'Không đủ quyền nộp hộ',
+        'Bạn chỉ được phép nộp đơn thôi việc cho chính mình.',
+        'warning'
+      );
+      return;
+    }
+    const targetSubEmp = employees.find((item) => item.id === formEmployeeId);
+    if (targetSubEmp?.role_code === 'DIRECTOR') {
+      showToast(
+        'Không áp dụng cho Giám đốc',
+        'Tài khoản Giám đốc không nộp đơn tự nghỉ việc trên luồng này.',
+        'warning'
+      );
+      return;
+    }
     if (!formEmployeeId || !formDesiredLastDay || !formReason.trim()) {
       await alertSwal({
         title: 'Thiếu thông tin bắt buộc',
@@ -1010,17 +1188,30 @@ export function OffboardingView() {
   };
 
   const handleApproveResignation = async (target: ResignationRequest) => {
-    const chosenLastDay =
+    if (!canActorApproveResignationRecord(target)) {
+      showToast(
+        'Không đủ quyền phê duyệt bước này',
+        'Trưởng bộ phận chỉ được duyệt bước Quản lý cho cấp dưới trong phòng ban của mình.',
+        'warning'
+      );
+      return;
+    }
+    const rawChosenLastDay =
       target.id === selectedResignation?.id && approveLastDayInput
         ? approveLastDayInput
         : target.desired_last_day >= target.earliest_legal_last_day
           ? target.desired_last_day
           : target.earliest_legal_last_day;
+    const effectiveWaiveShortfall = canManageAll ? waiveShortfallInput : false;
+    const chosenLastDay =
+      !canManageAll && rawChosenLastDay < target.earliest_legal_last_day
+        ? target.earliest_legal_last_day
+        : rawChosenLastDay;
 
     const confirmed = await confirmSwal({
       title: `Phê duyệt đơn thôi việc ${target.resignation_code}?`,
-      html: `Nhân sự <b>${escapeSwalHtml(target.full_name)} (${escapeSwalHtml(target.employee_code)})</b> sẽ chuyển sang trạng thái <b>Đang báo trước (NOTICE_PERIOD)</b>.<br/>• Ngày làm việc cuối cùng được chốt: <b>${escapeSwalHtml(formatDateVN(chosenLastDay))}</b><br/>• Hệ thống tự động khởi tạo <b>Checklist Bàn giao 3 bên</b> và <b>Phiếu thu hồi tài sản / Clearance</b>.`,
-      confirmText: 'Duyệt & Mở Bàn giao',
+      html: `Nhân sự <b>${escapeSwalHtml(target.full_name)} (${escapeSwalHtml(target.employee_code)})</b> sẽ chuyển sang trạng thái <b>${canManageAll ? 'Đang trong thời gian báo trước' : 'Chờ Nhân sự phê duyệt'}</b>.<br/>• Ngày làm việc cuối cùng dự kiến: <b>${escapeSwalHtml(formatDateVN(chosenLastDay))}</b>.`,
+      confirmText: canManageAll ? 'Duyệt & Mở Bàn giao' : 'Duyệt bước Quản lý',
       variant: 'primary',
     });
     if (!confirmed) return;
@@ -1039,16 +1230,18 @@ export function OffboardingView() {
         approverRole,
         approverName: actorName,
         approvedLastDay: chosenLastDay,
-        waiveNoticeShortfall: waiveShortfallInput,
-        successorEmployeeId: successorEmpId || undefined,
+        waiveNoticeShortfall: effectiveWaiveShortfall,
+        successorEmployeeId: canManageAll ? successorEmpId || undefined : undefined,
         exitInterviewNote: exitInterviewInput.trim() || undefined,
       });
       syncAllRuntime();
       setSelectedResignationId(target.id);
-      setDetailTab('handover');
+      setDetailTab(canManageAll ? 'handover' : 'overview');
       showToast(
-        'Đã duyệt đơn & Mở quy trình Bàn giao',
-        `${target.full_name} chuyển sang NOTICE_PERIOD đến ngày ${formatDateVN(chosenLastDay)}.`,
+        canManageAll
+          ? 'Đã duyệt đơn & Mở quy trình Bàn giao'
+          : 'Đã duyệt bước Quản lý (Chuyển Phòng Nhân sự)',
+        `${target.full_name} — Ngày làm việc cuối dự kiến ${formatDateVN(chosenLastDay)}.`,
         'success'
       );
     } catch (err) {
@@ -1061,6 +1254,7 @@ export function OffboardingView() {
   };
 
   const handleRejectResignation = async (target: ResignationRequest) => {
+    if (!canActorApproveResignationRecord(target)) return;
     const reason = await promptTextSwal({
       title: `Từ chối đơn thôi việc ${target.resignation_code}`,
       label: 'Lý do từ chối / Phương án giữ chân nhân sự (bắt buộc)',
@@ -1085,6 +1279,7 @@ export function OffboardingView() {
   };
 
   const handleExecuteManagerReassign = async () => {
+    if (!canManageAll) return;
     if (!selectedResignation || !successorEmpId) {
       await alertSwal({
         title: 'Chưa chọn Quản lý kế nhiệm',
@@ -1125,9 +1320,12 @@ export function OffboardingView() {
     }
   };
 
+  const canAddHandover =
+    canManageAll || isSelectedInManagerDept || isSelectedOwn;
+
   const handleAddHandoverItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedResignation || !hoTitle.trim()) return;
+    if (!canAddHandover || !selectedResignation || !hoTitle.trim()) return;
 
     addHandoverItem({
       resignationId: selectedResignation.id,
@@ -1152,7 +1350,7 @@ export function OffboardingView() {
   };
 
   const handleAssignReceiver = (itemId: string, receiverId: string) => {
-    if (!receiverId) return;
+    if (!receiverId || isColleagueReceiverOnly) return;
     try {
       const updated = assignHandoverReceiver({
         handoverItemId: itemId,
@@ -1178,6 +1376,19 @@ export function OffboardingView() {
   };
 
   const handleReceiverConfirm = async (item: HandoverItem) => {
+    const isActualReceiver = Boolean(
+      actorEmployee &&
+        (actorEmployee.id === item.receiver_employee_id ||
+          actorEmployee.employee_code === item.receiver_employee_code)
+    );
+    if (!canManageAll && !isActualReceiver) {
+      showToast(
+        'Không thể xác nhận thay người nhận',
+        'Chỉ đúng đồng nghiệp tiếp nhận hoặc Quản trị Nhân sự mới được xác nhận đã nhận bàn giao.',
+        'warning'
+      );
+      return;
+    }
     if (!item.receiver_employee_id) {
       await alertSwal({
         title: 'Chưa chỉ định người nhận',
@@ -1215,6 +1426,9 @@ export function OffboardingView() {
   };
 
   const handleManagerApproveHandover = async (item: HandoverItem) => {
+    const canApproveHo =
+      canManageAll || (role === 'DEPT_MANAGER' && isSelectedInManagerDept && !isSelectedOwn);
+    if (!canApproveHo) return;
     const confirmed = await confirmSwal({
       title: 'Duyệt hoàn tất bàn giao chuyên môn (3 bên)',
       html: `Nghiệm thu hoàn tất bàn giao 3 bên giữa <b>${escapeSwalHtml(item.employee_name)}</b> và <b>${escapeSwalHtml(item.receiver_name)}</b> cho hạng mục:<br/><b>"${escapeSwalHtml(item.title)}"</b>?`,
@@ -1230,7 +1444,7 @@ export function OffboardingView() {
       syncAllRuntime();
       showToast(
         'Đã duyệt hoàn tất bàn giao 3 bên',
-        `Hạng mục "${item.title}" đã đạt trạng thái COMPLETED.`,
+        `Hạng mục "${item.title}" đã đạt trạng thái Hoàn tất.`,
         'success'
       );
     } catch (err) {
@@ -1274,7 +1488,7 @@ export function OffboardingView() {
   };
 
   const handleReconcileAsset = async (asset: ClearanceAssetItem) => {
-    if (!selectedResignation || !selectedClearance) return;
+    if (!canManageAll || !selectedResignation || !selectedClearance) return;
     const draft = assetDrafts[asset.asset_id] ?? {
       returnedDate: new Date().toISOString().slice(0, 10),
       condition: 'GOOD' as AssetConditionStatus,
@@ -1286,6 +1500,8 @@ export function OffboardingView() {
       Number.parseInt(draft.penaltyVnd.replace(/[^\d]/g, ''), 10) || 0
     );
 
+    const conditionLabel = ASSET_CONDITION_LABEL[draft.condition] ?? draft.condition;
+
     if (
       draft.condition === 'DAMAGED' ||
       draft.condition === 'LOST' ||
@@ -1293,7 +1509,7 @@ export function OffboardingView() {
     ) {
       const confirmed = await confirmSwal({
         title: 'Xác nhận đối soát thiết bị & Tiền đền bù',
-        html: `Thiết bị <b>${escapeSwalHtml(asset.asset_name)} (${escapeSwalHtml(asset.asset_code)})</b> ghi nhận tình trạng <b>${escapeSwalHtml(draft.condition)}</b>.<br/>• Khoản khấu trừ đền bù vào lương quyết toán: <b>${escapeSwalHtml(formatVND(numericPenalty))}</b>.`,
+        html: `Thiết bị <b>${escapeSwalHtml(asset.asset_name)} (${escapeSwalHtml(asset.asset_code)})</b> ghi nhận tình trạng <b>${escapeSwalHtml(conditionLabel)}</b>.<br/>• Khoản khấu trừ đền bù vào lương quyết toán: <b>${escapeSwalHtml(formatVND(numericPenalty))}</b>.`,
         confirmText: 'Xác nhận ghi nhận',
         variant: 'warning',
       });
@@ -1315,7 +1531,7 @@ export function OffboardingView() {
     showToast(
       `Đã đối soát thiết bị ${asset.asset_code}`,
       numericPenalty > 0
-        ? `Ghi nhận tình trạng ${draft.condition} · Khấu trừ đền bù ${formatVND(numericPenalty)}.`
+        ? `Ghi nhận tình trạng ${conditionLabel} · Khấu trừ đền bù ${formatVND(numericPenalty)}.`
         : `Đã thu hồi thiết bị nguyên vẹn ngày ${formatDateVN(draft.returnedDate)}.`,
       'success'
     );
@@ -1325,7 +1541,7 @@ export function OffboardingView() {
     dept: 'ADMIN' | 'IT' | 'ACCOUNTING' | 'HR',
     nextApproved: boolean
   ) => {
-    if (!selectedResignation || !selectedClearance) return;
+    if (!canManageAll || !selectedResignation || !selectedClearance) return;
 
     const deptLabelMap = {
       ADMIN: 'Hành chính - Quản trị thiết bị',
@@ -1377,8 +1593,8 @@ export function OffboardingView() {
       syncAllRuntime();
       showToast(
         nextApproved
-          ? `Đã ký xác nhận bộ phận ${dept}`
-          : `Đã mở lại mục đối soát ${dept}`,
+          ? `Đã ký xác nhận bộ phận ${deptLabelMap[dept] || dept}`
+          : `Đã mở lại mục đối soát ${deptLabelMap[dept] || dept}`,
         `${selectedResignation.full_name} (${selectedResignation.employee_code})`,
         'success'
       );
@@ -1392,13 +1608,13 @@ export function OffboardingView() {
   };
 
   const handleExecuteFinalSettlement = async () => {
-    if (!selectedResignation || !clearanceGate?.is_100_percent_cleared || !settlementPreview) {
+    if (!canManageAll || !selectedResignation || !clearanceGate?.is_100_percent_cleared || !settlementPreview) {
       return;
     }
 
     const confirmed = await confirmSwal({
       title: 'Chốt Quyết toán kỳ cuối & Khóa tài khoản vĩnh viễn?',
-      html: `Hồ sơ <b>${escapeSwalHtml(selectedResignation.full_name)} (${escapeSwalHtml(selectedResignation.employee_code)})</b> đã đạt <b>100% Clearance & Bàn giao 3 bên</b>.<br/><br/>• Thực lĩnh Quyết toán kỳ cuối (NET): <b>${escapeSwalHtml(formatVND(settlementPreview.netSalaryVnd))}</b><br/>• Đánh giá tuyển lại: <b>${escapeSwalHtml(isRehireable ? 'Có thể tuyển dụng lại' : 'Không tuyển dụng lại')}</b><br/>• Chuyển trạng thái nhân sự sang <b>Đã nghỉ việc</b> và <b>khóa tài khoản đăng nhập</b> ngay lập tức, giữ nguyên 100% lịch sử công tác & lương.`,
+      html: `Hồ sơ <b>${escapeSwalHtml(selectedResignation.full_name)} (${escapeSwalHtml(selectedResignation.employee_code)})</b> đã đạt <b>100% Đối soát bàn giao & Bàn giao 3 bên</b>.<br/><br/>• Thực nhận Quyết toán kỳ cuối: <b>${escapeSwalHtml(formatVND(settlementPreview.netSalaryVnd))}</b><br/>• Đánh giá tuyển lại: <b>${escapeSwalHtml(isRehireable ? 'Có thể tuyển dụng lại' : 'Không tuyển dụng lại')}</b><br/>• Chuyển trạng thái nhân sự sang <b>Đã nghỉ việc</b> và <b>khóa tài khoản đăng nhập</b> ngay lập tức, giữ nguyên 100% lịch sử công tác & lương.`,
       confirmText: 'Chốt Quyết toán & Khóa tài khoản',
       variant: 'danger',
     });
@@ -1420,11 +1636,41 @@ export function OffboardingView() {
     } catch (err) {
       await alertSwal({
         title: 'Chặn Quyết toán kỳ cuối',
-        text: err instanceof Error ? err.message : 'Chưa đạt 100% điều kiện Clearance.',
+        text: err instanceof Error ? err.message : 'Chưa đạt 100% điều kiện Đối soát bàn giao.',
         icon: 'error',
       });
     }
   };
+
+  if (isAccessDenied) {
+    return (
+      <div className="mx-auto max-w-xl py-16">
+        <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/15">
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+              <Lock className="h-6 w-6" strokeWidth={1.75} />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Không đủ quyền truy cập Nghỉ việc &amp; Bàn giao (403)
+              </h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Phân hệ Nghỉ việc, Bàn giao 3 bên &amp; Quyết toán hợp đồng chỉ dành cho nhân sự nội bộ đang công tác tại doanh nghiệp.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setActiveNav('dashboard')}
+            >
+              Quay về Bảng điều khiển
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -1466,15 +1712,17 @@ export function OffboardingView() {
             Kiểm soát thời hạn báo trước (3 / 30 / 45 ngày), bàn giao công việc 3 bên, thu hồi tài sản, công nợ và khóa cổng quyết toán 100%.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="primary"
-            onClick={() => openCreateResignationModal()}
-          >
-            <FilePlus2 className="h-4 w-4" strokeWidth={1.5} />
-            Tạo đơn xin nghỉ việc
-          </Button>
-        </div>
+        {canSubmitResignation && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              onClick={() => openCreateResignationModal()}
+            >
+              <FilePlus2 className="h-4 w-4" strokeWidth={1.5} />
+              Tạo đơn xin nghỉ việc
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Receiver Notification Banner if current user has pending handovers to accept */}
@@ -1514,84 +1762,86 @@ export function OffboardingView() {
         </div>
       )}
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                Đơn xin nghỉ chờ duyệt
-              </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
-                {kpiStats.pendingApprovalCount}
-              </p>
-              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Đối chiếu hạn báo trước luật định
-              </p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-50 text-amber-600 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-400">
-              <Clock className="h-4 w-4" strokeWidth={1.5} />
-            </div>
-          </CardContent>
-        </Card>
+      {/* KPI Strip (Hidden for EMPLOYEE to prevent company-wide handover/asset count leak) */}
+      {role !== 'EMPLOYEE' && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="border-l-4 border-l-amber-500 dark:border-l-amber-400">
+            <CardContent className="flex items-center justify-between p-5">
+              <div>
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
+                  Đơn xin nghỉ chờ duyệt
+                </p>
+                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+                  {kpiStats.pendingApprovalCount}
+                </p>
+                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
+                  Đối chiếu hạn báo trước luật định
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-500/20 bg-amber-50 text-amber-600 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-400">
+                <Clock className="h-4 w-4" strokeWidth={1.5} />
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                Nhân sự đang báo trước
-              </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
-                {kpiStats.noticePeriodCount}
-              </p>
-              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Trạng thái NOTICE_PERIOD
-              </p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-950/30 dark:text-blue-400">
-              <CalendarClock className="h-4 w-4" strokeWidth={1.5} />
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400">
+            <CardContent className="flex items-center justify-between p-5">
+              <div>
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
+                  Nhân sự đang báo trước
+                </p>
+                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-blue-700 dark:text-blue-400">
+                  {kpiStats.noticePeriodCount}
+                </p>
+                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
+                  Đang trong thời gian báo trước
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-50 text-blue-600 dark:border-blue-400/20 dark:bg-blue-950/30 dark:text-blue-400">
+                <CalendarClock className="h-4 w-4" strokeWidth={1.5} />
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-l-4 border-l-violet-500 dark:border-l-violet-400">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                Bàn giao & Thu hồi đang xử lý
-              </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-violet-700 dark:text-violet-400">
-                {kpiStats.inFlightItemsCount}
-              </p>
-              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Đầu việc 3 bên & thiết bị cần thu hồi
-              </p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-50 text-violet-600 dark:border-violet-400/20 dark:bg-violet-950/30 dark:text-violet-400">
-              <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="border-l-4 border-l-violet-500 dark:border-l-violet-400">
+            <CardContent className="flex items-center justify-between p-5">
+              <div>
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
+                  Bàn giao & Thu hồi đang xử lý
+                </p>
+                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-violet-700 dark:text-violet-400">
+                  {kpiStats.inFlightItemsCount}
+                </p>
+                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
+                  Đầu việc 3 bên & thiết bị cần thu hồi
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-50 text-violet-600 dark:border-violet-400/20 dark:bg-violet-950/30 dark:text-violet-400">
+                <ClipboardCheck className="h-4 w-4" strokeWidth={1.5} />
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
-          <CardContent className="flex items-center justify-between p-5">
-            <div>
-              <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                Đã quyết toán & Khóa quyền
-              </p>
-              <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                {kpiStats.resignedSettledCount}
-              </p>
-              <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                RESIGNED · Bảo toàn 100% lịch sử
-              </p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-50 text-emerald-600 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-400">
-              <Lock className="h-4 w-4" strokeWidth={1.5} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
+            <CardContent className="flex items-center justify-between p-5">
+              <div>
+                <p className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
+                  Đã quyết toán & Khóa quyền
+                </p>
+                <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                  {kpiStats.resignedSettledCount}
+                </p>
+                <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
+                  Đã nghỉ việc · Bảo toàn 100% lịch sử
+                </p>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-50 text-emerald-600 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-400">
+                <Lock className="h-4 w-4" strokeWidth={1.5} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Master List of Resignation Requests */}
       <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-[#121214]">
@@ -1632,7 +1882,7 @@ export function OffboardingView() {
                     { value: 'ALL', label: 'Tất cả trạng thái' },
                     { value: 'PENDING', label: 'Chờ phê duyệt đơn' },
                     { value: 'ACTIVE_NOTICE', label: 'Đang báo trước & Bàn giao' },
-                    { value: 'COMPLETED', label: 'Đã quyết toán (RESIGNED)' },
+                    { value: 'COMPLETED', label: 'Đã quyết toán nghỉ việc' },
                     { value: 'REJECTED', label: 'Đã từ chối / Giữ chân' },
                   ]}
                 />
@@ -1654,14 +1904,16 @@ export function OffboardingView() {
                   Nhấn &ldquo;Tạo đơn xin nghỉ việc&rdquo; để khởi tạo quy trình kiểm tra hạn báo trước và bàn giao công việc.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openCreateResignationModal()}
-              >
-                <Plus className="h-4 w-4" strokeWidth={1.5} />
-                Tạo đơn xin nghỉ việc
-              </Button>
+              {canSubmitResignation && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openCreateResignationModal()}
+                >
+                  <Plus className="h-4 w-4" strokeWidth={1.5} />
+                  Tạo đơn xin nghỉ việc
+                </Button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1687,7 +1939,22 @@ export function OffboardingView() {
                       RESIGNATION_STATUS_META.PENDING_MANAGER;
                     const isPending =
                       req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR';
+                    const isRowOwn = Boolean(
+                      actorEmployee &&
+                        (req.employee_id === actorEmployee.id ||
+                          req.employee_code === actorEmployee.employee_code)
+                    );
+                    const isRowInManagerDept = Boolean(
+                      role === 'DEPT_MANAGER' &&
+                        (managerDeptIds.has(req.department_id) ||
+                          managerDeptNames.has(
+                            req.department_name.trim().toLowerCase()
+                          ))
+                    );
+                    const isRowReceiverOnly =
+                      !canManageAll && !isRowOwn && !isRowInManagerDept;
                     const rowGate =
+                      !isRowReceiverOnly &&
                       !isPending &&
                       req.status !== 'REJECTED' &&
                       req.status !== 'CANCELLED'
@@ -1721,24 +1988,30 @@ export function OffboardingView() {
                           </div>
                         </td>
                         <td className="px-2.5 py-2.5">
-                          <Badge
-                            variant={contractMeta.badgeVariant}
-                            title={contractMeta.label}
-                          >
-                            {contractMeta.shortLabel}
-                          </Badge>
-                          <div className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
-                            Tối thiểu {req.minimum_notice_days}d
-                            {req.notice_shortfall_days > 0 ? (
-                              <span className="ml-1 font-semibold text-amber-700 dark:text-amber-400">
-                                (Thiếu {req.notice_shortfall_days}d)
-                              </span>
-                            ) : (
-                              <span className="ml-1 text-emerald-700 dark:text-emerald-400">
-                                (Đúng luật)
-                              </span>
-                            )}
-                          </div>
+                          {isRowReceiverOnly ? (
+                            <Badge variant="outline">Nhận bàn giao công việc</Badge>
+                          ) : (
+                            <>
+                              <Badge
+                                variant={contractMeta.badgeVariant}
+                                title={contractMeta.label}
+                              >
+                                {contractMeta.shortLabel}
+                              </Badge>
+                              <div className="mt-1 font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-400">
+                                Tối thiểu {req.minimum_notice_days}d
+                                {req.notice_shortfall_days > 0 ? (
+                                  <span className="ml-1 font-semibold text-amber-700 dark:text-amber-400">
+                                    (Thiếu {req.notice_shortfall_days}d)
+                                  </span>
+                                ) : (
+                                  <span className="ml-1 text-emerald-700 dark:text-emerald-400">
+                                    (Đúng luật)
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-2.5 py-2.5 font-mono text-xs tabular-nums text-[#11221E] dark:text-zinc-200">
                           <div>Nộp: {formatDateVN(req.submitted_date)}</div>
@@ -1750,7 +2023,11 @@ export function OffboardingView() {
                           </div>
                         </td>
                         <td className="px-2.5 py-2.5">
-                          {req.status === 'COMPLETED' ? (
+                          {isRowReceiverOnly ? (
+                            <span className="text-xs text-[#0F766E] dark:text-teal-400">
+                              Chỉ xem mục giao cho bạn
+                            </span>
+                          ) : req.status === 'COMPLETED' ? (
                             <div className="space-y-1">
                               <span className="font-mono text-xs font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                                 100% Đã tất toán
@@ -1795,7 +2072,7 @@ export function OffboardingView() {
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="inline-flex items-center gap-1">
-                            {isPending && canApproveResignation && (
+                            {canActorApproveResignationRecord(req) && (
                               <>
                                 <Button
                                   size="sm"
@@ -1854,7 +2131,7 @@ export function OffboardingView() {
                     {RESIGNATION_STATUS_META[selectedResignation.status]?.label ??
                       selectedResignation.status}
                   </Badge>
-                  {selectedResignation.status === 'COMPLETED' && (
+                  {canManageAll && selectedResignation.status === 'COMPLETED' && (
                     <Badge
                       variant={
                         selectedResignation.is_rehireable !== false
@@ -1863,8 +2140,8 @@ export function OffboardingView() {
                       }
                     >
                       {selectedResignation.is_rehireable !== false
-                        ? 'Có thể tuyển lại (Re-hireable)'
-                        : 'Không tuyển lại (No Re-hire)'}
+                        ? 'Có thể tuyển lại'
+                        : 'Không tuyển lại'}
                     </Badge>
                   )}
                 </div>
@@ -1890,7 +2167,7 @@ export function OffboardingView() {
                 <div className="flex items-center gap-3 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
                   <div>
                     <p className="text-[11px] font-medium text-[#5C7871] dark:text-zinc-400">
-                      Cổng kiểm soát Clearance 100%
+                      Cổng kiểm soát Đối soát bàn giao 100%
                     </p>
                     <p className="font-mono text-base font-semibold tabular-nums text-[#11221E] dark:text-zinc-100">
                       {selectedResignation.status === 'COMPLETED'
@@ -1918,200 +2195,215 @@ export function OffboardingView() {
           <CardContent className="p-5">
             <Tabs value={detailTab} onValueChange={setDetailTab} className="space-y-5">
               <TabsList className="flex flex-wrap gap-1">
-                <TabsTrigger value="overview">
-                  1. Đơn & Thời hạn báo trước
-                </TabsTrigger>
+                {!isColleagueReceiverOnly && (
+                  <TabsTrigger value="overview">
+                    1. Đơn & Thời hạn báo trước
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="handover">
-                  2. Bàn giao 3 bên & Kế nhiệm ({selectedHandovers.filter((h) => h.status === 'COMPLETED').length}/{selectedHandovers.length})
+                  {isColleagueReceiverOnly
+                    ? `Hạng mục bàn giao tiếp nhận (${selectedHandovers.filter((h) => h.status === 'COMPLETED').length}/${selectedHandovers.length})`
+                    : `2. Bàn giao 3 bên & Kế nhiệm (${selectedHandovers.filter((h) => h.status === 'COMPLETED').length}/${selectedHandovers.length})`}
                 </TabsTrigger>
-                <TabsTrigger value="clearance">
-                  3. Thu hồi Tài sản & Công nợ
-                </TabsTrigger>
-                <TabsTrigger value="settlement">
-                  4. Quyết toán kỳ cuối & Khóa TK
-                </TabsTrigger>
+                {!isColleagueReceiverOnly && (
+                  <TabsTrigger value="clearance">
+                    3. Thu hồi Tài sản & Công nợ
+                  </TabsTrigger>
+                )}
+                {canManageAll && (
+                  <TabsTrigger value="settlement">
+                    4. Quyết toán kỳ cuối & Khóa TK
+                  </TabsTrigger>
+                )}
               </TabsList>
 
               {/* TAB 1: OVERVIEW & LEGAL NOTICE APPROVAL */}
-              <TabsContent value="overview" className="space-y-5">
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
-                    <p className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
-                      Hợp đồng lao động hiện hành
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                      {CONTRACT_TYPE_META[selectedResignation.contract_type]?.label ??
-                        selectedResignation.contract_type}
-                    </p>
-                    <p className="mt-1 font-mono text-xs tabular-nums text-[#0F766E] dark:text-teal-400">
-                      Luật Lao động: Báo trước tối thiểu{' '}
-                      {selectedResignation.minimum_notice_days} ngày
-                    </p>
-                  </div>
+              {!isColleagueReceiverOnly && (
+                <TabsContent value="overview" className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                      <p className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
+                        Hợp đồng lao động hiện hành
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                        {CONTRACT_TYPE_META[selectedResignation.contract_type]?.label ??
+                          selectedResignation.contract_type}
+                      </p>
+                      <p className="mt-1 font-mono text-xs tabular-nums text-[#0F766E] dark:text-teal-400">
+                        Luật Lao động: Báo trước tối thiểu{' '}
+                        {selectedResignation.minimum_notice_days} ngày
+                      </p>
+                    </div>
 
-                  <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
-                    <p className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
-                      Mốc thời gian báo trước
-                    </p>
-                    <div className="mt-1 space-y-1 font-mono text-xs tabular-nums text-[#11221E] dark:text-zinc-200">
-                      <div>Ngày nộp đơn: {formatDateVN(selectedResignation.submitted_date)}</div>
-                      <div>
-                        Hợp pháp sớm nhất:{' '}
-                        <span className="font-semibold text-[#0F766E] dark:text-teal-400">
-                          {formatDateVN(selectedResignation.earliest_legal_last_day)}
-                        </span>
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                      <p className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
+                        Mốc thời gian báo trước
+                      </p>
+                      <div className="mt-1 space-y-1 font-mono text-xs tabular-nums text-[#11221E] dark:text-zinc-200">
+                        <div>Ngày nộp đơn: {formatDateVN(selectedResignation.submitted_date)}</div>
+                        <div>
+                          Hợp pháp sớm nhất:{' '}
+                          <span className="font-semibold text-[#0F766E] dark:text-teal-400">
+                            {formatDateVN(selectedResignation.earliest_legal_last_day)}
+                          </span>
+                        </div>
+                        <div>
+                          Ngày mong muốn: {formatDateVN(selectedResignation.desired_last_day)}
+                        </div>
                       </div>
-                      <div>
-                        Ngày mong muốn: {formatDateVN(selectedResignation.desired_last_day)}
-                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+                      <p className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
+                        Nhóm lý do thôi việc
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                        {REASON_CATEGORY_LABEL[selectedResignation.reason_category] ??
+                          selectedResignation.reason_category}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#415A54] dark:text-zinc-300">
+                        {selectedResignation.reason}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
-                    <p className="text-xs font-medium text-[#5C7871] dark:text-zinc-400">
-                      Nhóm lý do thôi việc
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                      {REASON_CATEGORY_LABEL[selectedResignation.reason_category] ??
-                        selectedResignation.reason_category}
-                    </p>
-                    <p className="mt-1 text-xs leading-5 text-[#415A54] dark:text-zinc-300">
-                      {selectedResignation.reason}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedResignation.notice_shortfall_days > 0 && (
-                  <div className="rounded-xl border border-amber-500/40 border-l-4 border-l-amber-500 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:border-l-amber-400 dark:bg-amber-950/20">
-                    <div className="flex items-start gap-2.5">
-                      <AlertTriangle
-                        className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
-                        strokeWidth={1.5}
-                      />
-                      <div className="text-xs leading-5 text-amber-900 dark:text-amber-200">
-                        <span className="font-semibold">
-                          Cảnh báo thiếu thời hạn báo trước luật định:
-                        </span>{' '}
-                        Ngày nghỉ mong muốn ({formatDateVN(selectedResignation.desired_last_day)}) sớm hơn mốc tối thiểu{' '}
-                        <span className="font-mono font-semibold tabular-nums">
-                          {selectedResignation.notice_shortfall_days} ngày
-                        </span>{' '}
-                        (yêu cầu từ ngày{' '}
-                        <span className="font-mono font-semibold tabular-nums">
-                          {formatDateVN(selectedResignation.earliest_legal_last_day)}
-                        </span>
-                        ). HR có thể ấn định ngày làm việc cuối cùng đúng hạn luật định hoặc tích chọn thỏa thuận rút ngắn.
+                  {selectedResignation.notice_shortfall_days > 0 && (
+                    <div className="rounded-xl border border-amber-500/40 border-l-4 border-l-amber-500 bg-amber-50/70 p-4 dark:border-amber-500/30 dark:border-l-amber-400 dark:bg-amber-950/20">
+                      <div className="flex items-start gap-2.5">
+                        <AlertTriangle
+                          className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
+                          strokeWidth={1.5}
+                        />
+                        <div className="text-xs leading-5 text-amber-900 dark:text-amber-200">
+                          <span className="font-semibold">
+                            Cảnh báo thiếu thời hạn báo trước luật định:
+                          </span>{' '}
+                          Ngày nghỉ mong muốn ({formatDateVN(selectedResignation.desired_last_day)}) sớm hơn mốc tối thiểu{' '}
+                          <span className="font-mono font-semibold tabular-nums">
+                            {selectedResignation.notice_shortfall_days} ngày
+                          </span>{' '}
+                          (yêu cầu từ ngày{' '}
+                          <span className="font-mono font-semibold tabular-nums">
+                            {formatDateVN(selectedResignation.earliest_legal_last_day)}
+                          </span>
+                          ). HR có thể ấn định ngày làm việc cuối cùng đúng hạn luật định hoặc tích chọn thỏa thuận rút ngắn.
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {(selectedResignation.status === 'PENDING_MANAGER' ||
-                  selectedResignation.status === 'PENDING_HR') &&
-                canApproveResignation ? (
-                  <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-5 dark:border-zinc-800 dark:bg-zinc-900/60">
-                    <h3 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                      Phê duyệt Đơn thôi việc & Chốt ngày làm việc cuối cùng
-                    </h3>
-                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div>
-                        <label
-                          htmlFor="approve-last-day"
-                          className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
-                        >
-                          Ngày làm việc cuối cùng được phê duyệt
+                  {canActorApproveResignationRecord(selectedResignation) ? (
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-5 dark:border-zinc-800 dark:bg-zinc-900/60">
+                      <h3 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+                        Phê duyệt Đơn thôi việc & Chốt ngày làm việc cuối cùng
+                      </h3>
+                      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor="approve-last-day"
+                            className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                          >
+                            Ngày làm việc cuối cùng được phê duyệt
+                          </label>
+                          <Input
+                            id="approve-last-day"
+                            type="date"
+                            min={
+                              !canManageAll
+                                ? selectedResignation.earliest_legal_last_day
+                                : undefined
+                            }
+                            value={approveLastDayInput}
+                            onChange={(e) => setApproveLastDayInput(e.target.value)}
+                            className="mt-1.5 font-mono tabular-nums"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="exit-interview-note"
+                            className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                          >
+                            Ghi chú phỏng vấn nghỉ việc
+                          </label>
+                          <Input
+                            id="exit-interview-note"
+                            value={exitInterviewInput}
+                            onChange={(e) => setExitInterviewInput(e.target.value)}
+                            placeholder="Ghi nhận ý kiến đóng góp & thỏa thuận bàn giao..."
+                            className="mt-1.5"
+                          />
+                        </div>
+                      </div>
+
+                      {canManageAll && selectedResignation.notice_shortfall_days > 0 && (
+                        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs text-[#415A54] dark:text-zinc-300">
+                          <input
+                            type="checkbox"
+                            checked={waiveShortfallInput}
+                            onChange={(e) => setWaiveShortfallInput(e.target.checked)}
+                            className="h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E]"
+                          />
+                          <span>
+                            Đồng ý miễn trừ số ngày báo trước còn thiếu theo thỏa thuận hai bên
+                          </span>
                         </label>
-                        <Input
-                          id="approve-last-day"
-                          type="date"
-                          value={approveLastDayInput}
-                          onChange={(e) => setApproveLastDayInput(e.target.value)}
-                          className="mt-1.5 font-mono tabular-nums"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="exit-interview-note"
-                          className="block text-xs font-medium text-[#415A54] dark:text-zinc-300"
+                      )}
+
+                      <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                        <Button
+                          variant="primary"
+                          onClick={() =>
+                            void handleApproveResignation(selectedResignation)
+                          }
                         >
-                          Ghi chú phỏng vấn nghỉ việc (Exit Interview)
-                        </label>
-                        <Input
-                          id="exit-interview-note"
-                          value={exitInterviewInput}
-                          onChange={(e) => setExitInterviewInput(e.target.value)}
-                          placeholder="Ghi nhận ý kiến đóng góp & thỏa thuận bàn giao..."
-                          className="mt-1.5"
-                        />
+                          <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
+                          {canManageAll
+                            ? 'Phê duyệt & Chuyển sang Thời gian báo trước'
+                            : 'Duyệt bước Quản lý (Chuyển Nhân sự)'}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() =>
+                            void handleRejectResignation(selectedResignation)
+                          }
+                        >
+                          <XCircle className="h-4 w-4" strokeWidth={1.5} />
+                          Từ chối
+                        </Button>
                       </div>
                     </div>
-
-                    {selectedResignation.notice_shortfall_days > 0 && (
-                      <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs text-[#415A54] dark:text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={waiveShortfallInput}
-                          onChange={(e) => setWaiveShortfallInput(e.target.checked)}
-                          className="h-4 w-4 rounded border-[#C6D9D3] text-[#0F766E]"
-                        />
-                        <span>
-                          Đồng ý miễn trừ số ngày báo trước còn thiếu theo thỏa thuận hai bên
-                        </span>
-                      </label>
-                    )}
-
-                    <div className="mt-5 flex flex-wrap items-center gap-2.5">
-                      <Button
-                        variant="primary"
-                        onClick={() =>
-                          void handleApproveResignation(selectedResignation)
-                        }
-                      >
-                        <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
-                        Phê duyệt & Chuyển sang NOTICE_PERIOD
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={() =>
-                          void handleRejectResignation(selectedResignation)
-                        }
-                      >
-                        <XCircle className="h-4 w-4" strokeWidth={1.5} />
-                        Từ chối đơn (Giữ chân nhân sự)
-                      </Button>
+                  ) : (
+                    <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/50 p-4 text-xs text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
+                      {selectedResignation.status === 'REJECTED' ? (
+                        <p>
+                          <span className="font-semibold text-rose-700 dark:text-rose-400">
+                            Đơn đã từ chối:
+                          </span>{' '}
+                          {selectedResignation.rejection_reason}
+                        </p>
+                      ) : selectedResignation.approved_last_day ? (
+                        <p>
+                          Đơn đã được phê duyệt bởi{' '}
+                          <span className="font-semibold text-[#11221E] dark:text-zinc-100">
+                            {selectedResignation.hr_approved_by ||
+                              selectedResignation.manager_approved_by ||
+                              'Phòng Nhân sự'}
+                          </span>
+                          . Ngày làm việc cuối cùng đã chốt:{' '}
+                          <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                            {formatDateVN(selectedResignation.approved_last_day)}
+                          </span>
+                          . Vui lòng chuyển sang Tab 2 & Tab 3 để thực hiện Bàn giao 3 bên và Thu hồi tài sản.
+                        </p>
+                      ) : (
+                        <p>
+                          Đơn đang chờ Trưởng bộ phận và Phòng Nhân sự rà soát phê duyệt.
+                        </p>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-[#C6D9D3] bg-[#F2F7F5]/50 p-4 text-xs text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
-                    {selectedResignation.status === 'REJECTED' ? (
-                      <p>
-                        <span className="font-semibold text-rose-700 dark:text-rose-400">
-                          Đơn đã từ chối:
-                        </span>{' '}
-                        {selectedResignation.rejection_reason}
-                      </p>
-                    ) : selectedResignation.approved_last_day ? (
-                      <p>
-                        Đơn đã được phê duyệt bởi{' '}
-                        <span className="font-semibold text-[#11221E] dark:text-zinc-100">
-                          {selectedResignation.hr_approved_by ||
-                            selectedResignation.manager_approved_by ||
-                            'Phòng Nhân sự'}
-                        </span>
-                        . Ngày làm việc cuối cùng đã chốt:{' '}
-                        <span className="font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
-                          {formatDateVN(selectedResignation.approved_last_day)}
-                        </span>
-                        . Vui lòng chuyển sang Tab 2 & Tab 3 để thực hiện Bàn giao 3 bên và Thu hồi tài sản.
-                      </p>
-                    ) : (
-                      <p>
-                        Đơn đang chờ Trưởng bộ phận và Phòng Nhân sự rà soát phê duyệt.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
+                  )}
+                </TabsContent>
+              )}
 
               {/* TAB 2: 3-WAY HANDOVER & MANDATORY MANAGER RE-ASSIGN */}
               <TabsContent value="handover" className="space-y-5">
@@ -2149,7 +2441,7 @@ export function OffboardingView() {
                                 strokeWidth={1.5}
                               />
                               <h3 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                                Bắt buộc Chuyển giao Quản lý kế nhiệm (Re-assign Subordinates & Pending Requests)
+                                Bắt buộc Chuyển giao Quản lý kế nhiệm
                               </h3>
                             </div>
 
@@ -2162,7 +2454,7 @@ export function OffboardingView() {
                                   </span>{' '}
                                   và có{' '}
                                   <span className="font-mono font-semibold tabular-nums text-amber-800 dark:text-amber-300">
-                                    {managerDependency.pending_requests.length} đơn từ đang chờ duyệt (PENDING)
+                                    {managerDependency.pending_requests.length} đơn từ đang chờ duyệt
                                   </span>
                                   . Bắt buộc chuyển quyền phê duyệt sang Quản lý kế nhiệm trước khi quyết toán!
                                 </p>
@@ -2195,7 +2487,7 @@ export function OffboardingView() {
                           </div>
 
                           {requiresSuccessorReassign &&
-                            canApproveResignation && (
+                            canManageAll && (
                               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
                                 <div className="w-full sm:w-72">
                                   <Select
@@ -2235,7 +2527,8 @@ export function OffboardingView() {
                       Mỗi đầu việc chỉ được tính hoàn tất khi đủ xác nhận của cả 3 bên.
                     </p>
                   </div>
-                  {selectedResignation.status !== 'COMPLETED' &&
+                  {canAddHandover &&
+                    selectedResignation.status !== 'COMPLETED' &&
                     selectedResignation.status !== 'REJECTED' && (
                       <Button
                         size="sm"
@@ -2261,22 +2554,34 @@ export function OffboardingView() {
                   <div className="space-y-3">
                     {selectedHandovers.map((item) => {
                       const canAssignReceiver =
+                        !isColleagueReceiverOnly &&
                         selectedResignation.status !== 'COMPLETED' &&
-                        (canApproveResignation ||
+                        (canManageAll ||
+                          isSelectedInManagerDept ||
                           actorEmployee?.id === item.employee_id);
+                      const canConfirmSender =
+                        selectedResignation.status !== 'COMPLETED' &&
+                        !item.sender_confirmed &&
+                        (canManageAll || actorEmployee?.id === item.employee_id);
                       const canConfirmAsReceiver =
                         selectedResignation.status !== 'COMPLETED' &&
                         Boolean(item.receiver_employee_id) &&
                         !item.receiver_confirmed &&
                         (canManageAll ||
-                          role === 'DEPT_MANAGER' ||
-                          actorEmployee?.id === item.receiver_employee_id ||
-                          actorEmployee?.employee_code === item.receiver_employee_code);
+                          Boolean(
+                            actorEmployee &&
+                              (actorEmployee.id === item.receiver_employee_id ||
+                                actorEmployee.employee_code ===
+                                  item.receiver_employee_code)
+                          ));
                       const canApproveAsManager =
                         selectedResignation.status !== 'COMPLETED' &&
                         item.receiver_confirmed &&
                         !item.manager_approved &&
-                        canApproveResignation;
+                        (canManageAll ||
+                          (role === 'DEPT_MANAGER' &&
+                            isSelectedInManagerDept &&
+                            !isSelectedOwn));
 
                       return (
                         <div
@@ -2300,7 +2605,7 @@ export function OffboardingView() {
                                   }
                                 >
                                   {item.status === 'COMPLETED'
-                                    ? 'Hoàn tất 3 bên (COMPLETED)'
+                                    ? 'Hoàn tất 3 bên'
                                     : item.status === 'PENDING_MANAGER'
                                       ? 'Chờ Quản lý nghiệm thu'
                                       : 'Chờ người nhận xác nhận'}
@@ -2362,7 +2667,7 @@ export function OffboardingView() {
                                   className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
                                   strokeWidth={1.5}
                                 />
-                              ) : (
+                              ) : canConfirmSender ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -2373,6 +2678,8 @@ export function OffboardingView() {
                                 >
                                   Xác nhận gửi
                                 </Button>
+                              ) : (
+                                <Badge variant="outline">Chờ gửi</Badge>
                               )}
                             </div>
 
@@ -2446,11 +2753,12 @@ export function OffboardingView() {
               </TabsContent>
 
               {/* TAB 3: ASSET RECONCILIATION & DEPARTMENT CLEARANCE CHECKLIST */}
+              {!isColleagueReceiverOnly && (
               <TabsContent value="clearance" className="space-y-5">
                 {!selectedClearance ? (
                   <div className="rounded-xl border border-dashed border-[#C6D9D3] p-8 text-center dark:border-zinc-800">
                     <p className="text-sm font-medium text-[#415A54] dark:text-zinc-300">
-                      Phiếu Clearance sẽ được khởi tạo ngay sau khi Đơn thôi việc được phê duyệt ở Tab 1.
+                      Phiếu Đối soát bàn giao sẽ được khởi tạo ngay sau khi Đơn thôi việc được phê duyệt ở Tab 1.
                     </p>
                   </div>
                 ) : (
@@ -2479,7 +2787,7 @@ export function OffboardingView() {
                         <div className="flex items-center gap-2.5 px-4 py-5 text-xs text-emerald-800 dark:text-emerald-300">
                           <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                           <span>
-                            Nhân sự hiện không giữ thiết bị phần cứng nào của công ty — Hạng mục Hành chính (ADMIN) tự động hoàn tất 100%.
+                            Nhân sự hiện không giữ thiết bị phần cứng nào của công ty — Hạng mục Hành chính tự động hoàn tất 100%.
                           </span>
                         </div>
                       ) : (
@@ -2531,7 +2839,7 @@ export function OffboardingView() {
                                         type="date"
                                         value={draft.returnedDate}
                                         disabled={
-                                          !canApproveResignation ||
+                                          !canManageAll ||
                                           selectedResignation.status === 'COMPLETED'
                                         }
                                         onChange={(e) =>
@@ -2546,7 +2854,7 @@ export function OffboardingView() {
                                       <Select
                                         value={draft.condition}
                                         disabled={
-                                          !canApproveResignation ||
+                                          !canManageAll ||
                                           selectedResignation.status === 'COMPLETED'
                                         }
                                         onValueChange={(val) =>
@@ -2565,7 +2873,7 @@ export function OffboardingView() {
                                         step={100000}
                                         value={draft.penaltyVnd}
                                         disabled={
-                                          !canApproveResignation ||
+                                          !canManageAll ||
                                           selectedResignation.status === 'COMPLETED'
                                         }
                                         onChange={(e) =>
@@ -2594,7 +2902,7 @@ export function OffboardingView() {
                                       )}
                                     </td>
                                     <td className="whitespace-nowrap px-1.5 py-2 text-right">
-                                      {canApproveResignation &&
+                                      {canManageAll &&
                                         selectedResignation.status !==
                                           'COMPLETED' && (
                                           <Button
@@ -2629,7 +2937,7 @@ export function OffboardingView() {
                               strokeWidth={1.5}
                             />
                             <h4 className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
-                              1. Hành chính (ADMIN) — Tài sản & Thẻ từ
+                              1. Hành chính — Tài sản & Thẻ từ
                             </h4>
                           </div>
                           <Badge
@@ -2898,13 +3206,15 @@ export function OffboardingView() {
                   </>
                 )}
               </TabsContent>
+              )}
 
               {/* TAB 4: 100% HARD GATE & FINAL SETTLEMENT */}
+              {canManageAll && (
               <TabsContent value="settlement" className="space-y-5">
                 {!clearanceGate || !settlementPreview ? (
                   <div className="rounded-xl border border-dashed border-[#C6D9D3] p-8 text-center dark:border-zinc-800">
                     <p className="text-sm font-medium text-[#415A54] dark:text-zinc-300">
-                      Đơn thôi việc cần được phê duyệt chuyển sang giai đoạn Báo trước (NOTICE_PERIOD) trước khi tính Quyết toán kỳ cuối.
+                      Đơn thôi việc cần được phê duyệt chuyển sang giai đoạn Thời gian báo trước trước khi tính Quyết toán kỳ cuối.
                     </p>
                   </div>
                 ) : (
@@ -2937,7 +3247,7 @@ export function OffboardingView() {
                             {selectedResignation.status === 'COMPLETED'
                               ? 'Đã hoàn tất Quyết toán kỳ cuối & Khóa tài khoản truy cập'
                               : clearanceGate.is_100_percent_cleared
-                                ? 'Đạt 100% điều kiện Clearance & Bàn giao 3 bên — Sẵn sàng chốt Quyết toán!'
+                                ? 'Đạt 100% điều kiện Đối soát bàn giao & Bàn giao 3 bên — Sẵn sàng chốt Quyết toán!'
                                 : `Khóa chặn Quyết toán — Mới đạt ${clearanceGate.completion_percent}% (Bắt buộc hoàn thành đủ 100%)`}
                           </h3>
                         </div>
@@ -2977,7 +3287,7 @@ export function OffboardingView() {
                           </div>
                           {settlementPreview.existingFinalPayslip && (
                             <Badge variant="success" className="font-mono">
-                              {settlementPreview.existingFinalPayslip.payslip_code} · PAID
+                              {settlementPreview.existingFinalPayslip.payslip_code} · Đã chi trả
                             </Badge>
                           )}
                         </div>
@@ -3012,7 +3322,7 @@ export function OffboardingView() {
 
                           <div className="flex items-center justify-between border-t border-dashed border-[#C6D9D3] pt-2 font-semibold dark:border-zinc-800">
                             <span className="text-[#11221E] dark:text-zinc-200">
-                              Tổng thu nhập Gross Quyết toán
+                              Tổng khoản cộng Quyết toán
                             </span>
                             <span className="font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
                               {formatVND(settlementPreview.grossSalaryVnd)}
@@ -3043,7 +3353,7 @@ export function OffboardingView() {
                           <div className="mt-2 flex items-center justify-between rounded-xl border border-[#0F766E]/35 bg-[#CBE8E2]/55 px-4 py-3 dark:border-teal-500/30 dark:bg-teal-950/35">
                             <div>
                               <p className="text-xs font-semibold text-[#0B4F4A] dark:text-teal-300">
-                                Thực lĩnh Quyết toán kỳ cuối (NET PAYOUT)
+                                Thực lĩnh quyết toán kỳ cuối
                               </p>
                               <p className="text-[11px] text-[#415A54] dark:text-zinc-400">
                                 Loại bảng lương: Quyết toán thôi việc cuối kỳ
@@ -3177,7 +3487,7 @@ export function OffboardingView() {
                           {!clearanceGate.is_100_percent_cleared &&
                             selectedResignation.status !== 'COMPLETED' && (
                               <p className="mt-2 text-center text-[11px] text-rose-600 dark:text-rose-400">
-                                Nút bị khóa cứng cho đến khi hoàn thành đủ 100% Bàn giao 3 bên & Clearance.
+                                Nút bị khóa cứng cho đến khi hoàn thành đủ 100% Bàn giao 3 bên & Đối soát bàn giao.
                               </p>
                             )}
                         </div>
@@ -3186,6 +3496,7 @@ export function OffboardingView() {
                   </>
                 )}
               </TabsContent>
+              )}
             </Tabs>
           </CardContent>
         </Card>
@@ -3212,7 +3523,7 @@ export function OffboardingView() {
               <Select
                 id="resign-emp-select"
                 value={formEmployeeId}
-                disabled={role === 'EMPLOYEE'}
+                disabled={role === 'EMPLOYEE' || role === 'DEPT_MANAGER'}
                 onValueChange={handleSelectEmployeeInForm}
                 className="mt-1.5"
                 options={eligibleEmployeesForResignation.map((e) => ({
@@ -3387,7 +3698,7 @@ export function OffboardingView() {
           <DialogHeader>
             <DialogTitle>Thêm hạng mục bàn giao công việc 3 bên</DialogTitle>
             <DialogDescription>
-              Kê khai đầu việc, tình trạng hiện tại và đường dẫn tài liệu / source code để đồng nghiệp xác nhận tiếp nhận.
+              Kê khai đầu việc, tình trạng hiện tại và đường dẫn tài liệu / mã nguồn để đồng nghiệp xác nhận tiếp nhận.
             </DialogDescription>
           </DialogHeader>
 
@@ -3432,7 +3743,7 @@ export function OffboardingView() {
 
             <div>
               <label className="block text-xs font-medium text-[#415A54] dark:text-zinc-300">
-                Link tài liệu / Kho mã nguồn (Source code / Wiki)
+                Link tài liệu / Kho mã nguồn
               </label>
               <Input
                 value={hoDocLinkNote}

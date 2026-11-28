@@ -20,9 +20,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useApp, ROLE_DEFAULT_PROFILES } from "@/context/app-context";
-import { NAV_ITEMS } from "@/components/layout/sidebar";
+import { NAV_ITEMS, canRoleAccessNav } from "@/components/layout/sidebar";
 import {
   HRM_RUNTIME_EVENT,
+  findSystemUserForLogin,
   getNotificationsForActor,
   markNotificationRead,
   markAllNotificationsRead,
@@ -345,6 +346,7 @@ function formatNotificationTimestamp(isoInput: string): string {
 export function Header({ onOpenMobileMenu }: HeaderProps) {
   const {
     role,
+    currentUserEmail,
     currentUserProfile,
     theme,
     toggleTheme,
@@ -360,17 +362,54 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
   const bellContainerRef = useRef<HTMLDivElement | null>(null);
 
   const defaultProfile = ROLE_DEFAULT_PROFILES[role];
+  const matchedActor = useMemo(() => {
+    const lookup =
+      currentUserProfile?.employee_code?.trim() ||
+      currentUserEmail?.trim() ||
+      currentUserProfile?.email?.trim() ||
+      "";
+    if (!lookup) return null;
+    return findSystemUserForLogin(lookup);
+  }, [
+    currentUserProfile?.employee_code,
+    currentUserProfile?.email,
+    currentUserEmail,
+  ]);
+
+  const hasCustomSession = Boolean(
+    currentUserEmail?.trim() ||
+      currentUserProfile?.employee_code?.trim() ||
+      currentUserProfile?.fullName?.trim()
+  );
   const actorEmpCode =
-    currentUserProfile?.employee_code || defaultProfile.employee_code;
+    matchedActor?.employee?.employee_code ||
+    matchedActor?.user?.employee_code ||
+    currentUserProfile?.employee_code?.trim() ||
+    (hasCustomSession ? "" : defaultProfile.employee_code);
   const actorDeptId =
+    matchedActor?.employee?.department_id ||
     currentUserProfile?.department_id ||
     currentUserProfile?.department ||
-    defaultProfile.department;
+    (hasCustomSession ? "" : defaultProfile.department);
+
+  const resolveNotificationTargetNav = useCallback(
+    (item: Pick<HrmNotification, "nav_id" | "title" | "message">): string =>
+      item.nav_id ||
+      (item.title.toLowerCase().includes("dời lịch") ||
+      item.message.toLowerCase().includes("dời lịch")
+        ? "ats"
+        : "dashboard"),
+    []
+  );
 
   const syncNotifications = useCallback(() => {
     const items = getNotificationsForActor(role, actorEmpCode, actorDeptId);
-    setNotifications(items);
-  }, [role, actorEmpCode, actorDeptId]);
+    setNotifications(
+      items.filter((item) =>
+        canRoleAccessNav(role, resolveNotificationTargetNav(item))
+      )
+    );
+  }, [role, actorEmpCode, actorDeptId, resolveNotificationTargetNav]);
 
   useEffect(() => {
     syncNotifications();
@@ -445,11 +484,11 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
     markNotificationRead(item.id, role, actorEmpCode);
     setIsBellOpen(false);
     setConfirmResetOpen(false);
-    const targetNav =
-      item.nav_id ||
-      (item.title.toLowerCase().includes("dời lịch") || item.message.toLowerCase().includes("dời lịch")
-        ? "ats"
-        : "dashboard");
+    const targetNav = resolveNotificationTargetNav(item);
+    if (!canRoleAccessNav(role, targetNav)) {
+      navigateWithIntent("dashboard");
+      return;
+    }
     navigateWithIntent(targetNav, {
       entityId: item.entity_id,
       subTab: item.sub_tab,

@@ -35,7 +35,6 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ROLE_DEFAULT_PROFILES,
   useApp,
   type RoleCode,
   type UserProfileOverride,
@@ -101,118 +100,58 @@ const TECH_DIVISION_DEPARTMENTS = new Set([
   'Phòng Dữ liệu & AI',
 ]);
 
-const ROLE_ACTOR_DEFAULT: Record<
-  RoleCode,
-  { code: string; name: string; dept: string; pos: string }
-> = {
-  SUPER_ADMIN: {
-    code: 'NV-2024-001',
-    name: 'Nguyễn Văn An',
-    dept: 'Ban Điều hành',
-    pos: 'Quản trị Hệ thống Cấp cao',
-  },
-  DIRECTOR: {
-    code: 'NV-2024-000',
-    name: 'Trần Quốc Việt',
-    dept: 'Ban Điều hành',
-    pos: 'Giám đốc Điều hành',
-  },
-  HR_MANAGER: {
-    code: 'NV-2024-002',
-    name: 'Trần Thị Bích Ngọc',
-    dept: 'Phòng Nhân sự & Hành chính',
-    pos: 'Trưởng phòng Nhân sự & Hành chính',
-  },
-  DEPT_MANAGER: {
-    code: 'NV-2024-003',
-    name: 'Lê Hoàng Nam',
-    dept: 'Khối Công nghệ',
-    pos: 'Trưởng khối Công nghệ',
-  },
-  EMPLOYEE: {
-    code: 'NV-2024-004',
-    name: 'Phạm Minh Tuấn',
-    dept: 'Phòng Kỹ thuật Phần mềm',
-    pos: 'Kỹ sư Phần mềm Cao cấp (Senior Fullstack)',
-  },
-  CANDIDATE: {
-    code: 'UV-DEMO-001',
-    name: 'Hoàng Vũ Minh',
-    dept: 'Cổng Ứng viên Tuyển dụng',
-    pos: 'Ứng viên tìm việc',
-  },
-};
+const INTERNAL_CORP_DOMAINS = new Set(['lacviethrm.vn', 'hrm-enterprise.vn']);
 
-function isExplicitCustomIdentity(
-  role: RoleCode,
-  profile: UserProfileOverride | null,
-  email: string | null
-): boolean {
-  const explicitCode = profile?.employee_code?.trim().toLowerCase() || '';
-  const defaultCode = ROLE_ACTOR_DEFAULT[role].code.trim().toLowerCase();
-  const defaultProfileCode =
-    ROLE_DEFAULT_PROFILES[role]?.employee_code?.trim().toLowerCase() || '';
-
-  if (
-    explicitCode &&
-    explicitCode !== defaultCode &&
-    explicitCode !== defaultProfileCode
-  ) {
-    return true;
-  }
-
-  const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
-  const defaultEmail =
-    ROLE_DEFAULT_PROFILES[role]?.email?.trim().toLowerCase() || '';
-  if (candidateEmail && candidateEmail !== defaultEmail) {
-    return true;
-  }
-
-  return false;
+function emailsMatchExactOrCorporateAlias(aRaw: string, bRaw: string): boolean {
+  const a = aRaw.trim().toLowerCase();
+  const b = bRaw.trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const atA = a.lastIndexOf('@');
+  const atB = b.lastIndexOf('@');
+  if (atA <= 0 || atB <= 0) return false;
+  const domA = a.slice(atA + 1);
+  const domB = b.slice(atB + 1);
+  return (
+    INTERNAL_CORP_DOMAINS.has(domA) &&
+    INTERNAL_CORP_DOMAINS.has(domB) &&
+    a.slice(0, atA) === b.slice(0, atB)
+  );
 }
 
 function resolveLoggedInEmployee(
   employees: Employee[],
-  role: RoleCode,
+  _role: RoleCode,
   profile: UserProfileOverride | null,
   email: string | null
 ): Employee | null {
   if (employees.length === 0) return null;
 
-  const explicitCode = profile?.employee_code?.trim().toLowerCase() || '';
-  if (explicitCode) {
+  const explicitCode = profile?.employee_code?.trim() || '';
+  if (explicitCode && !explicitCode.toUpperCase().startsWith('UV-')) {
+    const lowerCode = explicitCode.toLowerCase();
     const byCode = employees.find(
-      (e) => e.employee_code.trim().toLowerCase() === explicitCode
+      (e) =>
+        e.employee_code.trim().toLowerCase() === lowerCode ||
+        e.id.trim().toLowerCase() === lowerCode
     );
-    if (byCode) return byCode;
+    return byCode ?? null;
   }
 
   const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
   if (candidateEmail) {
     const exactEmail = employees.find(
-      (e) => e.email.trim().toLowerCase() === candidateEmail
+      (e) =>
+        emailsMatchExactOrCorporateAlias(e.email, candidateEmail) ||
+        Boolean(
+          e.personal_email &&
+            e.personal_email.trim().toLowerCase() === candidateEmail
+        )
     );
-    if (exactEmail) return exactEmail;
+    return exactEmail ?? null;
   }
 
-  // Nếu người dùng đăng nhập bằng mã nhân viên hoặc email riêng (không phải tài khoản demo mặc định của vai trò),
-  // tuyệt đối không fallback sang nhân viên mẫu ROLE_ACTOR_DEFAULT[role] (vd NV-2024-004).
-  if (isExplicitCustomIdentity(role, profile, email)) {
-    return null;
-  }
-
-  if (candidateEmail) {
-    const localPart = candidateEmail.split('@')[0];
-    if (localPart) {
-      const byLocal = employees.find(
-        (e) => e.email.split('@')[0].toLowerCase() === localPart
-      );
-      if (byLocal) return byLocal;
-    }
-  }
-
-  const fallbackCode = ROLE_ACTOR_DEFAULT[role].code;
-  return employees.find((e) => e.employee_code === fallbackCode) ?? null;
+  return null;
 }
 
 function getEffectiveStatus(req: LeaveOvertimeRequest): MultiStepRequestStatus {
@@ -472,6 +411,9 @@ export function RequestsView() {
   const [formActualCheckIn, setFormActualCheckIn] = useState('08:30');
   const [formActualCheckOut, setFormActualCheckOut] = useState('17:30');
   const [formError, setFormError] = useState('');
+  const [createSource, setCreateSource] = useState<'MANUAL_FORM' | 'AI_COPILOT'>(
+    'MANUAL_FORM'
+  );
 
   const syncFromRuntime = useCallback(() => {
     const mergedRequests = mergeWithRuntimeRequests(baseRequestsRef.current);
@@ -528,37 +470,121 @@ export function RequestsView() {
     [employees, role, currentUserProfile, currentUserEmail]
   );
 
-  const actorFallback = ROLE_ACTOR_DEFAULT[role];
-  const hasCustomIdentity = isExplicitCustomIdentity(
-    role,
-    currentUserProfile,
-    currentUserEmail
-  );
-  const currentEmployeeCode =
-    currentEmp?.employee_code ??
-    currentUserProfile?.employee_code?.trim() ??
-    (hasCustomIdentity ? '' : actorFallback.code);
+  const currentEmployeeCode = currentEmp?.employee_code ?? '';
   const currentEmployeeName =
     currentEmp?.full_name ??
     currentUserProfile?.fullName?.trim() ??
-    (hasCustomIdentity ? currentUserEmail?.trim() || '' : actorFallback.name);
+    currentUserEmail?.trim() ??
+    '';
   const currentDepartment =
     currentEmp?.department_name ??
     currentUserProfile?.department?.trim() ??
-    (hasCustomIdentity ? '' : actorFallback.dept);
+    '';
 
   // Keep formEmployeeCode synced to logged-in employee when not explicitly overridden
   useEffect(() => {
-    if (!isCreateOpen && currentEmployeeCode) {
+    if (!isCreateOpen) {
       setFormEmployeeCode(currentEmployeeCode);
     }
   }, [currentEmployeeCode, isCreateOpen]);
+
+  // Scoped requests strictly isolated by role and matched employee identity
+  const scopedRequests = useMemo(() => {
+    if (!currentEmp || role === 'CANDIDATE') {
+      return [];
+    }
+
+    if (
+      role === 'SUPER_ADMIN' ||
+      role === 'DIRECTOR' ||
+      role === 'HR_MANAGER'
+    ) {
+      return requests;
+    }
+
+    if (role === 'DEPT_MANAGER') {
+      const depts = getRuntimeDepartments();
+      const managedDeptIds = new Set(
+        depts.filter((d) => d.manager_id === currentEmp.id).map((d) => d.id)
+      );
+      const managedDeptNames = new Set(
+        depts
+          .filter((d) => d.manager_id === currentEmp.id)
+          .map((d) => d.department_name)
+      );
+      if (currentEmp.department_id) managedDeptIds.add(currentEmp.department_id);
+      if (currentEmp.department_name) {
+        managedDeptNames.add(currentEmp.department_name);
+      }
+
+      return requests.filter((r) => {
+        if (
+          r.employee_code === currentEmp.employee_code ||
+          r.employee_id === currentEmp.id
+        ) {
+          return true;
+        }
+        const reqEmp = employees.find(
+          (e) => e.id === r.employee_id || e.employee_code === r.employee_code
+        );
+        if (
+          reqEmp &&
+          (currentEmp.manager_id === reqEmp.id ||
+            reqEmp.role_code === 'SUPER_ADMIN' ||
+            reqEmp.role_code === 'DIRECTOR')
+        ) {
+          return false;
+        }
+        if (
+          r.current_approver_id === currentEmp.id ||
+          r.approver_id === currentEmp.id
+        ) {
+          return true;
+        }
+        if (reqEmp?.manager_id === currentEmp.id) return true;
+        if (reqEmp?.department_id && managedDeptIds.has(reqEmp.department_id)) {
+          return true;
+        }
+        if (r.department_name && managedDeptNames.has(r.department_name)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    // EMPLOYEE: strictly own requests only (by employee_code or employee_id)
+    return requests.filter(
+      (r) =>
+        (Boolean(currentEmployeeCode) &&
+          r.employee_code === currentEmployeeCode) ||
+        r.employee_id === currentEmp.id
+    );
+  }, [requests, role, currentEmp, currentEmployeeCode, employees]);
+
+  // Close open request modal immediately if role/user switch removes visibility
+  useEffect(() => {
+    if (!selectedRequest) return;
+    const stillVisible = scopedRequests.some(
+      (item) =>
+        item.id === selectedRequest.id ||
+        item.request_code === selectedRequest.request_code
+    );
+    if (!stillVisible) {
+      setSelectedRequest(null);
+      setChecklistChecked(false);
+      setIsEditingRequest(false);
+    }
+  }, [scopedRequests, selectedRequest]);
 
   // Handle incoming navIntent (both Explanation creation from Attendance & deep link to request)
   useEffect(() => {
     if (isLoading || !navIntent || navIntent.navId !== 'leaves') return;
 
     if (navIntent.subTab === 'explanation') {
+      if (!currentEmp && role !== 'SUPER_ADMIN' && role !== 'HR_MANAGER') {
+        clearNavIntent();
+        return;
+      }
       const rawEntity = navIntent.entityId || '';
       const [parsedEmpCode, parsedDate] = rawEntity.includes('|')
         ? rawEntity.split('|')
@@ -575,10 +601,11 @@ export function RequestsView() {
           ? parsedEmpCode
           : currentEmployeeCode;
 
-      const dailyMatch = getDailyAttendances(
-        effectiveDate.slice(0, 7),
-        resolvedCode
-      ).find((d) => d.date === effectiveDate);
+      const dailyMatch = resolvedCode
+        ? getDailyAttendances(effectiveDate.slice(0, 7), resolvedCode).find(
+            (d) => d.date === effectiveDate
+          )
+        : undefined;
 
       setFormEmployeeCode(resolvedCode);
       setFormCategory('LATE_EXPLANATION');
@@ -600,10 +627,59 @@ export function RequestsView() {
       setIsCreateOpen(true);
       clearNavIntent();
       return;
+    } else if (navIntent.subTab === 'copilot-draft' && navIntent.leaveDraft) {
+      if (role === 'CANDIDATE' || !currentEmp) {
+        clearNavIntent();
+        return;
+      }
+
+      const draft = navIntent.leaveDraft;
+      const matchedCatOption = NEW_REQUEST_OPTIONS.find(
+        (opt) => opt.value === draft.parsed_category
+      );
+      const safeCategory: RequestCategory = matchedCatOption
+        ? matchedCatOption.value
+        : 'ANNUAL_LEAVE';
+      const safeUnit = matchedCatOption?.defaultUnit ?? 'NGAY';
+      const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      const safeStart = isoDateRegex.test(draft.parsed_start_date || '')
+        ? draft.parsed_start_date
+        : '2026-11-25';
+      const rawEnd = isoDateRegex.test(draft.parsed_end_date || '')
+        ? draft.parsed_end_date
+        : safeStart;
+      const safeEnd = rawEnd < safeStart ? safeStart : rawEnd;
+      const parsedDuration = Number(draft.parsed_duration_days);
+      const safeDuration =
+        safeCategory === 'LATE_EXPLANATION'
+          ? '1'
+          : Number.isFinite(parsedDuration) && parsedDuration > 0
+            ? String(parsedDuration)
+            : '1';
+
+      setFormEmployeeCode(currentEmployeeCode);
+      setFormCategory(safeCategory);
+      setFormUnit(safeUnit);
+      setFormDuration(safeDuration);
+      setFormStartDate(safeStart);
+      setFormEndDate(safeEnd);
+      if (safeCategory === 'LATE_EXPLANATION') {
+        setFormTargetDate(safeStart);
+      }
+      setFormHandover((draft.parsed_handover_to || '').trim());
+      setFormReason((draft.parsed_reason || draft.sample_input || '').trim());
+      setFormMedicalDocNote('');
+      setFormError('');
+      setStatusFilter('ALL');
+      setCategoryFilter('ALL');
+      setCreateSource('AI_COPILOT');
+      setIsCreateOpen(true);
+      clearNavIntent();
+      return;
     }
 
     if (navIntent.entityId) {
-      const matched = requests.find(
+      const matched = scopedRequests.find(
         (r) =>
           r.request_code === navIntent.entityId || r.id === navIntent.entityId
       );
@@ -620,8 +696,9 @@ export function RequestsView() {
   }, [
     isLoading,
     navIntent,
-    requests,
+    scopedRequests,
     role,
+    currentEmp,
     currentEmployeeCode,
     clearNavIntent,
   ]);
@@ -669,10 +746,11 @@ export function RequestsView() {
     const targetCode =
       targetRequesterEmp?.employee_code ?? currentEmployeeCode;
     const shiftCode = targetRequesterEmp?.work_shift_code || 'HC-08:30';
-    const existingDaily = getDailyAttendances(
-      formTargetDate.slice(0, 7),
-      targetCode
-    ).find((d) => d.date === formTargetDate);
+    const existingDaily = targetCode
+      ? getDailyAttendances(formTargetDate.slice(0, 7), targetCode).find(
+          (d) => d.date === formTargetDate
+        )
+      : undefined;
 
     const evalRes = evaluateDailyPunch({
       shiftCode: existingDaily?.shift_code || shiftCode,
@@ -695,66 +773,6 @@ export function RequestsView() {
     formActualCheckOut,
     targetRequesterEmp,
     currentEmployeeCode,
-  ]);
-
-  // Scoped requests (also respects current_approver_id for successor Manager re-assignment!)
-  const scopedRequests = useMemo(() => {
-    if (
-      role === 'SUPER_ADMIN' ||
-      role === 'DIRECTOR' ||
-      role === 'HR_MANAGER'
-    ) {
-      return requests;
-    }
-
-    if (role === 'DEPT_MANAGER') {
-      return requests.filter((r) => {
-        if (
-          currentEmp &&
-          (r.current_approver_id === currentEmp.id ||
-            r.approver_id === currentEmp.id)
-        ) {
-          return true;
-        }
-        if (
-          r.employee_code === currentEmployeeCode ||
-          (currentEmp && r.employee_id === currentEmp.id)
-        ) {
-          return true;
-        }
-        if (currentEmp) {
-          const reqEmp = employees.find(
-            (e) => e.id === r.employee_id || e.employee_code === r.employee_code
-          );
-          if (reqEmp?.manager_id === currentEmp.id) return true;
-          if (
-            TECH_DIVISION_DEPARTMENTS.has(currentEmp.department_name) &&
-            TECH_DIVISION_DEPARTMENTS.has(r.department_name)
-          ) {
-            return true;
-          }
-          if (r.department_name === currentEmp.department_name) return true;
-        }
-        return TECH_DIVISION_DEPARTMENTS.has(r.department_name);
-      });
-    }
-
-    // EMPLOYEE (also sees any pending requests explicitly re-assigned to them via current_approver_id)
-    return requests.filter(
-      (r) =>
-        (Boolean(currentEmployeeCode) &&
-          r.employee_code === currentEmployeeCode) ||
-        (currentEmp && r.employee_id === currentEmp.id) ||
-        (Boolean(currentEmployeeName) && r.full_name === currentEmployeeName) ||
-        Boolean(currentEmp && r.current_approver_id === currentEmp.id)
-    );
-  }, [
-    requests,
-    role,
-    currentEmp,
-    currentEmployeeCode,
-    currentEmployeeName,
-    employees,
   ]);
 
   const statusCounts = useMemo(() => {
@@ -826,61 +844,97 @@ export function RequestsView() {
 
   const canRoleApproveRequest = useCallback(
     (req: LeaveOvertimeRequest): boolean => {
-      const eff = getEffectiveStatus(req);
-      if (eff !== 'PENDING' && eff !== 'IN_PROGRESS') return false;
-      if (role === 'SUPER_ADMIN') return true;
+      if (role === 'EMPLOYEE' || role === 'CANDIDATE') return false;
 
-      // Prevent self-approval by regular employee unless HR/Director/SuperAdmin
+      const eff = getEffectiveStatus(req);
+      const rawStatus = String(eff);
       if (
-        role === 'EMPLOYEE' &&
-        !(currentEmp && req.current_approver_id === currentEmp.id)
+        eff !== 'PENDING' &&
+        eff !== 'IN_PROGRESS' &&
+        rawStatus !== 'PENDING_DIRECTOR'
       ) {
         return false;
       }
 
-      const stepRole = req.current_step_role;
+      if (!currentEmp && role !== 'SUPER_ADMIN') return false;
+
+      const isOwnRequest =
+        (Boolean(currentEmployeeCode) &&
+          req.employee_code === currentEmployeeCode) ||
+        Boolean(currentEmp && req.employee_id === currentEmp.id);
+      if (
+        isOwnRequest &&
+        (role === 'DEPT_MANAGER' || role === 'HR_MANAGER')
+      ) {
+        return false;
+      }
+
+      const stepRole =
+        rawStatus === 'PENDING_DIRECTOR' ? 'DIRECTOR' : req.current_step_role;
+
+      // Long leave (> 3 days) at Director step (or PENDING_DIRECTOR): ONLY DIRECTOR or SUPER_ADMIN
+      if (stepRole === 'DIRECTOR') {
+        return role === 'DIRECTOR' || role === 'SUPER_ADMIN';
+      }
+
+      if (role === 'SUPER_ADMIN') return true;
+
       if (stepRole === 'DEPT_MANAGER') {
-        // Explicit current_approver_id (e.g. re-assigned successor Manager) takes precedence!
-        if (req.current_approver_id) {
-          return Boolean(currentEmp && req.current_approver_id === currentEmp.id);
-        }
-        if (role !== 'DEPT_MANAGER') return false;
-        if (currentEmp) {
-          if (req.approver_id === currentEmp.id) return true;
-          const reqEmp = employees.find(
-            (e) =>
-              e.id === req.employee_id || e.employee_code === req.employee_code
-          );
-          if (reqEmp?.manager_id === currentEmp.id) return true;
-          if (
-            TECH_DIVISION_DEPARTMENTS.has(currentEmp.department_name) &&
-            TECH_DIVISION_DEPARTMENTS.has(req.department_name)
-          ) {
-            return true;
-          }
-          if (req.department_name === currentEmp.department_name) return true;
+        if (role !== 'DEPT_MANAGER' || !currentEmp) return false;
+        const reqEmp = employees.find(
+          (e) =>
+            e.id === req.employee_id || e.employee_code === req.employee_code
+        );
+        // Block approving superior's or executive/HR manager's request
+        if (
+          reqEmp &&
+          (currentEmp.manager_id === reqEmp.id ||
+            reqEmp.role_code === 'SUPER_ADMIN' ||
+            reqEmp.role_code === 'DIRECTOR' ||
+            reqEmp.role_code === 'HR_MANAGER')
+        ) {
           return false;
         }
-        return TECH_DIVISION_DEPARTMENTS.has(req.department_name);
+        if (req.current_approver_id) {
+          return req.current_approver_id === currentEmp.id;
+        }
+        if (req.approver_id === currentEmp.id) return true;
+        if (reqEmp?.manager_id === currentEmp.id) return true;
+
+        const depts = getRuntimeDepartments();
+        const managedDeptIds = new Set(
+          depts.filter((d) => d.manager_id === currentEmp.id).map((d) => d.id)
+        );
+        const managedDeptNames = new Set(
+          depts
+            .filter((d) => d.manager_id === currentEmp.id)
+            .map((d) => d.department_name)
+        );
+        if (currentEmp.department_id) managedDeptIds.add(currentEmp.department_id);
+        if (currentEmp.department_name) {
+          managedDeptNames.add(currentEmp.department_name);
+        }
+
+        if (reqEmp?.department_id && managedDeptIds.has(reqEmp.department_id)) {
+          return true;
+        }
+        if (req.department_name && managedDeptNames.has(req.department_name)) {
+          return true;
+        }
+        return false;
       }
 
       if (stepRole === 'HR_MANAGER') {
-        return (
-          role === 'HR_MANAGER' ||
-          Boolean(currentEmp && req.current_approver_id === currentEmp.id)
-        );
-      }
-
-      if (stepRole === 'DIRECTOR') {
-        return (
-          role === 'DIRECTOR' ||
-          Boolean(currentEmp && req.current_approver_id === currentEmp.id)
-        );
+        if (role === 'DIRECTOR' && req.requester_role === 'HR_MANAGER') {
+          return true;
+        }
+        if (role !== 'HR_MANAGER' || !currentEmp) return false;
+        return !isOwnRequest;
       }
 
       return false;
     },
-    [role, currentEmp, employees]
+    [role, currentEmp, currentEmployeeCode, employees]
   );
 
   const canCancelRequest = useCallback(
@@ -899,7 +953,29 @@ export function RequestsView() {
   const handleApproveStep = async (req: LeaveOvertimeRequest) => {
     if (!canRoleApproveRequest(req)) return;
 
-    const currentSteps = req.approval_steps ?? [];
+    const directorMinDays = readDirectorMinDays();
+    const requiresDirectorStep =
+      (req.duration_unit === 'NGAY' &&
+        req.request_category !== 'LATE_EXPLANATION' &&
+        req.duration_days_or_hours > directorMinDays) ||
+      req.request_category === 'UNPAID_LEAVE' ||
+      req.request_category === 'OVERSEAS_BUSINESS_TRIP';
+
+    const baseSteps = [...(req.approval_steps ?? [])];
+    if (
+      requiresDirectorStep &&
+      !baseSteps.some((step) => step.role === 'DIRECTOR')
+    ) {
+      const dirEmpForStep = employees.find((e) => e.role_code === 'DIRECTOR');
+      baseSteps.push({
+        step_order: baseSteps.length + 1,
+        role: 'DIRECTOR',
+        label: `Cấp 3 · Giám đốc phê duyệt (> ${directorMinDays} ngày)`,
+        status: 'PENDING',
+        actor_name: dirEmpForStep?.full_name ?? 'Trần Quốc Việt',
+      });
+    }
+    const currentSteps = baseSteps;
     const targetStepRole = req.current_step_role ?? role;
     const simulatedSteps = currentSteps.map((step) =>
       step.role === targetStepRole && step.status === 'PENDING'
@@ -1361,12 +1437,26 @@ export function RequestsView() {
     }
 
     const reqEmp = targetRequesterEmp;
-    const reqEmpId = reqEmp?.id ?? 'emp-004';
-    const reqEmpCode = reqEmp?.employee_code ?? currentEmployeeCode;
-    const reqEmpName = reqEmp?.full_name ?? currentEmployeeName;
-    const reqDeptName = reqEmp?.department_name ?? currentDepartment;
-    const reqPosName = reqEmp?.position_name ?? actorFallback.pos;
-    const reqRoleCode: RoleCode = reqEmp?.role_code ?? role;
+    if (!reqEmp) {
+      const noEmpMsg =
+        'Tài khoản hiện tại chưa được liên kết với hồ sơ nhân sự chính thức trên hệ thống. Vui lòng liên hệ Phòng Nhân sự.';
+      setFormError(noEmpMsg);
+      await alertSwal({
+        title: 'Chưa liên kết hồ sơ nhân sự',
+        text: noEmpMsg,
+        icon: 'warning',
+      });
+      return;
+    }
+    const reqEmpId = reqEmp.id;
+    const reqEmpCode = reqEmp.employee_code;
+    const reqEmpName = reqEmp.full_name;
+    const reqDeptName = reqEmp.department_name;
+    const reqPosName =
+      reqEmp.position_name ||
+      currentUserProfile?.title?.trim() ||
+      'Nhân viên';
+    const reqRoleCode: RoleCode = reqEmp.role_code ?? role;
 
     const depts = getRuntimeDepartments();
     const matchedDept = depts.find(
@@ -1491,7 +1581,7 @@ export function RequestsView() {
       leave_deducted: false,
       created_at: new Date().toISOString(),
       responded_at: null,
-      source: 'MANUAL_FORM',
+      source: createSource,
       ...(formCategory === 'SICK_LEAVE'
         ? { medical_doc_note: formMedicalDocNote.trim() }
         : {}),
@@ -1560,6 +1650,7 @@ export function RequestsView() {
     }
 
     setIsCreateOpen(false);
+    setCreateSource('MANUAL_FORM');
     setFormError('');
     setFormReason('');
     setFormHandover('');
@@ -1644,6 +1735,7 @@ export function RequestsView() {
               setFormUnit('NGAY');
               setFormDuration('1');
               setFormError('');
+              setCreateSource('MANUAL_FORM');
               setIsCreateOpen(true);
             }}
           >
@@ -1658,6 +1750,7 @@ export function RequestsView() {
               setFormUnit('NGAY');
               setFormDuration('1');
               setFormError('');
+              setCreateSource('MANUAL_FORM');
               setIsCreateOpen(true);
             }}
           >
@@ -1815,10 +1908,14 @@ export function RequestsView() {
                 strokeWidth={1.5}
               />
               <p className="mt-3 text-sm font-medium text-[#11221E] dark:text-zinc-100">
-                Không có đơn từ nào khớp bộ lọc
+                {!currentEmp
+                  ? 'Chưa có đơn từ cá nhân'
+                  : 'Không có đơn từ nào khớp bộ lọc'}
               </p>
               <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                Thử chọn trạng thái khác hoặc tạo mới đơn đề xuất.
+                {!currentEmp
+                  ? 'Tài khoản hiện tại chưa liên kết với mã nhân sự hoặc chưa phát sinh đơn từ.'
+                  : 'Thử chọn trạng thái khác hoặc tạo mới đơn đề xuất.'}
               </p>
             </div>
           ) : (
@@ -1826,10 +1923,14 @@ export function RequestsView() {
               {filteredRequests.map((req) => {
                 const effStatus = getEffectiveStatus(req);
                 const statusInfo = STATUS_BADGE[effStatus];
-                const canApproveHere = canRoleApproveRequest(req);
+                const canApproveHere =
+                  role !== 'EMPLOYEE' &&
+                  role !== 'CANDIDATE' &&
+                  canRoleApproveRequest(req);
                 const canCancelHere = canCancelRequest(req);
                 const isReassignedToMe = Boolean(
-                  currentEmp &&
+                  canApproveHere &&
+                    currentEmp &&
                     req.current_approver_id === currentEmp.id &&
                     (effStatus === 'PENDING' || effStatus === 'IN_PROGRESS')
                 );
@@ -2032,10 +2133,23 @@ export function RequestsView() {
       </Card>
 
       {/* CREATE REQUEST MODAL */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) {
+            setCreateSource('MANUAL_FORM');
+          }
+        }}
+      >
         <DialogContent className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b border-[#C6D9D3] px-6 py-4 dark:border-zinc-800">
-            <DialogTitle>Tạo đơn từ / Giải trình chấm công</DialogTitle>
+            <div className="flex flex-wrap items-center gap-2 pr-6">
+              <DialogTitle>Tạo đơn từ / Giải trình chấm công</DialogTitle>
+              {createSource === 'AI_COPILOT' && (
+                <Badge variant="teal">Điền nháp từ Lạc Việt Copilot</Badge>
+              )}
+            </div>
             <DialogDescription>
               Hệ thống tự động kiểm tra quỹ phép năm, xác định người duyệt trực tiếp và đồng bộ dữ liệu công ngay khi hoàn tất phê duyệt.
             </DialogDescription>
@@ -2452,7 +2566,10 @@ export function RequestsView() {
           {selectedRequest &&
             (() => {
               const effStatus = getEffectiveStatus(selectedRequest);
-              const canApproveModal = canRoleApproveRequest(selectedRequest);
+              const canApproveModal =
+                role !== 'EMPLOYEE' &&
+                role !== 'CANDIDATE' &&
+                canRoleApproveRequest(selectedRequest);
               const canCancelModal = canCancelRequest(selectedRequest);
               const needsChecklist =
                 canApproveModal &&

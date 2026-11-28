@@ -162,7 +162,7 @@ export const MOCK_SYSTEM_USERS: SystemUserAccount[] = [
     email: 'ha.ngo@hrm-enterprise.vn',
     department_name: 'Phòng Nhân sự & Hành chính',
     position_name: 'Chuyên viên Tiền lương & Phúc lợi (C&B)',
-    role_code: 'HR_MANAGER',
+    role_code: 'EMPLOYEE',
     mfa_enabled: true,
     account_status: 'ACTIVE',
     last_login_at: '2026-11-17T07:58:11+07:00',
@@ -268,8 +268,8 @@ export const MOCK_SYSTEM_CONFIG: SystemConfiguration = {
   bhxh_employee_percent: 8.0,
   bhyt_employee_percent: 1.5,
   bhtn_employee_percent: 1.0,
-  personal_deduction_vnd: 11000000,
-  dependent_deduction_vnd: 4400000,
+  personal_deduction_vnd: 15500000,
+  dependent_deduction_vnd: 6200000,
   public_holidays_2026: [
     {
       holiday_code: 'TET-DUONG-2026',

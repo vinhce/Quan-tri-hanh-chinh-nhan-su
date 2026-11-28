@@ -44,7 +44,10 @@ import {
 import { alertSwal, confirmSwal } from '@/lib/swal';
 import { formatDateVN, formatNumberVN, formatVND } from '@/lib/utils';
 import {
-  calculateProgressivePitVnd,
+  calculateProgressivePitByPeriod,
+  getPitTaxConfigForPeriod,
+} from '@/lib/hrm/config';
+import {
   MOCK_PAYROLL_FORMULA,
   PIT_TAX_BRACKETS,
 } from '@/mock/payroll';
@@ -145,7 +148,7 @@ function computeAdjustedPayrollPreview(
       baseRecord.personal_deduction_vnd -
       baseRecord.dependent_deduction_vnd
   );
-  const pit = calculateProgressivePitVnd(taxable);
+  const pit = calculateProgressivePitByPeriod(taxable, baseRecord.period_month);
   const net = Math.max(
     0,
     gross -
@@ -173,6 +176,40 @@ function computeAdjustedPayrollPreview(
 }
 
 export function PayrollView() {
+  const { role, setActiveNav } = useApp();
+  const canAccessPayroll =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR' || role === 'HR_MANAGER';
+
+  if (!canAccessPayroll) {
+    return (
+      <Card className="mx-auto max-w-xl border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-[#121214]">
+        <CardContent className="flex flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-400">
+            <Lock className="h-6 w-6" strokeWidth={1.75} />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-[#11221E] dark:text-zinc-100">
+            403 — Không có quyền truy cập Bảng lương công ty
+          </h2>
+          <p className="mt-1.5 max-w-md text-sm text-[#415A54] dark:text-zinc-400">
+            Phân hệ Quản trị Bảng lương &amp; Thuế TNCN chỉ dành cho Ban Giám đốc, Trưởng phòng Nhân sự và Quản trị Hệ thống. Để xem thu nhập của riêng bạn, vui lòng mở mục Phiếu lương cá nhân.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            <Button variant="primary" onClick={() => setActiveNav('payslip')}>
+              Xem Phiếu lương cá nhân
+            </Button>
+            <Button variant="outline" onClick={() => setActiveNav('dashboard')}>
+              Về Tổng quan
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <PayrollViewContent />;
+}
+
+function PayrollViewContent() {
   const {
     role,
     currentUserProfile,
@@ -200,6 +237,10 @@ export function PayrollView() {
 
   const canManagePayroll =
     role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
+  const canCalculatePayroll =
+    role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+  const canApprovePayroll =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR';
 
   const [allRecords, setAllRecords] = useState<PayrollRecord[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('2026-11');
@@ -379,12 +420,14 @@ export function PayrollView() {
   const targetCalcPeriod = selectedPeriod === 'ALL' ? '2026-11' : selectedPeriod;
 
   const handleCalculateMonthlyPayroll = async () => {
+    if (!canCalculatePayroll) return;
+    const calcPitBrackets = getPitTaxConfigForPeriod(targetCalcPeriod).bracket_count;
     const confirmed = await confirmSwal({
       title: `Tổng hợp & Tính lương ${formatPeriodLabel(targetCalcPeriod)}?`,
       html: `Hệ thống sẽ tự động tổng hợp từ nguồn dữ liệu vận hành thời gian thực:<br/><br/>
         • <b>Thu nhập Gross:</b> Công thực tế + Phép hưởng lương + Tiền OT (150%/200%/300%) + Phụ cấp + Thưởng KPI.<br/>
         • <b>Tách lương giữa tháng:</b> Tự động chia 2 giai đoạn công nếu có Quyết định điều chỉnh lương / thăng chức trong kỳ.<br/>
-        • <b>Khấu trừ bắt buộc:</b> BHXH/BHYT/BHTN <b>10,5%</b> (trần <b>46.800.000 đ</b>, miễn <b>0%</b> cho HĐ Thử việc), Thuế TNCN lũy tiến <b>7 bậc</b>, Tạm ứng &amp; Phạt/Đền bù.<br/>
+        • <b>Khấu trừ bắt buộc:</b> BHXH/BHYT/BHTN <b>10,5%</b> (trần <b>46.800.000 đ</b>, miễn <b>0%</b> cho HĐ Thử việc), Thuế TNCN lũy tiến <b>${calcPitBrackets} bậc</b>, Tạm ứng &amp; Phạt/Đền bù.<br/>
         • Các phiếu đã phát hành (<b>PAID</b>) và phiếu Quyết toán kỳ cuối được bảo toàn.`,
       confirmText: 'Tổng hợp & Tính lương',
       cancelText: 'Hủy bỏ',
@@ -411,6 +454,7 @@ export function PayrollView() {
   };
 
   const handleBatchApproveDrafts = async () => {
+    if (!canApprovePayroll) return;
     const drafts = periodRecords.filter((r) => r.payment_status === 'DRAFT_CALCULATED');
     if (drafts.length === 0) {
       await alertSwal({
@@ -455,6 +499,7 @@ export function PayrollView() {
   };
 
   const handlePublishPayslips = async () => {
+    if (!canApprovePayroll) return;
     const unpaid = periodRecords.filter((r) => r.payment_status !== 'PAID');
     if (unpaid.length === 0) {
       await alertSwal({
@@ -540,7 +585,9 @@ export function PayrollView() {
   };
 
   const handleSavePayrollAdjustments = () => {
-    if (!selectedRecord || selectedRecord.payment_status === 'PAID') return;
+    if (!canCalculatePayroll || !selectedRecord || selectedRecord.payment_status === 'PAID') {
+      return;
+    }
     const updatedRec = buildUpdatedRecordFromInputs(selectedRecord);
     savePayrollRecord(updatedRec);
     syncRecordsFromStore();
@@ -571,7 +618,9 @@ export function PayrollView() {
   };
 
   const handleApproveSingleRecord = async () => {
-    if (!selectedRecord || selectedRecord.payment_status === 'PAID') return;
+    if (!canApprovePayroll || !selectedRecord || selectedRecord.payment_status === 'PAID') {
+      return;
+    }
     const candidateRec = buildUpdatedRecordFromInputs(selectedRecord);
 
     const confirmed = await confirmSwal({
@@ -617,7 +666,9 @@ export function PayrollView() {
   };
 
   const handleMarkPaidSingleRecord = async () => {
-    if (!selectedRecord || selectedRecord.payment_status === 'PAID') return;
+    if (!canApprovePayroll || !selectedRecord || selectedRecord.payment_status === 'PAID') {
+      return;
+    }
     const candidateRec = buildUpdatedRecordFromInputs(selectedRecord);
 
     const confirmed = await confirmSwal({
@@ -663,10 +714,23 @@ export function PayrollView() {
     );
   };
 
+  const periodPitSchedule = useMemo(
+    () => getPitTaxConfigForPeriod(selectedPeriod === 'ALL' ? '2026-11' : selectedPeriod),
+    [selectedPeriod]
+  );
+
+  const activePitSchedule = useMemo(
+    () =>
+      getPitTaxConfigForPeriod(
+        selectedRecord?.period_month ?? (selectedPeriod === 'ALL' ? '2026-11' : selectedPeriod)
+      ),
+    [selectedRecord, selectedPeriod]
+  );
+
   const pitBreakdown = useMemo(() => {
     if (!selectedRecord) return [];
-    return computePitBreakdown(selectedRecord.taxable_income_vnd, pitBrackets);
-  }, [selectedRecord, pitBrackets]);
+    return computePitBreakdown(selectedRecord.taxable_income_vnd, [...activePitSchedule.brackets]);
+  }, [selectedRecord, activePitSchedule]);
 
   if (uiState === 'loading' || isLoading) {
     return (
@@ -698,7 +762,7 @@ export function PayrollView() {
   }
 
   const isRowEditable =
-    canManagePayroll &&
+    canCalculatePayroll &&
     selectedRecord !== null &&
     selectedRecord.payment_status !== 'PAID';
 
@@ -711,26 +775,30 @@ export function PayrollView() {
             Bảng lương &amp; Thuế TNCN
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
-            {formatPeriodLabel(selectedPeriod)} — Tổng hợp công thực tế, tách lương giữa kỳ, BHXH 10,5% (trần 46,8 triệu, miễn HĐ thử việc), thuế TNCN 7 bậc và quyết toán nghỉ việc.
+            {formatPeriodLabel(selectedPeriod)} — Tổng hợp công thực tế, tách lương giữa kỳ, BHXH 10,5% (trần 46,8 triệu, miễn HĐ thử việc), thuế TNCN {periodPitSchedule.bracket_count} bậc và quyết toán nghỉ việc.
           </p>
         </div>
 
         {canManagePayroll && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => void handleCalculateMonthlyPayroll()}>
-              <Calculator className="h-4 w-4" strokeWidth={1.5} />
-              Tổng hợp &amp; Tính lương tháng
-            </Button>
-            {totals.draftCount > 0 && (
+            {canCalculatePayroll && (
+              <Button variant="outline" onClick={() => void handleCalculateMonthlyPayroll()}>
+                <Calculator className="h-4 w-4" strokeWidth={1.5} />
+                Tổng hợp &amp; Tính lương tháng
+              </Button>
+            )}
+            {canApprovePayroll && totals.draftCount > 0 && (
               <Button variant="secondary" onClick={() => void handleBatchApproveDrafts()}>
                 <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
                 Duyệt nháp ({totals.draftCount})
               </Button>
             )}
-            <Button variant="primary" onClick={() => void handlePublishPayslips()}>
-              <Send className="h-4 w-4" strokeWidth={1.5} />
-              Phát hành phiếu lương
-            </Button>
+            {canApprovePayroll && (
+              <Button variant="primary" onClick={() => void handlePublishPayslips()}>
+                <Send className="h-4 w-4" strokeWidth={1.5} />
+                Phát hành phiếu lương
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -807,7 +875,7 @@ export function PayrollView() {
           <CardContent className="flex h-full flex-col justify-between p-4">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[#415A54] dark:text-zinc-400">
-                Tổng thuế TNCN (7 bậc)
+                Tổng thuế TNCN ({periodPitSchedule.bracket_count} bậc)
               </span>
               <FileSpreadsheet className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
             </div>
@@ -823,7 +891,7 @@ export function PayrollView() {
                   </span>
                 </>
               ) : (
-                'Giảm trừ 11tr/tháng + 4,4tr/NPT'
+                `Giảm trừ ${(periodPitSchedule.personal_deduction_vnd / 1_000_000).toString().replace('.', ',')}tr/tháng + ${(periodPitSchedule.dependent_deduction_vnd / 1_000_000).toString().replace('.', ',')}tr/NPT`
               )}
             </p>
           </CardContent>
@@ -1391,10 +1459,10 @@ export function PayrollView() {
                   </div>
                 </div>
 
-                {/* 3. Progressive 7-Bracket PIT Breakdown */}
+                {/* 3. Progressive PIT Breakdown */}
                 <div className="rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-4 dark:border-zinc-800/80 dark:bg-transparent">
                   <h3 className="text-xs font-semibold text-[#5C7871] dark:text-zinc-400">
-                    3. Giảm trừ gia cảnh &amp; Thuế TNCN lũy tiến 7 bậc
+                    3. Giảm trừ gia cảnh &amp; Thuế TNCN lũy tiến {activePitSchedule.bracket_count} bậc
                   </h3>
                   <div className="mt-2.5 space-y-1.5">
                     <div className="flex justify-between">
@@ -1407,7 +1475,14 @@ export function PayrollView() {
                       <span className="text-[#415A54] dark:text-zinc-400">
                         Giảm trừ người phụ thuộc ({selectedRecord.dependents_count} người ×{' '}
                         <span className="font-mono tabular-nums">
-                          {formatVND(formula.dependent_deduction_vnd)}
+                          {formatVND(
+                            selectedRecord.dependents_count > 0
+                              ? Math.round(
+                                  selectedRecord.dependent_deduction_vnd /
+                                    selectedRecord.dependents_count
+                                )
+                              : activePitSchedule.dependent_deduction_vnd
+                          )}
                         </span>
                         )
                       </span>
@@ -1532,7 +1607,7 @@ export function PayrollView() {
                 </div>
 
                 {/* HR / Admin Adjustment Panel */}
-                {canManagePayroll && (
+                {canCalculatePayroll && (
                   <div className="space-y-3 rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] p-4 dark:border-zinc-800/80 dark:bg-zinc-900/60">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 text-xs font-semibold text-[#11221E] dark:text-zinc-200">
@@ -1686,7 +1761,7 @@ export function PayrollView() {
                     Tải PDF
                   </Button>
 
-                  {canManagePayroll && selectedRecord.payment_status === 'DRAFT_CALCULATED' && (
+                  {canApprovePayroll && selectedRecord.payment_status === 'DRAFT_CALCULATED' && (
                     <Button
                       variant="outline"
                       onClick={() => void handleApproveSingleRecord()}
@@ -1696,7 +1771,7 @@ export function PayrollView() {
                     </Button>
                   )}
 
-                  {canManagePayroll && selectedRecord.payment_status !== 'PAID' && (
+                  {canApprovePayroll && selectedRecord.payment_status !== 'PAID' && (
                     <Button
                       variant="primary"
                       onClick={() => void handleMarkPaidSingleRecord()}

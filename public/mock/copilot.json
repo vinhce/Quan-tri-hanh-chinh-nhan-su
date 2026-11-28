@@ -27,8 +27,8 @@
       "role_scope": "EMPLOYEE",
       "prompt_label": "Giải thích cách tính thuế TNCN kỳ lương tháng 11/2026",
       "user_query": "Giải thích giúp tôi các khoản khấu trừ bảo hiểm và thuế TNCN trên phiếu lương PS-202611-004.",
-      "ai_response": "Phiếu lương PS-202611-004 của bạn có tổng thu nhập Gross là 34.650.000 ₫ (gồm lương cơ bản 22.800.000 ₫, phụ cấp 3.500.000 ₫, lương tăng ca 5.850.000 ₫ và thưởng KPI 2.500.000 ₫). Khoản trích đóng bảo hiểm bắt buộc tính trên lương cơ bản 22.800.000 ₫ gồm: BHXH 8% (1.824.000 ₫), BHYT 1.5% (342.000 ₫), BHTN 1% (228.000 ₫), tổng cộng 2.394.000 ₫. Sau khi trừ giảm trừ bản thân 11.000.000 ₫ và 1 người phụ thuộc 4.400.000 ₫, thu nhập tính thuế là 16.856.000 ₫ (thuộc bậc 3 thuế suất 15% trừ lùi 750.000 ₫), thuế TNCN phải nộp là 1.778.400 ₫. Lương thực nhận (Net) là 30.477.600 ₫.",
-      "referenced_policy": "Phụ lục 02 - Quy chế Tiền lương & Khấu trừ Thuế TNCN lũy tiến từng phần",
+      "ai_response": "Phiếu lương PS-202611-004 của bạn có tổng thu nhập Gross là 34.650.000 ₫ (gồm lương cơ bản 22.800.000 ₫, phụ cấp 3.500.000 ₫, lương tăng ca 5.850.000 ₫ và thưởng KPI 2.500.000 ₫). Khoản trích đóng bảo hiểm bắt buộc tính trên lương cơ bản 22.800.000 ₫ gồm: BHXH 8% (1.824.000 ₫), BHYT 1.5% (342.000 ₫), BHTN 1% (228.000 ₫), tổng cộng 2.394.000 ₫. Áp dụng biểu thuế kỳ 2026 (NQ 110/2025/UBTVQH15 & Luật Thuế TNCN 109/2025/QH15), sau khi trừ giảm trừ bản thân 15.500.000 ₫ và 1 người phụ thuộc 6.200.000 ₫, thu nhập tính thuế là 10.556.000 ₫ (thuộc bậc 2/5 thuế suất 15% trừ nhanh 1.000.000 ₫), thuế TNCN phải nộp là 583.400 ₫. Lương thực nhận (Net) là 31.672.600 ₫.",
+      "referenced_policy": "Phụ lục 02 - Quy chế Tiền lương & Khấu trừ Thuế TNCN lũy tiến 5 bậc (NQ 110/2025/UBTVQH15)",
       "metrics_cited": [
         {
           "label": "Tổng thu nhập Gross",
@@ -39,12 +39,12 @@
           "value": "2.394.000 ₫"
         },
         {
-          "label": "Thuế TNCN bậc 3",
-          "value": "1.778.400 ₫"
+          "label": "Thuế TNCN bậc 2 (5 bậc)",
+          "value": "583.400 ₫"
         },
         {
           "label": "Thực nhận (Net)",
-          "value": "30.477.600 ₫"
+          "value": "31.672.600 ₫"
         }
       ]
     },
@@ -151,8 +151,8 @@
       "role_scope": "EMPLOYEE",
       "prompt_label": "Giải thích cách tính thuế TNCN kỳ lương tháng 11/2026",
       "user_query": "Giải thích giúp tôi các khoản khấu trừ bảo hiểm và thuế TNCN trên phiếu lương PS-202611-004.",
-      "ai_response": "Phiếu lương PS-202611-004 của bạn có tổng thu nhập Gross là 34.650.000 ₫ (gồm lương cơ bản 22.800.000 ₫, phụ cấp 3.500.000 ₫, lương tăng ca 5.850.000 ₫ và thưởng KPI 2.500.000 ₫). Khoản trích đóng bảo hiểm bắt buộc tính trên lương cơ bản 22.800.000 ₫ gồm: BHXH 8% (1.824.000 ₫), BHYT 1.5% (342.000 ₫), BHTN 1% (228.000 ₫), tổng cộng 2.394.000 ₫. Sau khi trừ giảm trừ bản thân 11.000.000 ₫ và 1 người phụ thuộc 4.400.000 ₫, thu nhập tính thuế là 16.856.000 ₫ (thuộc bậc 3 thuế suất 15% trừ lùi 750.000 ₫), thuế TNCN phải nộp là 1.778.400 ₫. Lương thực nhận (Net) là 30.477.600 ₫.",
-      "referenced_policy": "Phụ lục 02 - Quy chế Tiền lương & Khấu trừ Thuế TNCN lũy tiến từng phần",
+      "ai_response": "Phiếu lương PS-202611-004 của bạn có tổng thu nhập Gross là 34.650.000 ₫ (gồm lương cơ bản 22.800.000 ₫, phụ cấp 3.500.000 ₫, lương tăng ca 5.850.000 ₫ và thưởng KPI 2.500.000 ₫). Khoản trích đóng bảo hiểm bắt buộc tính trên lương cơ bản 22.800.000 ₫ gồm: BHXH 8% (1.824.000 ₫), BHYT 1.5% (342.000 ₫), BHTN 1% (228.000 ₫), tổng cộng 2.394.000 ₫. Áp dụng biểu thuế kỳ 2026 (NQ 110/2025/UBTVQH15 & Luật Thuế TNCN 109/2025/QH15), sau khi trừ giảm trừ bản thân 15.500.000 ₫ và 1 người phụ thuộc 6.200.000 ₫, thu nhập tính thuế là 10.556.000 ₫ (thuộc bậc 2/5 thuế suất 15% trừ nhanh 1.000.000 ₫), thuế TNCN phải nộp là 583.400 ₫. Lương thực nhận (Net) là 31.672.600 ₫.",
+      "referenced_policy": "Phụ lục 02 - Quy chế Tiền lương & Khấu trừ Thuế TNCN lũy tiến 5 bậc (NQ 110/2025/UBTVQH15)",
       "metrics_cited": [
         {
           "label": "Tổng thu nhập Gross",
@@ -163,12 +163,12 @@
           "value": "2.394.000 ₫"
         },
         {
-          "label": "Thuế TNCN bậc 3",
-          "value": "1.778.400 ₫"
+          "label": "Thuế TNCN bậc 2 (5 bậc)",
+          "value": "583.400 ₫"
         },
         {
           "label": "Thực nhận (Net)",
-          "value": "30.477.600 ₫"
+          "value": "31.672.600 ₫"
         }
       ]
     },

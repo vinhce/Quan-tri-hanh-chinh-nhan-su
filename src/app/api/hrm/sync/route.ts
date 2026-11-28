@@ -1,18 +1,30 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import type { RouterStateStore } from '@/lib/hrm/copilot-router';
 
 declare global {
   // eslint-disable-next-line no-var
   var _hrmSyncStore: Record<string, unknown> | undefined;
   // eslint-disable-next-line no-var
   var _hrmBootEpoch: string | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmSyncStoreDiskSig: string | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmSyncStoreBootEpoch: string | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmCopilotRouterStore: RouterStateStore | undefined;
 }
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const DATA_FILE = path.join(DATA_DIR, 'runtime-sync.json');
 const MAX_SYNC_BODY_BYTES = 5 * 1024 * 1024;
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const SERVER_ONLY_KEYS = new Set(['hrm_runtime_face_profiles_v1']);
+const BIOMETRIC_PRESERVE_IF_MISSING_KEYS = [
+  'hrm_runtime_biometric_creds_v1',
+  'hrm_runtime_wifi_policy_v1',
+] as const;
 const ALLOWED_SYNC_KEY_REGEX = /^hrm_(?:runtime_[a-z0-9_]+|sync_integration_check)$/;
 
 function isAllowedSyncKey(key: unknown): key is string {
@@ -55,34 +67,70 @@ function createBootEpoch(): string {
   return `boot-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function getDiskSignature(): string {
+  try {
+    const stat = fs.statSync(DATA_FILE);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return 'MISSING';
+  }
+}
+
+function clearCopilotRouterStoreIfPresent(): void {
+  if (globalThis._hrmCopilotRouterStore) {
+    const maybeClearable = globalThis._hrmCopilotRouterStore as RouterStateStore & {
+      clear?: () => void;
+    };
+    if (typeof maybeClearable.clear === 'function') {
+      maybeClearable.clear();
+    }
+    globalThis._hrmCopilotRouterStore = undefined;
+  }
+}
+
 function getStore(): Record<string, unknown> {
-  if (globalThis._hrmSyncStore && Object.keys(globalThis._hrmSyncStore).length > 0) {
+  const diskSig = getDiskSignature();
+  if (globalThis._hrmSyncStore && globalThis._hrmSyncStoreDiskSig === diskSig) {
     if (!globalThis._hrmBootEpoch) {
       globalThis._hrmBootEpoch = createBootEpoch();
     }
     return globalThis._hrmSyncStore;
   }
-  try {
-    if (fs.existsSync(DATA_FILE)) {
+  if (diskSig !== 'MISSING') {
+    try {
       const content = fs.readFileSync(DATA_FILE, 'utf-8');
       const parsed = JSON.parse(content) as unknown;
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         const rawEpoch = (parsed as Record<string, unknown>)._bootEpoch;
-        if (typeof rawEpoch === 'string' && rawEpoch.trim().length > 0) {
-          globalThis._hrmBootEpoch = rawEpoch.trim();
+        const parsedBootEpoch =
+          typeof rawEpoch === 'string' && rawEpoch.trim().length > 0
+            ? rawEpoch.trim()
+            : undefined;
+        if (parsedBootEpoch) {
+          if (parsedBootEpoch !== globalThis._hrmSyncStoreBootEpoch) {
+            globalThis._hrmSyncStoreBootEpoch = parsedBootEpoch;
+            clearCopilotRouterStoreIfPresent();
+          }
+          globalThis._hrmBootEpoch = parsedBootEpoch;
+        } else if (!globalThis._hrmBootEpoch) {
+          globalThis._hrmBootEpoch = createBootEpoch();
+          globalThis._hrmSyncStoreBootEpoch = globalThis._hrmBootEpoch;
         }
+        globalThis._hrmSyncStore = createNullProtoStore(parsed);
+        globalThis._hrmSyncStoreDiskSig = diskSig;
+        return globalThis._hrmSyncStore;
       }
-      globalThis._hrmSyncStore = createNullProtoStore(parsed);
-      if (!globalThis._hrmBootEpoch) {
-        globalThis._hrmBootEpoch = createBootEpoch();
-      }
-      return globalThis._hrmSyncStore;
+    } catch {
+      // fallback
     }
-  } catch {
-    // fallback
   }
-  if (!globalThis._hrmSyncStore) {
-    globalThis._hrmSyncStore = Object.create(null) as Record<string, unknown>;
+  if (globalThis._hrmSyncStoreBootEpoch !== undefined) {
+    globalThis._hrmSyncStoreBootEpoch = undefined;
+    clearCopilotRouterStoreIfPresent();
+  }
+  globalThis._hrmSyncStore = Object.create(null) as Record<string, unknown>;
+  if (diskSig === 'MISSING') {
+    globalThis._hrmSyncStoreDiskSig = diskSig;
   }
   if (!globalThis._hrmBootEpoch) {
     globalThis._hrmBootEpoch = createBootEpoch();
@@ -100,16 +148,61 @@ function getBootEpoch(): string {
   return globalThis._hrmBootEpoch;
 }
 
+function readDiskBiometricPreserveSnapshot(): Record<string, unknown> | null {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return null;
+    const content = fs.readFileSync(DATA_FILE, 'utf-8');
+    const parsed = JSON.parse(content) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 function persistStore(): void {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const payload = {
+    const ramStore = globalThis._hrmSyncStore || {};
+    const diskSnapshot = readDiskBiometricPreserveSnapshot();
+    const payload: Record<string, unknown> = {
       _bootEpoch: getBootEpoch(),
-      ...(globalThis._hrmSyncStore || {}),
+      ...ramStore,
     };
+
+    if (diskSnapshot) {
+      for (const serverKey of Array.from(SERVER_ONLY_KEYS)) {
+        if (Array.isArray(diskSnapshot[serverKey])) {
+          payload[serverKey] = diskSnapshot[serverKey];
+          if (globalThis._hrmSyncStore) {
+            globalThis._hrmSyncStore[serverKey] = diskSnapshot[serverKey];
+          }
+        }
+      }
+      for (const preserveKey of BIOMETRIC_PRESERVE_IF_MISSING_KEYS) {
+        const ramVal = payload[preserveKey];
+        const ramMissingOrEmpty = !Array.isArray(ramVal) || ramVal.length === 0;
+        if (
+          ramMissingOrEmpty &&
+          Array.isArray(diskSnapshot[preserveKey]) &&
+          (diskSnapshot[preserveKey] as unknown[]).length > 0
+        ) {
+          payload[preserveKey] = diskSnapshot[preserveKey];
+          if (globalThis._hrmSyncStore) {
+            globalThis._hrmSyncStore[preserveKey] = diskSnapshot[preserveKey];
+          }
+        }
+      }
+    }
+
     fs.writeFileSync(DATA_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+    globalThis._hrmSyncStoreBootEpoch =
+      typeof payload._bootEpoch === 'string'
+        ? payload._bootEpoch
+        : globalThis._hrmSyncStoreBootEpoch;
+    globalThis._hrmSyncStoreDiskSig = getDiskSignature();
   } catch {
     // ignore file write errors in restricted environments
   }
@@ -250,7 +343,18 @@ function mergeArrayById(
 
 export async function GET() {
   const stores = getStore();
-  return NextResponse.json({ ok: true, success: true, bootEpoch: getBootEpoch(), stores });
+  const safeStores: Record<string, unknown> = Object.create(null);
+  for (const [k, v] of Object.entries(stores)) {
+    if (!SERVER_ONLY_KEYS.has(k)) {
+      safeStores[k] = v;
+    }
+  }
+  return NextResponse.json({
+    ok: true,
+    success: true,
+    bootEpoch: getBootEpoch(),
+    stores: safeStores,
+  });
 }
 
 export async function POST(req: Request) {
@@ -295,10 +399,24 @@ export async function POST(req: Request) {
     const store = getStore();
 
     if (allowReset) {
+      const preservedServerData: Record<string, unknown> = Object.create(null);
+      const diskSnapshot = readDiskBiometricPreserveSnapshot();
+      for (const serverKey of Array.from(SERVER_ONLY_KEYS)) {
+        if (diskSnapshot && Array.isArray(diskSnapshot[serverKey])) {
+          preservedServerData[serverKey] = diskSnapshot[serverKey];
+        } else if (Array.isArray(store[serverKey])) {
+          preservedServerData[serverKey] = store[serverKey];
+        }
+      }
+
       globalThis._hrmSyncStore = Object.create(null) as Record<string, unknown>;
       if (fullSync && typeof fullSync === 'object' && !Array.isArray(fullSync)) {
         for (const [syncKey, syncVal] of Object.entries(fullSync as Record<string, unknown>)) {
-          if (!isAllowedSyncKey(syncKey) || !Array.isArray(syncVal)) {
+          if (
+            SERVER_ONLY_KEYS.has(syncKey) ||
+            !isAllowedSyncKey(syncKey) ||
+            !Array.isArray(syncVal)
+          ) {
             continue;
           }
           globalThis._hrmSyncStore[syncKey] = mergeArrayById(
@@ -310,19 +428,38 @@ export async function POST(req: Request) {
           );
         }
       }
+      for (const [serverKey, serverVal] of Object.entries(preservedServerData)) {
+        globalThis._hrmSyncStore[serverKey] = serverVal;
+      }
       globalThis._hrmBootEpoch = createBootEpoch();
+      globalThis._hrmSyncStoreBootEpoch = globalThis._hrmBootEpoch;
+      clearCopilotRouterStoreIfPresent();
       persistStore();
       return NextResponse.json({ ok: true, success: true, bootEpoch: getBootEpoch() });
     }
 
     if (fullSync && typeof fullSync === 'object' && !Array.isArray(fullSync)) {
       for (const [syncKey, syncVal] of Object.entries(fullSync as Record<string, unknown>)) {
-        if (!isAllowedSyncKey(syncKey) || !Array.isArray(syncVal)) {
+        if (
+          SERVER_ONLY_KEYS.has(syncKey) ||
+          !isAllowedSyncKey(syncKey) ||
+          !Array.isArray(syncVal)
+        ) {
           continue;
         }
         const prevArr = Array.isArray(store[syncKey]) ? (store[syncKey] as unknown[]) : [];
         store[syncKey] = mergeArrayById(prevArr, syncVal, syncKey, allowRollback, allowReset);
       }
+    } else if (typeof key === 'string' && SERVER_ONLY_KEYS.has(key)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          success: false,
+          code: 'FORBIDDEN_SYNC_KEY',
+          error: 'Không được phép ghi đè khóa dữ liệu sinh trắc học máy chủ qua /api/hrm/sync.',
+        },
+        { status: 403 }
+      );
     } else if (isAllowedSyncKey(key) && Array.isArray(items)) {
       const prevArr = Array.isArray(store[key]) ? (store[key] as unknown[]) : [];
       store[key] = mergeArrayById(prevArr, items, key, allowRollback, allowReset);

@@ -6,6 +6,7 @@ import {
   findSystemUserForLogin,
   initRuntimeSync,
 } from '@/lib/runtime-store';
+import type { NaturalLanguageLeaveDraft } from '@/mock/types';
 
 export type RoleCode =
   | 'SUPER_ADMIN'
@@ -84,6 +85,7 @@ export interface NavIntent {
   navId: string;
   entityId?: string;
   subTab?: string;
+  leaveDraft?: NaturalLanguageLeaveDraft;
   ts: number;
 }
 
@@ -103,7 +105,8 @@ export interface AppContextValue {
   setAuthenticatedUser: (
     r: RoleCode,
     email?: string | null,
-    profile?: UserProfileOverride | null
+    profile?: UserProfileOverride | null,
+    options?: { skipServerDemoSync?: boolean }
   ) => void;
   logout: () => void;
   theme: 'light' | 'dark';
@@ -112,7 +115,14 @@ export interface AppContextValue {
   activeNav: string;
   setActiveNav: (id: string) => void;
   navIntent: NavIntent | null;
-  navigateWithIntent: (navId: string, intent?: { entityId?: string; subTab?: string }) => void;
+  navigateWithIntent: (
+    navId: string,
+    intent?: {
+      entityId?: string;
+      subTab?: string;
+      leaveDraft?: NaturalLanguageLeaveDraft;
+    }
+  ) => void;
   clearNavIntent: () => void;
   uiState: UiState;
   setUiState: (s: UiState) => void;
@@ -121,17 +131,203 @@ export interface AppContextValue {
   dismissToast: (id: string) => void;
 }
 
+export const HRM_SESSION_SYNCED_EVENT = 'hrm-session-synced';
+
 const STORAGE_ROLE_KEY = 'lacviet_hrm_role';
+const LEGACY_DEMO_ROLE_KEY = 'hrm_demo_role';
 const STORAGE_EMAIL_KEY = 'lacviet_hrm_email';
 const STORAGE_PROFILE_KEY = 'lacviet_hrm_profile';
 const STORAGE_THEME_KEY = 'hrm_theme';
 const STORAGE_NAV_KEY = 'hrm_active_nav';
 const VALID_ROLES: RoleCode[] = ['SUPER_ADMIN', 'DIRECTOR', 'HR_MANAGER', 'DEPT_MANAGER', 'EMPLOYEE', 'CANDIDATE'];
 
+const EMPLOYEE_RESTRICTED_NAVS = new Set([
+  'ats',
+  'recruitment',
+  'onboarding',
+  'assets',
+  'core-hr',
+  'employees',
+  'contracts',
+  'payroll',
+  'performance',
+  'kpi',
+  'rbac',
+  'roles',
+  'settings',
+  'audit-logs',
+  'admin-roles',
+  'admin-settings',
+  'admin-audit',
+]);
+
+const DEPT_MANAGER_RESTRICTED_NAVS = new Set([
+  'payroll',
+  'rbac',
+  'roles',
+  'settings',
+  'audit-logs',
+  'admin-roles',
+  'admin-settings',
+  'admin-audit',
+]);
+
+function resolveAllowedNav(navId: string, currentRole: RoleCode): string {
+  const normalized = navId.trim();
+  if (!normalized) return 'dashboard';
+  if (currentRole === 'CANDIDATE') {
+    return 'dashboard';
+  }
+  if (currentRole === 'EMPLOYEE') {
+    if (EMPLOYEE_RESTRICTED_NAVS.has(normalized) || normalized.startsWith('admin-')) {
+      return 'dashboard';
+    }
+  }
+  if (currentRole === 'DEPT_MANAGER') {
+    if (DEPT_MANAGER_RESTRICTED_NAVS.has(normalized) || normalized.startsWith('admin-')) {
+      return 'dashboard';
+    }
+  }
+  return normalized;
+}
+
+export interface ServerSessionActionResult {
+  ok: boolean;
+  status: number;
+  networkError?: boolean;
+  data?: {
+    authenticated?: boolean;
+    role?: RoleCode;
+    employeeCode?: string;
+    email?: string;
+    fullName?: string;
+  };
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+async function postHrmSessionAction(
+  body: Record<string, unknown>
+): Promise<ServerSessionActionResult> {
+  if (typeof window === 'undefined') {
+    return { ok: false, status: 0, networkError: true };
+  }
+  try {
+    const res = await fetch('/api/hrm/session', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 404 || res.status === 405) {
+      return { ok: false, status: res.status, networkError: true };
+    }
+    let json: {
+      success?: boolean;
+      data?: ServerSessionActionResult['data'];
+      error?: ServerSessionActionResult['error'];
+    } | null = null;
+    try {
+      json = await res.json();
+    } catch {
+      return { ok: false, status: res.status, networkError: true };
+    }
+    return {
+      ok: res.ok && Boolean(json?.success),
+      status: res.status,
+      data: json?.data,
+      error: json?.error,
+    };
+  } catch {
+    return { ok: false, status: 0, networkError: true };
+  }
+}
+
+export async function syncServerHrmSession(
+  roleOrInput: RoleCode | { role: RoleCode }
+): Promise<boolean> {
+  const targetRole =
+    typeof roleOrInput === 'string' ? roleOrInput : roleOrInput.role;
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const result = await postHrmSessionAction({
+    mode: 'demo_switch',
+    role: targetRole,
+  });
+  if (result.ok) {
+    window.dispatchEvent(new Event(HRM_SESSION_SYNCED_EVENT));
+  }
+  return result.ok;
+}
+
+export async function loginServerHrmSession(params: {
+  email: string;
+  password: string;
+}): Promise<ServerSessionActionResult> {
+  return postHrmSessionAction({
+    mode: 'login',
+    email: params.email.trim(),
+    password: params.password,
+  });
+}
+
+export async function registerServerHrmSession(params: {
+  email: string;
+  password: string;
+  fullName: string;
+}): Promise<ServerSessionActionResult> {
+  return postHrmSessionAction({
+    mode: 'register',
+    email: params.email.trim(),
+    password: params.password,
+    fullName: params.fullName.trim(),
+  });
+}
+
+export async function clearServerHrmSession(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    await fetch('/api/hrm/session', {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    });
+  } catch {
+    // Ignore network or static-export errors
+  }
+}
+
+function isStandardDemoAccountIdentity(
+  targetRole: RoleCode,
+  email?: string | null,
+  employeeCode?: string | null
+): boolean {
+  if (targetRole === 'CANDIDATE') return false;
+  const defProfile = ROLE_DEFAULT_PROFILES[targetRole];
+  if (!defProfile) return false;
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanCode = (employeeCode || '').trim().toLowerCase();
+  const demoEmail = defProfile.email.trim().toLowerCase();
+  const demoCode = defProfile.employee_code.trim().toLowerCase();
+  if (cleanCode && cleanCode !== demoCode) return false;
+  if (!cleanEmail) return false;
+  if (cleanEmail === demoEmail) return true;
+  const demoLocal = demoEmail.split('@')[0];
+  const emailLocal = cleanEmail.split('@')[0];
+  return (
+    Boolean(demoLocal) &&
+    emailLocal === demoLocal &&
+    (cleanEmail.endsWith('@lacviethrm.vn') ||
+      cleanEmail.endsWith('@hrm-enterprise.vn'))
+  );
+}
+
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<RoleCode>('HR_MANAGER');
+  const [role, setRoleState] = useState<RoleCode>('EMPLOYEE');
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfileOverride | null>(null);
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
@@ -148,6 +344,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? (JSON.parse(savedProfileRaw) as UserProfileOverride)
         : null;
       const savedRole = window.localStorage.getItem(STORAGE_ROLE_KEY) as RoleCode | null;
+      let effectiveInitialRole: RoleCode = 'EMPLOYEE';
 
       if (savedEmail) {
         const authCheck = findSystemUserForLogin(
@@ -157,6 +354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           savedRole !== 'CANDIDATE' && !authCheck.user && !authCheck.employee;
         if (!authCheck.canLogin || isMissingRuntimeEmployee) {
           window.localStorage.removeItem(STORAGE_ROLE_KEY);
+          window.localStorage.removeItem(LEGACY_DEMO_ROLE_KEY);
           window.localStorage.removeItem(STORAGE_EMAIL_KEY);
           window.localStorage.removeItem(STORAGE_PROFILE_KEY);
           window.localStorage.removeItem('lacviet_applied_candidate_email');
@@ -167,6 +365,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ? 'hrm_active=; path=/; max-age=0; SameSite=Lax'
               : 'hrm_active=0; path=/; max-age=60; SameSite=Lax';
           }
+          void clearServerHrmSession();
           if (isMissingRuntimeEmployee && window.location.pathname.startsWith('/app')) {
             window.location.assign('/login');
             return;
@@ -181,23 +380,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 : parsedProfile;
             setCurrentUserProfile(normalizedProfile);
           }
-          const resolvedSavedRole =
+          const resolvedSavedRole: RoleCode =
             authCheck.user?.role_code && VALID_ROLES.includes(authCheck.user.role_code)
               ? authCheck.user.role_code
-              : savedRole && VALID_ROLES.includes(savedRole)
-                ? savedRole
-                : 'HR_MANAGER';
+              : authCheck.employee?.role_code && VALID_ROLES.includes(authCheck.employee.role_code)
+                ? authCheck.employee.role_code
+                : savedRole && VALID_ROLES.includes(savedRole)
+                  ? savedRole
+                  : 'EMPLOYEE';
+          effectiveInitialRole = resolvedSavedRole;
           setRoleState(resolvedSavedRole);
           if (typeof document !== 'undefined') {
             document.cookie = `hrm_role=${resolvedSavedRole}; path=/; max-age=86400; SameSite=Lax`;
-            document.cookie = `hrm_token=demo-token-${resolvedSavedRole}; path=/; max-age=86400; SameSite=Lax`;
             document.cookie = 'hrm_active=1; path=/; max-age=86400; SameSite=Lax';
           }
+          if (
+            resolvedSavedRole !== 'CANDIDATE' &&
+            isStandardDemoAccountIdentity(
+              resolvedSavedRole,
+              savedEmail,
+              parsedProfile?.employee_code ||
+                authCheck.employee?.employee_code ||
+                authCheck.user?.employee_code
+            )
+          ) {
+            void syncServerHrmSession(resolvedSavedRole);
+          }
         }
-      } else if (savedRole && VALID_ROLES.includes(savedRole)) {
-        setRoleState(savedRole);
+      } else {
+        setRoleState('EMPLOYEE');
+        window.localStorage.removeItem(STORAGE_ROLE_KEY);
+        window.localStorage.removeItem(LEGACY_DEMO_ROLE_KEY);
         if (typeof document !== 'undefined') {
-          document.cookie = `hrm_role=${savedRole}; path=/; max-age=86400; SameSite=Lax`;
+          document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
+          document.cookie = 'hrm_token=; path=/; max-age=0; SameSite=Lax';
+          document.cookie = 'hrm_active=; path=/; max-age=0; SameSite=Lax';
         }
       }
 
@@ -207,7 +424,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
       const savedNav = window.localStorage.getItem(STORAGE_NAV_KEY);
       if (savedNav) {
-        setActiveNavState(savedNav);
+        setActiveNavState(resolveAllowedNav(savedNav, effectiveInitialRole));
       }
     } catch {
       // Ignore storage access errors in restricted environments
@@ -220,26 +437,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const setActiveNav = useCallback((id: string) => {
-    setActiveNavState(id);
-    try {
-      window.localStorage.setItem(STORAGE_NAV_KEY, id);
-    } catch {
-      // Ignore storage errors
-    }
-  }, []);
+  const setActiveNav = useCallback(
+    (id: string) => {
+      const safeNav = resolveAllowedNav(id, role);
+      setActiveNavState(safeNav);
+      try {
+        window.localStorage.setItem(STORAGE_NAV_KEY, safeNav);
+      } catch {
+        // Ignore storage errors
+      }
+    },
+    [role]
+  );
 
   const navigateWithIntent = useCallback(
-    (navId: string, intent?: { entityId?: string; subTab?: string }) => {
-      setActiveNav(navId);
+    (
+      navId: string,
+      intent?: {
+        entityId?: string;
+        subTab?: string;
+        leaveDraft?: NaturalLanguageLeaveDraft;
+      }
+    ) => {
+      const safeNav = resolveAllowedNav(navId, role);
+      setActiveNavState(safeNav);
+      try {
+        window.localStorage.setItem(STORAGE_NAV_KEY, safeNav);
+      } catch {
+        // Ignore storage errors
+      }
+      if (safeNav !== navId.trim()) {
+        setNavIntent(null);
+        return;
+      }
       setNavIntent({
-        navId,
+        navId: safeNav,
         entityId: intent?.entityId,
         subTab: intent?.subTab,
+        leaveDraft: intent?.leaveDraft,
         ts: Date.now(),
       });
     },
-    [setActiveNav]
+    [role]
   );
 
   const clearNavIntent = useCallback(() => {
@@ -248,18 +487,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setRole = useCallback((nextRole: RoleCode) => {
     setRoleState(nextRole);
+    setActiveNavState((prev) => resolveAllowedNav(prev, nextRole));
+    if (nextRole === 'CANDIDATE') {
+      try {
+        window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
+      } catch {
+        // Ignore storage errors
+      }
+      void clearServerHrmSession();
+      return;
+    }
+
+    const defProfile = ROLE_DEFAULT_PROFILES[nextRole];
+    const nextProfile: UserProfileOverride = {
+      fullName: defProfile.fullName,
+      department: defProfile.department,
+      employee_code: defProfile.employee_code,
+      title: defProfile.title,
+      email: defProfile.email,
+    };
+    setCurrentUserEmail(defProfile.email);
+    setCurrentUserProfile(nextProfile);
     try {
-      window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
+      if (typeof document !== 'undefined') {
+        document.cookie = `hrm_role=${nextRole}; path=/; max-age=86400; SameSite=Lax`;
+        document.cookie = 'hrm_active=1; path=/; max-age=86400; SameSite=Lax';
+      }
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
+        window.localStorage.setItem(STORAGE_EMAIL_KEY, defProfile.email);
+        window.localStorage.setItem(
+          STORAGE_PROFILE_KEY,
+          JSON.stringify(nextProfile)
+        );
+      }
     } catch {
       // Ignore storage errors
     }
+    void syncServerHrmSession(nextRole);
   }, []);
 
   const setAuthenticatedUser = useCallback(
     (
       nextRole: RoleCode,
       email?: string | null,
-      profile?: UserProfileOverride | null
+      profile?: UserProfileOverride | null,
+      options?: { skipServerDemoSync?: boolean }
     ) => {
       setRoleState(nextRole);
       const normalizedEmail = email?.trim() ? email.trim() : null;
@@ -276,7 +549,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         if (typeof document !== 'undefined') {
           document.cookie = `hrm_role=${nextRole}; path=/; max-age=86400; SameSite=Lax`;
-          document.cookie = `hrm_token=demo-token-${nextRole}; path=/; max-age=86400; SameSite=Lax`;
           document.cookie = 'hrm_active=1; path=/; max-age=86400; SameSite=Lax';
         }
         if (typeof window !== 'undefined') {
@@ -300,15 +572,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Ignore storage errors
       }
+
+      if (nextRole === 'CANDIDATE') {
+        void clearServerHrmSession();
+      } else if (
+        !options?.skipServerDemoSync &&
+        isStandardDemoAccountIdentity(
+          nextRole,
+          normalizedEmail,
+          sanitizedProfile?.employee_code
+        )
+      ) {
+        void syncServerHrmSession(nextRole);
+      }
     },
     []
   );
 
   const logout = useCallback(() => {
+    setRoleState('EMPLOYEE');
     setCurrentUserEmail(null);
     setCurrentUserProfile(null);
     setNavIntent(null);
-    setActiveNav('dashboard');
+    setActiveNavState('dashboard');
     try {
       if (typeof document !== 'undefined') {
         document.cookie = 'hrm_role=; path=/; max-age=0; SameSite=Lax';
@@ -316,15 +602,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         document.cookie = 'hrm_active=; path=/; max-age=0; SameSite=Lax';
       }
       if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(STORAGE_ROLE_KEY);
+        window.localStorage.removeItem(LEGACY_DEMO_ROLE_KEY);
         window.localStorage.removeItem('lacviet_applied_candidate_email');
         window.localStorage.removeItem(STORAGE_EMAIL_KEY);
         window.localStorage.removeItem(STORAGE_PROFILE_KEY);
         window.localStorage.setItem(STORAGE_NAV_KEY, 'dashboard');
+        window.sessionStorage?.clear();
       }
     } catch {
       // Ignore storage errors
     }
-  }, [setActiveNav]);
+    void clearServerHrmSession();
+  }, []);
 
   const applyTheme = useCallback((nextTheme: 'light' | 'dark') => {
     setThemeState(nextTheme);
@@ -417,13 +707,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       const nextRole = check.user?.role_code ?? check.employee?.role_code;
+      const resolvedSyncedRole =
+        nextRole && VALID_ROLES.includes(nextRole) ? nextRole : role;
+      let shouldSyncServerSession = false;
+
       if (nextRole && VALID_ROLES.includes(nextRole) && nextRole !== role) {
+        shouldSyncServerSession = true;
         setRoleState(nextRole);
+        setActiveNavState((prev) => resolveAllowedNav(prev, nextRole));
         try {
           window.localStorage.setItem(STORAGE_ROLE_KEY, nextRole);
           if (typeof document !== 'undefined') {
             document.cookie = `hrm_role=${nextRole}; path=/; max-age=86400; SameSite=Lax`;
-            document.cookie = `hrm_token=demo-token-${nextRole}; path=/; max-age=86400; SameSite=Lax`;
           }
         } catch {
           // Ignore storage errors
@@ -448,6 +743,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           currentUserProfile?.employee_code !== nextProfile.employee_code ||
           currentUserProfile?.title !== nextProfile.title;
         if (changed) {
+          shouldSyncServerSession = true;
           setCurrentUserProfile(nextProfile);
           try {
             window.localStorage.setItem(
@@ -458,6 +754,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Ignore storage errors
           }
         }
+      }
+
+      if (
+        shouldSyncServerSession &&
+        resolvedSyncedRole !== 'CANDIDATE' &&
+        isStandardDemoAccountIdentity(
+          resolvedSyncedRole,
+          currentUserEmail,
+          check.employee?.employee_code ?? currentUserProfile?.employee_code
+        )
+      ) {
+        void syncServerHrmSession(resolvedSyncedRole);
       }
     };
 

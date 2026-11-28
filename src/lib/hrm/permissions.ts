@@ -71,7 +71,10 @@ export interface EntityPermissionContext {
   salary?: number;
   headcount?: number;
   daysCount?: number;
-  deptScope?: 'IT' | 'ADMIN' | 'MANAGER' | 'HR';
+  deptScope?: 'IT' | 'ADMIN' | 'MANAGER' | 'HR' | (string & {});
+  taskGroup?: 'IT' | 'ADMIN' | 'MANAGER' | 'HR' | (string & {});
+  group?: 'IT' | 'ADMIN' | 'MANAGER' | 'HR' | (string & {});
+  taskType?: string;
   newRole?: RoleCode;
   isFinalSettlement?: boolean;
 }
@@ -168,11 +171,23 @@ export function can(
     case 'submit_preboarding_info':
       return true; // Public token link or candidate/HR self-service
 
-    case 'complete_onboarding_task':
-      if (entityContext?.deptScope === 'MANAGER') {
-        return role === 'DEPT_MANAGER' || role === 'HR_MANAGER' || role === 'DIRECTOR';
+    case 'complete_onboarding_task': {
+      const requestedScope =
+        entityContext?.deptScope ??
+        entityContext?.taskGroup ??
+        entityContext?.group ??
+        entityContext?.taskType;
+      if (role === 'DEPT_MANAGER') {
+        if (
+          requestedScope !== undefined &&
+          String(requestedScope).trim().toUpperCase() !== 'MANAGER'
+        ) {
+          return false;
+        }
+        return true;
       }
-      return role === 'HR_MANAGER' || role === 'DEPT_MANAGER' || role === 'DIRECTOR';
+      return role === 'HR_MANAGER' || role === 'DIRECTOR';
+    }
 
     case 'assign_onboarding_mentor':
     case 'evaluate_probation':

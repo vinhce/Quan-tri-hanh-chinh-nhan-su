@@ -13,6 +13,7 @@ import type {
   BiometricDeviceKind,
   DailyAttendanceRecord,
   Employee,
+  FaceBiometricProfileDto,
   HostWifiHardwareInfo,
   RoleCode,
   WifiAttendancePolicy,
@@ -258,6 +259,7 @@ export async function fetchSameWifiStatus(params?: {
     isWifi: boolean;
   }>;
   rpId: string;
+  faceProfiles?: FaceBiometricProfileDto[];
 }> {
   const hostname =
     typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
@@ -266,6 +268,7 @@ export async function fetchSameWifiStatus(params?: {
 
   const res = await fetch('/api/hrm/attendance/biometric', {
     method: 'POST',
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       action: 'network_status',
@@ -300,6 +303,9 @@ export async function fetchSameWifiStatus(params?: {
       ? data.hostLanInterfaces
       : [],
     rpId: String(data.rpId || hostname),
+    faceProfiles: Array.isArray(data.faceProfiles)
+      ? (data.faceProfiles as FaceBiometricProfileDto[])
+      : [],
   };
 }
 
@@ -730,4 +736,484 @@ export async function syncWifiPolicyEverywhere(params: {
     // ignore background sync error
   }
   return saved;
+}
+
+// ---------------------------------------------------------------------------
+// Camera Face / Iris Liveness 1:1 Client Helpers (Additive — Post Line 691)
+// ---------------------------------------------------------------------------
+
+export class FaceBiometricFlowError extends Error {
+  code: string;
+  status?: number;
+  wifi?: WifiVerificationResult;
+  similarity?: number;
+
+  constructor(
+    code: string,
+    message: string,
+    options?: {
+      status?: number;
+      wifi?: WifiVerificationResult;
+      similarity?: number;
+    }
+  ) {
+    super(message);
+    this.name = 'FaceBiometricFlowError';
+    this.code = code;
+    this.status = options?.status;
+    this.wifi = options?.wifi;
+    this.similarity = options?.similarity;
+  }
+}
+
+export type FaceScanModality = 'full_face' | 'periocular';
+export type FaceCoverStatus = 'none' | 'mask' | 'full_cover';
+
+export interface RegisterFaceBiometricInput {
+  employee: Employee;
+  role?: RoleCode;
+  embedding?: number[];
+  liveness: number;
+  antispoof: number;
+  blinkCount: number;
+  deviceLabel?: string;
+  scanModality?: FaceScanModality;
+  periocularFrameB64?: string;
+  periocularAuxFrameB64?: string;
+  upgradePeriocular?: boolean;
+  replaceExisting?: boolean;
+}
+
+export interface VerifyFaceBiometricPunchInput {
+  employee: Employee;
+  role?: RoleCode;
+  embedding?: number[];
+  liveness: number;
+  antispoof: number;
+  blinkCount: number;
+  scanModality?: FaceScanModality;
+  periocularFrameB64?: string;
+  periocularAuxFrameB64?: string;
+}
+
+export async function checkFaceMaskStatus(frameB64: string): Promise<{
+  ok: boolean;
+  online: boolean;
+  faceCover: FaceCoverStatus;
+  maskScore: number;
+  eyeLandmarks?: { left: [number, number]; right: [number, number] };
+  code?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/hrm/attendance/biometric', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'face_mask_check',
+        frameB64,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+      const code = String(data?.code || 'MASK_CHECK_FAILED');
+      const online = res.status !== 503 && code !== 'PERIOCULAR_SERVICE_UNAVAILABLE';
+      return {
+        ok: false,
+        online,
+        faceCover: 'none',
+        maskScore: 0,
+        code,
+        error: typeof data?.error === 'string' ? data.error : undefined,
+      };
+    }
+    const rawCover = String(data.faceCover || 'none').trim();
+    const faceCover: FaceCoverStatus =
+      rawCover === 'mask' || rawCover === 'full_cover' ? rawCover : 'none';
+    const maskScore =
+      typeof data.maskScore === 'number' && Number.isFinite(data.maskScore)
+        ? data.maskScore
+        : 0;
+    return {
+      ok: true,
+      online: true,
+      faceCover,
+      maskScore,
+      eyeLandmarks:
+        data.eyeLandmarks &&
+        typeof data.eyeLandmarks === 'object' &&
+        Array.isArray(data.eyeLandmarks.left) &&
+        Array.isArray(data.eyeLandmarks.right)
+          ? {
+              left: [Number(data.eyeLandmarks.left[0]), Number(data.eyeLandmarks.left[1])],
+              right: [Number(data.eyeLandmarks.right[0]), Number(data.eyeLandmarks.right[1])],
+            }
+          : undefined,
+    };
+  } catch {
+    return {
+      ok: false,
+      online: false,
+      faceCover: 'none',
+      maskScore: 0,
+      code: 'PERIOCULAR_SERVICE_UNAVAILABLE',
+    };
+  }
+}
+
+export async function fetchPeriocularEngineStatus(
+  employeeId?: string
+): Promise<{ online: boolean; hasPeriocularTemplate: boolean }> {
+  try {
+    const qs = employeeId ? `?employee_id=${encodeURIComponent(employeeId)}` : '';
+    const res = await fetch(`/api/hrm/attendance/biometric${qs}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.success) {
+      return { online: false, hasPeriocularTemplate: false };
+    }
+    const online = Boolean(data?.periocularEngine?.online);
+    const profiles = Array.isArray(data?.faceProfiles)
+      ? (data.faceProfiles as FaceBiometricProfileDto[])
+      : [];
+    const targetProfile = employeeId
+      ? profiles.find(
+          (p) =>
+            p.employee_id === employeeId ||
+            p.employee_code.toUpperCase() === employeeId.toUpperCase()
+        )
+      : profiles[0];
+    const hasPeriocularTemplate = Boolean(
+      targetProfile
+        ? targetProfile.has_periocular_template
+        : profiles.some((p) => Boolean(p?.has_periocular_template))
+    );
+    return { online, hasPeriocularTemplate };
+  } catch {
+    return { online: false, hasPeriocularTemplate: false };
+  }
+}
+
+export async function fetchFaceBiometricProfiles(
+  employeeId?: string
+): Promise<FaceBiometricProfileDto[]> {
+  const qs = employeeId ? `?employee_id=${encodeURIComponent(employeeId)}` : '';
+  const res = await fetch(`/api/hrm/attendance/biometric${qs}`, {
+    method: 'GET',
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+  const data = await res.json();
+  if (!res.ok || !data?.success) {
+    throw new FaceBiometricFlowError(
+      String(data?.code || 'FETCH_FAILED'),
+      String(data?.error || 'Không tải được danh sách hồ sơ khuôn mặt/mống mắt.'),
+      { status: res.status }
+    );
+  }
+  return Array.isArray(data.faceProfiles)
+    ? (data.faceProfiles as FaceBiometricProfileDto[])
+    : [];
+}
+
+const DEMO_ROLE_EMAIL_PREFIXES: Partial<Record<RoleCode, string>> = {
+  SUPER_ADMIN: 'an.nguyen@',
+  DIRECTOR: 'viet.tran@',
+  HR_MANAGER: 'ngoc.tran@',
+  DEPT_MANAGER: 'nam.le@',
+  EMPLOYEE: 'tuan.pham@',
+};
+
+async function trySyncStaleDemoSessionCookie(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  try {
+    const rawRole = (window.localStorage.getItem('lacviet_hrm_role') || '').trim() as RoleCode;
+    const rawEmail = (window.localStorage.getItem('lacviet_hrm_email') || '')
+      .trim()
+      .toLowerCase();
+    const expectedPrefix = DEMO_ROLE_EMAIL_PREFIXES[rawRole];
+    if (!expectedPrefix || !rawEmail.startsWith(expectedPrefix)) {
+      return false;
+    }
+    const syncRes = await fetch('/api/hrm/session', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'demo_switch', role: rawRole }),
+    });
+    if (!syncRes.ok) return false;
+    const syncData = await syncRes.json();
+    if (!syncData?.success) return false;
+    window.dispatchEvent(new Event('hrm-session-synced'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function issueFaceBiometricChallenge(params: {
+  purpose: 'register' | 'punch';
+  employee: Employee;
+  actorRole: RoleCode;
+  hostname: string;
+  clientHints: Awaited<ReturnType<typeof collectClientNetworkHints>>;
+  policySnapshot: WifiAttendancePolicy;
+}): Promise<{ challengeId: string; challenge: string; rpId?: string }> {
+  const sendChallengeRequest = async () => {
+    const res = await fetch('/api/hrm/attendance/biometric', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'face_issue_challenge',
+        purpose: params.purpose,
+        employeeId: params.employee.id,
+        employeeCode: params.employee.employee_code,
+        employeeName: params.employee.full_name,
+        actorRole: params.actorRole,
+        rpId: params.hostname,
+        clientHints: params.clientHints,
+        policySnapshot: params.policySnapshot,
+      }),
+    });
+    const data = await res.json();
+    return { res, data };
+  };
+
+  let { res: chRes, data: chData } = await sendChallengeRequest();
+  if ((chRes.status === 401 || chRes.status === 403) && (await trySyncStaleDemoSessionCookie())) {
+    ({ res: chRes, data: chData } = await sendChallengeRequest());
+  }
+
+  if (!chRes.ok || !chData?.success || !chData?.challengeId || !chData?.challenge) {
+    const fallbackMsg =
+      params.purpose === 'register'
+        ? 'Không thể khởi tạo phiên đăng ký khuôn mặt.'
+        : 'Không thể khởi tạo phiên chấm công khuôn mặt.';
+    throw new FaceBiometricFlowError(
+      String(chData?.code || (chRes.status === 403 ? 'FORBIDDEN' : 'CHALLENGE_FAILED')),
+      String(chData?.error || fallbackMsg),
+      { status: chRes.status, wifi: chData?.wifi }
+    );
+  }
+
+  return {
+    challengeId: String(chData.challengeId),
+    challenge: String(chData.challenge),
+    rpId: typeof chData.rpId === 'string' ? chData.rpId : undefined,
+  };
+}
+
+export async function registerFaceBiometricProfile(
+  params: RegisterFaceBiometricInput
+): Promise<{
+  profile: FaceBiometricProfileDto;
+  faceProfiles: FaceBiometricProfileDto[];
+  wifi: WifiVerificationResult;
+}> {
+  const hostname =
+    typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+  const clientHints = await collectClientNetworkHints(true);
+  const policySnapshot = getWifiAttendancePolicy();
+  const actorRole = params.role ?? params.employee.role_code;
+
+  const chData = await issueFaceBiometricChallenge({
+    purpose: 'register',
+    employee: params.employee,
+    actorRole,
+    hostname,
+    clientHints,
+    policySnapshot,
+  });
+
+  const regRes = await fetch('/api/hrm/attendance/biometric', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'face_register',
+      challengeId: chData.challengeId,
+      challenge: chData.challenge,
+      employeeId: params.employee.id,
+      employeeCode: params.employee.employee_code,
+      fullName: params.employee.full_name,
+      employeeName: params.employee.full_name,
+      actorRole,
+      deviceLabel: params.deviceLabel?.trim() || 'Camera Khuôn mặt',
+      embedding: params.embedding,
+      liveness: params.liveness,
+      antispoof: params.antispoof,
+      blinkCount: params.blinkCount,
+      scanModality: params.scanModality,
+      periocularFrameB64: params.periocularFrameB64,
+      periocularAuxFrameB64: params.periocularAuxFrameB64,
+      upgradePeriocular: params.upgradePeriocular,
+      replaceExisting: params.replaceExisting,
+      rpId: chData.rpId || hostname,
+      clientHints,
+      policySnapshot,
+    }),
+  });
+  const regData = await regRes.json();
+  if (!regRes.ok || !regData?.success || !regData?.profile) {
+    throw new FaceBiometricFlowError(
+      String(regData?.code || 'REGISTER_FAILED'),
+      String(regData?.error || 'Đăng ký mẫu khuôn mặt thất bại.'),
+      { status: regRes.status, wifi: regData?.wifi }
+    );
+  }
+
+  return {
+    profile: regData.profile as FaceBiometricProfileDto,
+    faceProfiles: Array.isArray(regData.faceProfiles)
+      ? (regData.faceProfiles as FaceBiometricProfileDto[])
+      : [],
+    wifi: regData.wifi as WifiVerificationResult,
+  };
+}
+
+export async function verifyFaceBiometricPunch(
+  params: VerifyFaceBiometricPunchInput
+): Promise<{
+  profile: FaceBiometricProfileDto;
+  similarity: number;
+  liveness: number;
+  antispoof: number;
+  blinkCount: number;
+  wifi: WifiVerificationResult;
+  verifiedAt: string;
+  scanModality?: FaceScanModality;
+  detectionMode?: string;
+  faceCover?: FaceCoverStatus;
+  maskScore?: number;
+}> {
+  const hostname =
+    typeof window !== 'undefined' ? window.location.hostname || 'localhost' : 'localhost';
+  const clientHints = await collectClientNetworkHints(true);
+  const policySnapshot = getWifiAttendancePolicy();
+  const actorRole = params.role ?? params.employee.role_code;
+
+  const chData = await issueFaceBiometricChallenge({
+    purpose: 'punch',
+    employee: params.employee,
+    actorRole,
+    hostname,
+    clientHints,
+    policySnapshot,
+  });
+
+  const verifyRes = await fetch('/api/hrm/attendance/biometric', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'face_verify_punch',
+      challengeId: chData.challengeId,
+      challenge: chData.challenge,
+      employeeId: params.employee.id,
+      employeeCode: params.employee.employee_code,
+      employeeName: params.employee.full_name,
+      actorRole,
+      embedding: params.embedding,
+      liveness: params.liveness,
+      antispoof: params.antispoof,
+      blinkCount: params.blinkCount,
+      scanModality: params.scanModality,
+      periocularFrameB64: params.periocularFrameB64,
+      periocularAuxFrameB64: params.periocularAuxFrameB64,
+      rpId: chData.rpId || hostname,
+      clientHints,
+      policySnapshot,
+    }),
+  });
+  const verifyData = await verifyRes.json();
+  if (!verifyRes.ok || !verifyData?.success || !verifyData?.profile) {
+    throw new FaceBiometricFlowError(
+      String(verifyData?.code || 'VERIFICATION_FAILED'),
+      String(verifyData?.error || 'Xác thực chấm công khuôn mặt thất bại.'),
+      {
+        status: verifyRes.status,
+        wifi: verifyData?.wifi,
+        similarity:
+          typeof verifyData?.similarity === 'number' ? verifyData.similarity : undefined,
+      }
+    );
+  }
+
+  const rawCover = String(verifyData.faceCover || '').trim();
+  const faceCover: FaceCoverStatus | undefined =
+    rawCover === 'none' || rawCover === 'mask' || rawCover === 'full_cover'
+      ? rawCover
+      : undefined;
+
+  return {
+    profile: verifyData.profile as FaceBiometricProfileDto,
+    similarity: Number(verifyData.similarity),
+    liveness: Number(verifyData.liveness),
+    antispoof: Number(verifyData.antispoof),
+    blinkCount: Number(verifyData.blinkCount),
+    wifi: verifyData.wifi as WifiVerificationResult,
+    verifiedAt: String(verifyData.verifiedAt || new Date().toISOString()),
+    scanModality:
+      verifyData.scanModality === 'periocular' ? 'periocular' : 'full_face',
+    detectionMode:
+      typeof verifyData.detectionMode === 'string'
+        ? verifyData.detectionMode
+        : undefined,
+    faceCover,
+    maskScore:
+      typeof verifyData.maskScore === 'number' && Number.isFinite(verifyData.maskScore)
+        ? verifyData.maskScore
+        : undefined,
+  };
+}
+
+export async function deleteFaceBiometricProfile(params: {
+  employee?: Pick<Employee, 'id' | 'employee_code' | 'full_name' | 'role_code'>;
+  role?: RoleCode;
+  profileId?: string;
+  employeeId?: string;
+}): Promise<{
+  faceProfiles: FaceBiometricProfileDto[];
+}> {
+  const actorRole = params.role ?? params.employee?.role_code;
+  const sendDeleteRequest = async () => {
+    const res = await fetch('/api/hrm/attendance/biometric', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'face_delete_profile',
+        profileId: params.profileId,
+        employeeId: params.employeeId ?? params.employee?.id,
+        actorRole,
+        actorName: params.employee?.full_name,
+        actorCode: params.employee?.employee_code,
+      }),
+    });
+    const data = await res.json();
+    return { res, data };
+  };
+
+  let { res, data } = await sendDeleteRequest();
+  if ((res.status === 401 || res.status === 403) && (await trySyncStaleDemoSessionCookie())) {
+    ({ res, data } = await sendDeleteRequest());
+  }
+
+  if (!res.ok || !data?.success) {
+    throw new FaceBiometricFlowError(
+      String(data?.code || 'DELETE_FAILED'),
+      String(data?.error || 'Không thể gỡ hồ sơ khuôn mặt.'),
+      { status: res.status }
+    );
+  }
+  return {
+    faceProfiles: Array.isArray(data.faceProfiles)
+      ? (data.faceProfiles as FaceBiometricProfileDto[])
+      : [],
+  };
 }

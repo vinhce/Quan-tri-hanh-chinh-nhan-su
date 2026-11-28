@@ -1136,3 +1136,1306 @@ export function verifyWebAuthnAssertion(params: {
     challengeRecord,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Camera Face / Iris Liveness 1:1 Biometric Helpers (Additive — Post Line 1138)
+// ---------------------------------------------------------------------------
+
+export const FACE_MIN_LIVENESS = 0.5;
+export const FACE_MIN_ANTISPOOF = 0.5;
+export const FACE_MIN_BLINKS = 1;
+export const FACE_MATCH_THRESHOLD = 0.65;
+
+const FACE_CHALLENGE_TTL_MS = 120_000;
+const FACE_CHALLENGE_MAX_BUCKETS = 1000;
+
+export interface FaceChallengeRecord {
+  challengeId: string;
+  challenge: string;
+  employeeId: string;
+  employeeCode: string;
+  purpose: 'register' | 'punch';
+  rpId: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface EncryptedFaceEmbedding {
+  ciphertext: string;
+  iv: string;
+  auth_tag: string;
+}
+
+export type BiometricSessionRoleCode =
+  | 'SUPER_ADMIN'
+  | 'DIRECTOR'
+  | 'HR_MANAGER'
+  | 'DEPT_MANAGER'
+  | 'EMPLOYEE'
+  | 'CANDIDATE';
+
+export interface VerifiedBiometricHrmSession {
+  jti: string;
+  role: BiometricSessionRoleCode;
+  employeeCode: string;
+  email: string;
+  fullName: string;
+}
+
+interface FaceRateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var _hrmFaceChallenges: Map<string, FaceChallengeRecord> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmEphemeralFaceEncKey: Buffer | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmSessionSecret: string | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmRevokedSessionJtis: Map<string, number> | undefined;
+  // eslint-disable-next-line no-var
+  var _hrmFaceRateLimitsV2: Map<string, FaceRateLimitBucket> | undefined;
+}
+
+const FACE_SESSION_COOKIE_NAME = 'hrm_session';
+const FACE_MIN_SECRET_LENGTH = 32;
+const FACE_FORBIDDEN_JSON_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const FACE_ALLOWED_SESSION_ROLES: ReadonlySet<BiometricSessionRoleCode> = new Set<BiometricSessionRoleCode>([
+  'SUPER_ADMIN',
+  'DIRECTOR',
+  'HR_MANAGER',
+  'DEPT_MANAGER',
+  'EMPLOYEE',
+  'CANDIDATE',
+]);
+
+const FACE_RL_MAX_BUCKETS = 5000;
+const FACE_RL_ISSUE_MAX = 60;
+const FACE_RL_ISSUE_WINDOW_MS = 5 * 60_000;
+const FACE_RL_MASK_CHECK_MAX = 180;
+const FACE_RL_MASK_CHECK_WINDOW_MS = 5 * 60_000;
+const FACE_RL_REGISTER_MAX = 30;
+const FACE_RL_REGISTER_WINDOW_MS = 15 * 60_000;
+const FACE_RL_PUNCH_FAIL_MAX = 15;
+const FACE_RL_PUNCH_FAIL_WINDOW_MS = 10 * 60_000;
+
+function getBiometricHrmSessionSecret(): string | null {
+  const envSecret = (process.env.HRM_SESSION_SECRET || '').trim();
+  if (envSecret.length >= FACE_MIN_SECRET_LENGTH) {
+    return envSecret;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+  if (
+    typeof globalThis._hrmSessionSecret === 'string' &&
+    globalThis._hrmSessionSecret.length >= FACE_MIN_SECRET_LENGTH
+  ) {
+    return globalThis._hrmSessionSecret;
+  }
+  return null;
+}
+
+function isPlainJsonRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+function hasForbiddenJsonKey(obj: Record<string, unknown>): boolean {
+  for (const key of Object.getOwnPropertyNames(obj)) {
+    if (FACE_FORBIDDEN_JSON_KEYS.has(key)) return true;
+  }
+  return false;
+}
+
+export function verifyHrmSessionFromBiometricRequest(
+  req: Request
+): VerifiedBiometricHrmSession | null {
+  const secret = getBiometricHrmSessionSecret();
+  if (!secret) {
+    return null;
+  }
+
+  const cookieHeader = req.headers.get('cookie') || '';
+  if (!cookieHeader) {
+    return null;
+  }
+  const match = new RegExp(`(?:^|;\\s*)${FACE_SESSION_COOKIE_NAME}=([^;]+)`).exec(
+    cookieHeader
+  );
+  if (!match) {
+    return null;
+  }
+
+  let rawToken: string;
+  try {
+    rawToken = decodeURIComponent(match[1]).trim();
+  } catch {
+    rawToken = match[1].trim();
+  }
+  if (!rawToken || rawToken.length > 4096) {
+    return null;
+  }
+
+  const parts = rawToken.split('.');
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [encodedPayload, sigB64Url] = parts;
+  if (
+    !encodedPayload ||
+    !sigB64Url ||
+    !/^[A-Za-z0-9_-]+$/.test(encodedPayload) ||
+    !/^[A-Za-z0-9_-]+$/.test(sigB64Url)
+  ) {
+    return null;
+  }
+
+  const expectedSig = crypto
+    .createHmac('sha256', secret)
+    .update(encodedPayload)
+    .digest();
+
+  let actualSig: Buffer;
+  try {
+    actualSig = Buffer.from(sigB64Url, 'base64url');
+  } catch {
+    return null;
+  }
+
+  if (expectedSig.length !== actualSig.length) {
+    return null;
+  }
+  if (!crypto.timingSafeEqual(expectedSig, actualSig)) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    const jsonText = Buffer.from(encodedPayload, 'base64url').toString('utf8');
+    parsed = JSON.parse(jsonText);
+  } catch {
+    return null;
+  }
+
+  if (!isPlainJsonRecord(parsed) || hasForbiddenJsonKey(parsed)) {
+    return null;
+  }
+
+  const jti = typeof parsed.jti === 'string' ? parsed.jti.trim() : '';
+  if (jti.length < 8 || jti.length > 128) {
+    return null;
+  }
+
+  const role = parsed.role;
+  if (
+    typeof role !== 'string' ||
+    !FACE_ALLOWED_SESSION_ROLES.has(role as BiometricSessionRoleCode)
+  ) {
+    return null;
+  }
+
+  if (
+    typeof parsed.employeeCode !== 'string' ||
+    typeof parsed.email !== 'string' ||
+    typeof parsed.fullName !== 'string' ||
+    typeof parsed.iat !== 'number' ||
+    typeof parsed.exp !== 'number'
+  ) {
+    return null;
+  }
+
+  const now = Date.now();
+  if (!Number.isFinite(parsed.exp) || parsed.exp <= now) {
+    return null;
+  }
+
+  const revokedStore = globalThis._hrmRevokedSessionJtis;
+  if (revokedStore && revokedStore.has(jti)) {
+    const revokedExp = revokedStore.get(jti);
+    if (typeof revokedExp === 'number' && Number.isFinite(revokedExp) && revokedExp <= now) {
+      revokedStore.delete(jti);
+    } else {
+      return null;
+    }
+  }
+
+  return {
+    jti,
+    role: role as BiometricSessionRoleCode,
+    employeeCode: parsed.employeeCode.trim().slice(0, 64),
+    email: parsed.email.trim().toLowerCase().slice(0, 160),
+    fullName: parsed.fullName.trim().slice(0, 120),
+  };
+}
+
+function getFaceRateLimitStore(): Map<string, FaceRateLimitBucket> {
+  if (!globalThis._hrmFaceRateLimitsV2) {
+    globalThis._hrmFaceRateLimitsV2 = new Map<string, FaceRateLimitBucket>();
+  }
+  const store = globalThis._hrmFaceRateLimitsV2;
+  const now = Date.now();
+  for (const [k, v] of Array.from(store.entries())) {
+    if (!Number.isFinite(v.resetAt) || v.resetAt <= now) {
+      store.delete(k);
+    }
+  }
+  while (store.size >= FACE_RL_MAX_BUCKETS) {
+    const oldest = store.keys().next().value;
+    if (oldest === undefined) break;
+    store.delete(oldest);
+  }
+  return store;
+}
+
+function resolveFaceRateLimitKeys(
+  prefix: 'issue' | 'mask_check' | 'register' | 'punch',
+  key: string,
+  employeeCode?: string
+): string[] {
+  const trimmedKey = String(key || '').trim();
+  const keys = [`${prefix}:${trimmedKey}`];
+  const empFromArg = employeeCode ? employeeCode.trim() : '';
+  const empFromKey =
+    !empFromArg &&
+    !trimmedKey.startsWith('emp:') &&
+    trimmedKey.includes(':')
+      ? trimmedKey.slice(0, trimmedKey.indexOf(':')).trim()
+      : '';
+  const effectiveEmp = empFromArg || empFromKey;
+  if (effectiveEmp) {
+    const empKey = `${prefix}:emp:${effectiveEmp.toUpperCase()}`;
+    if (!keys.includes(empKey)) {
+      keys.push(empKey);
+    }
+  }
+  return keys;
+}
+
+export function consumeFaceRateLimit(
+  bucket: 'issue' | 'mask_check' | 'register',
+  key: string,
+  employeeCode?: string
+): { allowed: true } | { allowed: false; retryAfterSec: number } {
+  const store = getFaceRateLimitStore();
+  const now = Date.now();
+  const maxAttempts =
+    bucket === 'issue'
+      ? FACE_RL_ISSUE_MAX
+      : bucket === 'mask_check'
+        ? FACE_RL_MASK_CHECK_MAX
+        : FACE_RL_REGISTER_MAX;
+  const windowMs =
+    bucket === 'issue'
+      ? FACE_RL_ISSUE_WINDOW_MS
+      : bucket === 'mask_check'
+        ? FACE_RL_MASK_CHECK_WINDOW_MS
+        : FACE_RL_REGISTER_WINDOW_MS;
+  const mapKeys = resolveFaceRateLimitKeys(bucket, key, employeeCode);
+
+  let maxRetryAfterSec = 0;
+  for (const mapKey of mapKeys) {
+    const current = store.get(mapKey);
+    if (current && current.resetAt > now && current.count >= maxAttempts) {
+      const retryAfterSec = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+      if (retryAfterSec > maxRetryAfterSec) {
+        maxRetryAfterSec = retryAfterSec;
+      }
+    }
+  }
+  if (maxRetryAfterSec > 0) {
+    return { allowed: false, retryAfterSec: maxRetryAfterSec };
+  }
+
+  for (const mapKey of mapKeys) {
+    const current = store.get(mapKey);
+    if (!current || current.resetAt <= now) {
+      store.set(mapKey, { count: 1, resetAt: now + windowMs });
+    } else {
+      current.count += 1;
+      store.set(mapKey, current);
+    }
+  }
+  return { allowed: true };
+}
+
+export function checkFacePunchRateLimit(
+  key: string,
+  employeeCode?: string
+): { allowed: true } | { allowed: false; retryAfterSec: number } {
+  const store = getFaceRateLimitStore();
+  const now = Date.now();
+  const mapKeys = resolveFaceRateLimitKeys('punch', key, employeeCode);
+
+  let maxRetryAfterSec = 0;
+  for (const mapKey of mapKeys) {
+    const current = store.get(mapKey);
+    if (current && current.resetAt > now && current.count >= FACE_RL_PUNCH_FAIL_MAX) {
+      const retryAfterSec = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+      if (retryAfterSec > maxRetryAfterSec) {
+        maxRetryAfterSec = retryAfterSec;
+      }
+    }
+  }
+  if (maxRetryAfterSec > 0) {
+    return { allowed: false, retryAfterSec: maxRetryAfterSec };
+  }
+  return { allowed: true };
+}
+
+export function recordFacePunchFailure(
+  key: string,
+  employeeCode?: string
+): { locked: boolean; retryAfterSec: number } {
+  const store = getFaceRateLimitStore();
+  const now = Date.now();
+  const mapKeys = resolveFaceRateLimitKeys('punch', key, employeeCode);
+
+  let locked = false;
+  let maxRetryAfterSec = 1;
+  for (const mapKey of mapKeys) {
+    const current = store.get(mapKey);
+    if (!current || current.resetAt <= now) {
+      const nextResetAt = now + FACE_RL_PUNCH_FAIL_WINDOW_MS;
+      store.set(mapKey, { count: 1, resetAt: nextResetAt });
+      if (1 >= FACE_RL_PUNCH_FAIL_MAX) locked = true;
+      const sec = Math.max(1, Math.ceil((nextResetAt - now) / 1000));
+      if (sec > maxRetryAfterSec) maxRetryAfterSec = sec;
+    } else {
+      current.count += 1;
+      store.set(mapKey, current);
+      if (current.count >= FACE_RL_PUNCH_FAIL_MAX) locked = true;
+      const sec = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+      if (sec > maxRetryAfterSec) maxRetryAfterSec = sec;
+    }
+  }
+  return { locked, retryAfterSec: maxRetryAfterSec };
+}
+
+export function resetFacePunchRateLimit(key: string, employeeCode?: string): void {
+  const store = globalThis._hrmFaceRateLimitsV2;
+  if (!store) return;
+  for (const mapKey of resolveFaceRateLimitKeys('punch', key, employeeCode)) {
+    store.delete(mapKey);
+  }
+}
+
+export function resetFaceEmployeeRateLimits(employeeCode: string): void {
+  const store = globalThis._hrmFaceRateLimitsV2;
+  if (!store) return;
+  const codeUpper = String(employeeCode || '').trim().toUpperCase();
+  if (!codeUpper) return;
+  const prefixes = ['issue', 'register', 'punch', 'mask_check'] as const;
+  for (const mapKey of Array.from(store.keys())) {
+    for (const prefix of prefixes) {
+      if (
+        mapKey === `${prefix}:emp:${codeUpper}` ||
+        mapKey.startsWith(`${prefix}:${codeUpper}:`)
+      ) {
+        store.delete(mapKey);
+        break;
+      }
+    }
+  }
+}
+
+function getFaceChallengeStore(): Map<string, FaceChallengeRecord> {
+  if (!globalThis._hrmFaceChallenges) {
+    globalThis._hrmFaceChallenges = new Map<string, FaceChallengeRecord>();
+  }
+  const store = globalThis._hrmFaceChallenges;
+  const now = Date.now();
+  for (const [k, v] of Array.from(store.entries())) {
+    if (v.expiresAt <= now) {
+      store.delete(k);
+    }
+  }
+  while (store.size >= FACE_CHALLENGE_MAX_BUCKETS) {
+    const oldestKey = store.keys().next().value;
+    if (oldestKey === undefined) break;
+    store.delete(oldestKey);
+  }
+  return store;
+}
+
+export function issueFaceChallenge(params: {
+  employeeId: string;
+  employeeCode: string;
+  rpId: string;
+  purpose: 'register' | 'punch';
+}): FaceChallengeRecord {
+  const store = getFaceChallengeStore();
+  const now = Date.now();
+  const challengeId = `fch-${crypto.randomBytes(16).toString('hex')}`;
+  const challenge = bufferToBase64Url(crypto.randomBytes(32));
+  const record: FaceChallengeRecord = {
+    challengeId,
+    challenge,
+    employeeId: params.employeeId.trim(),
+    employeeCode: params.employeeCode.trim(),
+    purpose: params.purpose,
+    rpId: params.rpId.trim().toLowerCase(),
+    createdAt: now,
+    expiresAt: now + FACE_CHALLENGE_TTL_MS,
+  };
+  store.set(challengeId, record);
+  return record;
+}
+
+export function consumeFaceChallenge(params: {
+  challengeId: string;
+  challenge: string;
+  employeeId: string;
+  employeeCode?: string;
+  rpId: string;
+  purpose: 'register' | 'punch';
+}): { ok: true; challengeRecord: FaceChallengeRecord } | { ok: false; error: string } {
+  const challengeId = String(params.challengeId || '').trim();
+  const providedChallenge = String(params.challenge || '').trim();
+  if (!challengeId || !providedChallenge) {
+    return {
+      ok: false,
+      error: 'Thiếu mã phiên hoặc bằng chứng challenge xác thực khuôn mặt.',
+    };
+  }
+  const store = getFaceChallengeStore();
+  const record = store.get(challengeId);
+  if (!record) {
+    return {
+      ok: false,
+      error: 'Phiên xác thực khuôn mặt không tồn tại, đã hết hạn hoặc đã được sử dụng.',
+    };
+  }
+  // Xóa ngay lập tức — dùng đúng 1 lần để chống replay attack
+  store.delete(challengeId);
+
+  if (record.expiresAt <= Date.now()) {
+    return {
+      ok: false,
+      error: 'Phiên xác thực khuôn mặt đã hết hạn (quá 120 giây). Vui lòng thực hiện lại.',
+    };
+  }
+  const expectedBuf = Buffer.from(record.challenge, 'utf8');
+  const providedBuf = Buffer.from(providedChallenge, 'utf8');
+  if (
+    expectedBuf.length === 0 ||
+    expectedBuf.length !== providedBuf.length ||
+    !crypto.timingSafeEqual(expectedBuf, providedBuf)
+  ) {
+    return {
+      ok: false,
+      error: 'Bằng chứng challenge xác thực khuôn mặt không hợp lệ.',
+    };
+  }
+  if (record.purpose !== params.purpose) {
+    return {
+      ok: false,
+      error: 'Mục đích phiên xác thực khuôn mặt không khớp yêu cầu.',
+    };
+  }
+  if (record.rpId !== params.rpId.trim().toLowerCase()) {
+    return {
+      ok: false,
+      error: 'Tên miền xác thực khuôn mặt không khớp với máy chủ.',
+    };
+  }
+  if (record.employeeId !== params.employeeId.trim()) {
+    return {
+      ok: false,
+      error: 'Mã định danh nhân sự không khớp phiên xác thực khuôn mặt.',
+    };
+  }
+  if (
+    params.employeeCode &&
+    params.employeeCode.trim() &&
+    record.employeeCode.toUpperCase() !== params.employeeCode.trim().toUpperCase()
+  ) {
+    return {
+      ok: false,
+      error: 'Mã nhân viên không khớp phiên xác thực khuôn mặt.',
+    };
+  }
+  return { ok: true, challengeRecord: record };
+}
+
+export function validateAndNormalizeFaceEmbedding(raw: unknown): number[] | null {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length < 64 || raw.length > 2048) return null;
+
+  let sumSq = 0;
+  const nums: number[] = new Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    const val = raw[i];
+    if (typeof val !== 'number' || !Number.isFinite(val)) {
+      return null;
+    }
+    nums[i] = val;
+    sumSq += val * val;
+  }
+
+  const norm = Math.sqrt(sumSq);
+  if (!Number.isFinite(norm) || norm <= 0) {
+    return null;
+  }
+
+  for (let i = 0; i < nums.length; i += 1) {
+    nums[i] = nums[i] / norm;
+  }
+  return nums;
+}
+
+export function computeCosineSimilarity(a: number[], b: number[]): number {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || a.length !== b.length) {
+    return -1;
+  }
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    const va = a[i];
+    const vb = b[i];
+    if (!Number.isFinite(va) || !Number.isFinite(vb)) {
+      return -1;
+    }
+    dot += va * vb;
+    normA += va * va;
+    normB += vb * vb;
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  if (!Number.isFinite(denom) || denom <= 0) {
+    return -1;
+  }
+  const sim = dot / denom;
+  return Math.max(-1, Math.min(1, sim));
+}
+
+function deriveFaceEncryptionKeyHkdf(rawSecret: string): Buffer {
+  return Buffer.from(
+    crypto.hkdfSync(
+      'sha256',
+      Buffer.from(rawSecret, 'utf8'),
+      Buffer.from('lacviet-hrm-biometric-salt-v1', 'utf8'),
+      Buffer.from('face-iris-aes-256-gcm-key-v1', 'utf8'),
+      32
+    )
+  );
+}
+
+function resolveFaceEncryptionKey(): Buffer {
+  const encSecret = (process.env.HRM_BIOMETRIC_ENC_KEY || '').trim();
+  const sessionSecret = (process.env.HRM_SESSION_SECRET || '').trim();
+  if (process.env.NODE_ENV === 'production') {
+    const validProdSecret =
+      encSecret.length >= FACE_MIN_SECRET_LENGTH
+        ? encSecret
+        : sessionSecret.length >= FACE_MIN_SECRET_LENGTH
+          ? sessionSecret
+          : '';
+    if (!validProdSecret) {
+      throw new Error(
+        'HRM_BIOMETRIC_ENC_KEY_OR_SESSION_SECRET_REQUIRED_IN_PRODUCTION'
+      );
+    }
+    return deriveFaceEncryptionKeyHkdf(validProdSecret);
+  }
+  const envSecret = encSecret || sessionSecret;
+  if (envSecret.length > 0) {
+    return deriveFaceEncryptionKeyHkdf(envSecret);
+  }
+  // Khóa dev ổn định theo workspace + hostname để không hỏng mẫu sau khi restart dev server
+  const devSeed = crypto
+    .createHmac('sha256', 'lacviet-hrm-dev-face-enc-v1')
+    .update(`${process.cwd()}|${os.hostname()}`)
+    .digest('hex');
+  return deriveFaceEncryptionKeyHkdf(devSeed);
+}
+
+export function encryptFaceEmbedding(vec: number[]): EncryptedFaceEmbedding {
+  const normalized = validateAndNormalizeFaceEmbedding(vec);
+  if (!normalized) {
+    throw new Error('Vector sinh trắc khuôn mặt không hợp lệ để mã hóa.');
+  }
+  const key = resolveFaceEncryptionKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const plaintext = Buffer.from(JSON.stringify(normalized), 'utf8');
+  const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return {
+    ciphertext: encrypted.toString('base64'),
+    iv: iv.toString('base64'),
+    auth_tag: authTag.toString('base64'),
+  };
+}
+
+export function decryptFaceEmbedding(enc: {
+  ciphertext: string;
+  iv: string;
+  auth_tag: string;
+}): number[] {
+  if (
+    !enc ||
+    typeof enc.ciphertext !== 'string' ||
+    typeof enc.iv !== 'string' ||
+    typeof enc.auth_tag !== 'string'
+  ) {
+    throw new Error('Dữ liệu mã hóa sinh trắc khuôn mặt không hợp lệ.');
+  }
+  const key = resolveFaceEncryptionKey();
+  const ivBuf = Buffer.from(enc.iv, 'base64');
+  const authTagBuf = Buffer.from(enc.auth_tag, 'base64');
+  if (ivBuf.length !== 12 || authTagBuf.length !== 16) {
+    throw new Error('Tham số mã hóa AES-256-GCM (IV/AuthTag) không hợp lệ.');
+  }
+  const ciphertext = Buffer.from(enc.ciphertext, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, ivBuf, {
+    authTagLength: 16,
+  });
+  decipher.setAuthTag(authTagBuf);
+  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  const parsed: unknown = JSON.parse(decrypted.toString('utf8'));
+  const normalized = validateAndNormalizeFaceEmbedding(parsed);
+  if (!normalized) {
+    throw new Error('Dữ liệu giải mã vector khuôn mặt bị hỏng.');
+  }
+  return normalized;
+}
+
+export function isVnNightAttendanceLocked(now: Date = new Date()): boolean {
+  const hourStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    hour12: false,
+  }).format(now);
+  const parsedHour = Number.parseInt(hourStr, 10);
+  if (!Number.isFinite(parsedHour)) return false;
+  const hour = parsedHour === 24 ? 0 : parsedHour;
+  return hour >= 22 || hour < 6;
+}
+
+// ---------------------------------------------------------------------------
+// Periocular / Masked Face ONNX Microservice Helpers (Additive — Post L1786)
+// ---------------------------------------------------------------------------
+
+export const PERIOCULAR_MATCH_THRESHOLD_SCRFD = 0.46;
+export const PERIOCULAR_MATCH_THRESHOLD_EYEPAIR = 0.48;
+
+const PERIOCULAR_HEALTH_TIMEOUT_MS = 800;
+const PERIOCULAR_HEALTH_CACHE_TTL_MS = 5000;
+const PERIOCULAR_EXTRACT_TIMEOUT_MS = 4500;
+const PERIOCULAR_MASK_CHECK_TIMEOUT_MS = 1200;
+const PERIOCULAR_MAX_IMAGE_BYTES = Math.floor(1.4 * 1024 * 1024);
+const PERIOCULAR_MAX_B64_CHARS = 2_100_000;
+
+export type PeriocularDetectionMode = 'scrfd_masked' | 'eyepair_periocular';
+export type FaceCoverStatus = 'none' | 'mask' | 'full_cover';
+
+export function formatFaceCoverLabelVi(faceCover: FaceCoverStatus): string {
+  if (faceCover === 'mask') return 'Đeo khẩu trang';
+  if (faceCover === 'full_cover') return 'Che kín mặt (chỉ hở mắt)';
+  return 'Không khẩu trang';
+}
+
+function normalizeFaceCoverStatus(
+  rawCover: unknown,
+  maskOccludedFallback?: boolean
+): FaceCoverStatus {
+  const s = typeof rawCover === 'string' ? rawCover.trim().toLowerCase() : '';
+  if (s === 'mask' || s === 'full_cover' || s === 'none') {
+    return s;
+  }
+  return maskOccludedFallback ? 'mask' : 'none';
+}
+
+export interface PeriocularHealthStatus {
+  online: boolean;
+  service?: string;
+  model?: string;
+  embeddingDim?: number;
+}
+
+export type PeriocularMaskCheckResult =
+  | {
+      ok: true;
+      faceCover: FaceCoverStatus;
+      maskScore: number;
+      eyeLandmarks?: { left: [number, number]; right: [number, number] };
+    }
+  | {
+      ok: false;
+      status: 400 | 422 | 502 | 503;
+      code: string;
+      error: string;
+    };
+
+export type PeriocularExtractResult =
+  | {
+      ok: true;
+      detectionMode: PeriocularDetectionMode;
+      maskOccluded: boolean;
+      faceCover: FaceCoverStatus;
+      maskScore: number;
+      embedding: number[];
+      embeddingDim: number;
+      detScore: number;
+      livenessScore: number;
+      antispoofScore: number;
+      eyeLandmarks?: { left: [number, number]; right: [number, number] };
+    }
+  | {
+      ok: false;
+      status: 400 | 422 | 502 | 503;
+      code: string;
+      error: string;
+    };
+
+type PeriocularHealthCacheEntry = {
+  online: boolean;
+  checkedAt: number;
+  url: string;
+  service?: string;
+  model?: string;
+  embeddingDim?: number;
+};
+
+function getPeriocularHealthCacheStore(): PeriocularHealthCacheEntry | undefined {
+  return (
+    globalThis as typeof globalThis & {
+      _hrmPeriocularHealthCache?: PeriocularHealthCacheEntry;
+    }
+  )._hrmPeriocularHealthCache;
+}
+
+function setPeriocularHealthCacheStore(entry: PeriocularHealthCacheEntry): void {
+  (
+    globalThis as typeof globalThis & {
+      _hrmPeriocularHealthCache?: PeriocularHealthCacheEntry;
+    }
+  )._hrmPeriocularHealthCache = entry;
+}
+
+export function resolvePeriocularServiceUrl(): string {
+  const raw = (process.env.HRM_PERIOCULAR_URL || 'http://127.0.0.1:8002').trim();
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString().replace(/\/+$/, '');
+    }
+  } catch {
+    // fallback to local loopback default
+  }
+  return 'http://127.0.0.1:8002';
+}
+
+export function getPeriocularMatchThreshold(engineOrMode?: string | null): number {
+  if (engineOrMode === 'eyepair_periocular') {
+    return PERIOCULAR_MATCH_THRESHOLD_EYEPAIR;
+  }
+  return PERIOCULAR_MATCH_THRESHOLD_SCRFD;
+}
+
+function detectImageMagicMime(buf: Buffer): 'image/jpeg' | 'image/webp' | null {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return null;
+}
+
+export function validatePeriocularFrameBase64(
+  raw: unknown
+):
+  | {
+      ok: true;
+      frameB64: string;
+      mime: 'image/jpeg' | 'image/webp';
+      byteLength: number;
+    }
+  | { ok: false; code: string; error: string } {
+  if (typeof raw !== 'string') {
+    return {
+      ok: false,
+      code: 'INVALID_PERIOCULAR_FRAME',
+      error: 'Thiếu dữ liệu khung hình khuôn mặt (base64 JPEG/WebP).',
+    };
+  }
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > PERIOCULAR_MAX_B64_CHARS) {
+    return {
+      ok: false,
+      code: 'INVALID_PERIOCULAR_FRAME',
+      error: 'Khung hình khuôn mặt rỗng hoặc vượt quá giới hạn dung lượng cho phép (≤ 1.4 MB).',
+    };
+  }
+
+  let declaredMime: 'image/jpeg' | 'image/webp' | null = null;
+  let b64Body = trimmed;
+  const dataUrlMatch = /^data:(image\/(?:jpeg|jpg|webp));base64,([A-Za-z0-9+/=\s]+)$/i.exec(
+    trimmed
+  );
+  if (dataUrlMatch) {
+    const rawMime = dataUrlMatch[1].toLowerCase();
+    declaredMime = rawMime === 'image/webp' ? 'image/webp' : 'image/jpeg';
+    b64Body = dataUrlMatch[2].replace(/\s+/g, '');
+  } else if (trimmed.startsWith('data:')) {
+    return {
+      ok: false,
+      code: 'INVALID_PERIOCULAR_FRAME',
+      error: 'Chỉ chấp nhận khung hình định dạng JPEG hoặc WebP.',
+    };
+  } else {
+    b64Body = trimmed.replace(/\s+/g, '');
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64Body)) {
+      return {
+        ok: false,
+        code: 'INVALID_PERIOCULAR_FRAME',
+        error: 'Chuỗi base64 khung hình khuôn mặt không hợp lệ.',
+      };
+    }
+  }
+
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(b64Body, 'base64');
+  } catch {
+    return {
+      ok: false,
+      code: 'INVALID_PERIOCULAR_FRAME',
+      error: 'Không thể giải mã khung hình khuôn mặt từ base64.',
+    };
+  }
+
+  if (buf.byteLength === 0 || buf.byteLength > PERIOCULAR_MAX_IMAGE_BYTES) {
+    return {
+      ok: false,
+      code: 'INVALID_PERIOCULAR_FRAME',
+      error: 'Dung lượng ảnh khuôn mặt vượt quá 1.4 MB hoặc không hợp lệ.',
+    };
+  }
+
+  const magicMime = detectImageMagicMime(buf);
+  if (!magicMime || (declaredMime && declaredMime !== magicMime)) {
+    return {
+      ok: false,
+      code: 'INVALID_PERIOCULAR_FRAME',
+      error: 'Nội dung ảnh khuôn mặt không phải định dạng JPEG hoặc WebP hợp lệ.',
+    };
+  }
+
+  return {
+    ok: true,
+    frameB64: `data:${magicMime};base64,${b64Body}`,
+    mime: magicMime,
+    byteLength: buf.byteLength,
+  };
+}
+
+export async function probePeriocularHealth(
+  forceRefresh = false
+): Promise<PeriocularHealthStatus> {
+  const baseUrl = resolvePeriocularServiceUrl();
+  const cached = getPeriocularHealthCacheStore();
+  const now = Date.now();
+  if (
+    !forceRefresh &&
+    cached &&
+    cached.url === baseUrl &&
+    now - cached.checkedAt < PERIOCULAR_HEALTH_CACHE_TTL_MS
+  ) {
+    return {
+      online: cached.online,
+      service: cached.service,
+      model: cached.model,
+      embeddingDim: cached.embeddingDim,
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PERIOCULAR_HEALTH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      setPeriocularHealthCacheStore({ online: false, checkedAt: Date.now(), url: baseUrl });
+      return { online: false };
+    }
+    const data = (await res.json()) as Record<string, unknown>;
+    const online = Boolean(data?.ok) && data?.ready !== false;
+    const entry: PeriocularHealthCacheEntry = {
+      online,
+      checkedAt: Date.now(),
+      url: baseUrl,
+      service: typeof data?.service === 'string' ? data.service : undefined,
+      model: typeof data?.model === 'string' ? data.model : undefined,
+      embeddingDim:
+        typeof data?.embedding_dim === 'number' && Number.isFinite(data.embedding_dim)
+          ? data.embedding_dim
+          : undefined,
+    };
+    setPeriocularHealthCacheStore(entry);
+    return {
+      online: entry.online,
+      service: entry.service,
+      model: entry.model,
+      embeddingDim: entry.embeddingDim,
+    };
+  } catch {
+    setPeriocularHealthCacheStore({ online: false, checkedAt: Date.now(), url: baseUrl });
+    return { online: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function extractPeriocularFromService(params: {
+  frameB64: unknown;
+  auxFrameB64?: unknown;
+  mode?: string;
+  guideBox?: { x: number; y: number; w: number; h: number };
+  requireBlink?: boolean;
+}): Promise<PeriocularExtractResult> {
+  const primaryCheck = validatePeriocularFrameBase64(params.frameB64);
+  if (!primaryCheck.ok) {
+    return {
+      ok: false,
+      status: 400,
+      code: primaryCheck.code,
+      error: primaryCheck.error,
+    };
+  }
+
+  let auxFrameValidated: string | undefined;
+  if (
+    params.auxFrameB64 !== undefined &&
+    params.auxFrameB64 !== null &&
+    String(params.auxFrameB64).trim().length > 0
+  ) {
+    const auxCheck = validatePeriocularFrameBase64(params.auxFrameB64);
+    if (!auxCheck.ok) {
+      return {
+        ok: false,
+        status: 400,
+        code: auxCheck.code,
+        error: auxCheck.error,
+      };
+    }
+    auxFrameValidated = auxCheck.frameB64;
+  }
+
+  const baseUrl = resolvePeriocularServiceUrl();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PERIOCULAR_EXTRACT_TIMEOUT_MS);
+
+  try {
+    const payload: Record<string, unknown> = {
+      frame_b64: primaryCheck.frameB64,
+      mode: params.mode || 'auto',
+      require_blink: Boolean(params.requireBlink),
+    };
+    if (auxFrameValidated) {
+      payload.aux_frame_b64 = auxFrameValidated;
+    }
+    if (params.guideBox) {
+      payload.guide_box = params.guideBox;
+    }
+
+    const res = await fetch(`${baseUrl}/v1/periocular/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+
+    let data: Record<string, unknown> | null = null;
+    try {
+      const parsed: unknown = await res.json();
+      if (isPlainJsonRecord(parsed)) {
+        data = parsed;
+      }
+    } catch {
+      data = null;
+    }
+
+    if (res.status === 422 || data?.code === 'NO_PERIOCULAR_DETECTED') {
+      setPeriocularHealthCacheStore({ online: true, checkedAt: Date.now(), url: baseUrl });
+      return {
+        ok: false,
+        status: 422,
+        code: 'NO_PERIOCULAR_DETECTED',
+        error:
+          typeof data?.message === 'string' && data.message.trim()
+            ? data.message.trim()
+            : 'Không nhận diện rõ khuôn mặt. Vui lòng nhìn thẳng vào camera và đảm bảo đủ sáng.',
+      };
+    }
+
+    if (res.status === 400 || res.status === 413) {
+      return {
+        ok: false,
+        status: 400,
+        code:
+          typeof data?.code === 'string' && data.code.trim()
+            ? data.code.trim()
+            : 'INVALID_PERIOCULAR_FRAME',
+        error:
+          typeof data?.message === 'string' && data.message.trim()
+            ? data.message.trim()
+            : 'Ảnh gửi tới dịch vụ nhận diện khuôn mặt không hợp lệ.',
+      };
+    }
+
+    if (res.status >= 500) {
+      setPeriocularHealthCacheStore({ online: false, checkedAt: Date.now(), url: baseUrl });
+      return {
+        ok: false,
+        status: 503,
+        code: 'PERIOCULAR_SERVICE_UNAVAILABLE',
+        error: 'Dịch vụ AI nhận diện khuôn mặt (:8002) tạm thời không khả dụng.',
+      };
+    }
+
+    if (!res.ok || !data || data.ok !== true) {
+      return {
+        ok: false,
+        status: 502,
+        code: 'PERIOCULAR_INVALID_RESPONSE',
+        error: 'Phản hồi từ dịch vụ AI nhận diện khuôn mặt không hợp lệ.',
+      };
+    }
+
+    const normalizedVec = validateAndNormalizeFaceEmbedding(data.embedding);
+    if (!normalizedVec || normalizedVec.length !== 512) {
+      return {
+        ok: false,
+        status: 502,
+        code: 'PERIOCULAR_INVALID_RESPONSE',
+        error: 'Vector đặc trưng khuôn mặt trả về từ dịch vụ AI không hợp lệ (cần 512-dim).',
+      };
+    }
+
+    const rawDetMode = String(data.detection_mode || 'scrfd_masked').trim();
+    const detectionMode: PeriocularDetectionMode =
+      rawDetMode === 'eyepair_periocular' ? 'eyepair_periocular' : 'scrfd_masked';
+    const detScore =
+      typeof data.det_score === 'number' && Number.isFinite(data.det_score)
+        ? data.det_score
+        : 0;
+    const livenessScore =
+      typeof data.liveness_score === 'number' && Number.isFinite(data.liveness_score)
+        ? data.liveness_score
+        : 0;
+    const antispoofScore =
+      typeof data.antispoof_score === 'number' && Number.isFinite(data.antispoof_score)
+        ? data.antispoof_score
+        : 0;
+
+    let eyeLandmarks: { left: [number, number]; right: [number, number] } | undefined;
+    if (isPlainJsonRecord(data.eye_landmarks)) {
+      const l = data.eye_landmarks.left;
+      const r = data.eye_landmarks.right;
+      if (
+        Array.isArray(l) &&
+        l.length === 2 &&
+        typeof l[0] === 'number' &&
+        typeof l[1] === 'number' &&
+        Array.isArray(r) &&
+        r.length === 2 &&
+        typeof r[0] === 'number' &&
+        typeof r[1] === 'number'
+      ) {
+        eyeLandmarks = { left: [l[0], l[1]], right: [r[0], r[1]] };
+      }
+    }
+
+    const faceCover = normalizeFaceCoverStatus(
+      data.face_cover,
+      Boolean(data.mask_occluded)
+    );
+    const maskScore =
+      typeof data.mask_score === 'number' && Number.isFinite(data.mask_score)
+        ? Math.max(0, Math.min(1, data.mask_score))
+        : faceCover === 'none'
+          ? 0
+          : 0.85;
+
+    setPeriocularHealthCacheStore({ online: true, checkedAt: Date.now(), url: baseUrl });
+    return {
+      ok: true,
+      detectionMode,
+      maskOccluded: Boolean(data.mask_occluded) || faceCover !== 'none',
+      faceCover,
+      maskScore,
+      embedding: normalizedVec,
+      embeddingDim: normalizedVec.length,
+      detScore,
+      livenessScore,
+      antispoofScore,
+      eyeLandmarks,
+    };
+  } catch {
+    setPeriocularHealthCacheStore({ online: false, checkedAt: Date.now(), url: baseUrl });
+    return {
+      ok: false,
+      status: 503,
+      code: 'PERIOCULAR_SERVICE_UNAVAILABLE',
+      error:
+        'Dịch vụ AI nhận diện khuôn mặt (127.0.0.1:8002) hiện đang tắt hoặc quá thời gian phản hồi.',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function checkMaskFromPeriocularService(params: {
+  frameB64: unknown;
+  guideBox?: { x: number; y: number; w: number; h: number };
+}): Promise<PeriocularMaskCheckResult> {
+  const primaryCheck = validatePeriocularFrameBase64(params.frameB64);
+  if (!primaryCheck.ok) {
+    return {
+      ok: false,
+      status: 400,
+      code: primaryCheck.code,
+      error: primaryCheck.error,
+    };
+  }
+
+  const baseUrl = resolvePeriocularServiceUrl();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PERIOCULAR_MASK_CHECK_TIMEOUT_MS);
+  try {
+    const payload: Record<string, unknown> = {
+      frame_b64: primaryCheck.frameB64,
+    };
+    if (params.guideBox) {
+      payload.guide_box = params.guideBox;
+    }
+
+    const res = await fetch(`${baseUrl}/v1/periocular/mask-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+
+    let data: Record<string, unknown> | null = null;
+    try {
+      const parsed: unknown = await res.json();
+      if (isPlainJsonRecord(parsed)) {
+        data = parsed;
+      }
+    } catch {
+      data = null;
+    }
+
+    if (res.status === 422 || data?.code === 'NO_PERIOCULAR_DETECTED') {
+      setPeriocularHealthCacheStore({ online: true, checkedAt: Date.now(), url: baseUrl });
+      return {
+        ok: false,
+        status: 422,
+        code: 'NO_PERIOCULAR_DETECTED',
+        error:
+          typeof data?.message === 'string' && data.message.trim()
+            ? data.message.trim()
+            : 'Không nhận diện rõ khuôn mặt để kiểm tra khẩu trang.',
+      };
+    }
+
+    if (res.status === 400 || res.status === 413) {
+      return {
+        ok: false,
+        status: 400,
+        code:
+          typeof data?.code === 'string' && data.code.trim()
+            ? data.code.trim()
+            : 'INVALID_PERIOCULAR_FRAME',
+        error:
+          typeof data?.message === 'string' && data.message.trim()
+            ? data.message.trim()
+            : 'Khung hình kiểm tra khẩu trang không hợp lệ.',
+      };
+    }
+
+    if (res.status >= 500) {
+      setPeriocularHealthCacheStore({ online: false, checkedAt: Date.now(), url: baseUrl });
+      return {
+        ok: false,
+        status: 503,
+        code: 'PERIOCULAR_SERVICE_UNAVAILABLE',
+        error: 'Dịch vụ AI nhận diện khuôn mặt (:8002) tạm thời không khả dụng.',
+      };
+    }
+
+    if (!res.ok || !data || data.ok !== true) {
+      return {
+        ok: false,
+        status: 502,
+        code: 'PERIOCULAR_INVALID_RESPONSE',
+        error: 'Phản hồi kiểm tra khẩu trang từ dịch vụ AI không hợp lệ.',
+      };
+    }
+
+    const faceCover = normalizeFaceCoverStatus(data.face_cover, false);
+    const maskScore =
+      typeof data.mask_score === 'number' && Number.isFinite(data.mask_score)
+        ? Math.max(0, Math.min(1, data.mask_score))
+        : 0;
+
+    let eyeLandmarks: { left: [number, number]; right: [number, number] } | undefined;
+    if (isPlainJsonRecord(data.eye_landmarks)) {
+      const l = data.eye_landmarks.left;
+      const r = data.eye_landmarks.right;
+      if (
+        Array.isArray(l) &&
+        l.length === 2 &&
+        typeof l[0] === 'number' &&
+        typeof l[1] === 'number' &&
+        Array.isArray(r) &&
+        r.length === 2 &&
+        typeof r[0] === 'number' &&
+        typeof r[1] === 'number'
+      ) {
+        eyeLandmarks = { left: [l[0], l[1]], right: [r[0], r[1]] };
+      }
+    }
+
+    setPeriocularHealthCacheStore({ online: true, checkedAt: Date.now(), url: baseUrl });
+    return {
+      ok: true,
+      faceCover,
+      maskScore,
+      eyeLandmarks,
+    };
+  } catch {
+    setPeriocularHealthCacheStore({ online: false, checkedAt: Date.now(), url: baseUrl });
+    return {
+      ok: false,
+      status: 503,
+      code: 'PERIOCULAR_SERVICE_UNAVAILABLE',
+      error: 'Dịch vụ AI nhận diện khuôn mặt (127.0.0.1:8002) hiện đang tắt.',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   AlertCircle,
   AlertTriangle,
@@ -16,6 +17,7 @@ import {
   Lock,
   Pencil,
   RefreshCw,
+  ScanFace,
   Search,
   ShieldCheck,
   Smartphone,
@@ -47,6 +49,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  HRM_SESSION_SYNCED_EVENT,
   useApp,
   type RoleCode,
   type UserProfileOverride,
@@ -55,7 +58,10 @@ import { recordAuditLog } from '@/lib/audit-logger';
 import {
   BiometricFlowError,
   type BiometricSupportInfo,
+  FaceBiometricFlowError,
+  deleteFaceBiometricProfile,
   enrollCurrentDeviceBiometric,
+  fetchFaceBiometricProfiles,
   fetchSameWifiStatus,
   getBiometricSupportInfo,
   punchWithBiometricWifi,
@@ -65,30 +71,46 @@ import { fetchAttendanceMock } from '@/lib/mock-fetcher';
 import {
   HRM_RUNTIME_EVENT,
   STORAGE_MONTHLY_ATTENDANCE_KEY,
+  checkInOutToday,
   evaluateDailyPunch,
   getAllRuntimeEmployees,
   getBiometricCredentials,
   getDailyAttendances,
   getMonthlyAttendances,
+  getRuntimeDepartments,
   getTodayDateVN,
   getWifiAttendancePolicy,
   importDailyAttendances,
   isAttendanceNightLockWindow,
   recomputeMonthlyAttendance,
 } from '@/lib/runtime-store';
-import { alertSwal, choiceSwal, confirmSwal } from '@/lib/swal';
+import { alertSwal, choiceSwal, confirmSwal, escapeSwalHtml } from '@/lib/swal';
 import { formatDateVN, formatNumberVN } from '@/lib/utils';
+import type {
+  FaceEnrolledMeta,
+  FaceLivenessModalMode,
+  FacePunchVerifiedPayload,
+} from '@/components/modules/face-liveness-attendance-modal';
 import type {
   BiometricCredentialRecord,
   DailyAttendanceRecord,
   DailyAttendanceStatus,
   Employee,
+  FaceBiometricProfileDto,
   HostWifiHardwareInfo,
   MonthlyAttendanceSummary,
   WifiAttendancePolicy,
   WifiVerificationResult,
   WorkShift,
 } from '@/mock/types';
+
+const FaceLivenessAttendanceModal = dynamic(
+  () =>
+    import('@/components/modules/face-liveness-attendance-modal').then(
+      (mod) => mod.FaceLivenessAttendanceModal
+    ),
+  { ssr: false }
+);
 
 type AttendanceTab = 'attendances' | 'monthly' | 'shifts';
 type DailyStatusFilter =
@@ -111,20 +133,24 @@ interface ParsedImportRow {
 
 const DEFAULT_PERIOD_MONTH = '2026-11';
 
-const ROLE_FALLBACK_CODE: Record<RoleCode, string> = {
-  SUPER_ADMIN: 'NV-2024-001',
-  DIRECTOR: 'NV-2024-000',
-  HR_MANAGER: 'NV-2024-002',
-  DEPT_MANAGER: 'NV-2024-003',
-  EMPLOYEE: 'NV-2024-004',
-  CANDIDATE: 'NV-2024-004',
-};
+const INTERNAL_CORP_DOMAINS = new Set(['lacviethrm.vn', 'hrm-enterprise.vn']);
 
-const TECH_DIVISION_DEPARTMENTS = new Set([
-  'Khối Công nghệ',
-  'Phòng Kỹ thuật Phần mềm',
-  'Phòng Dữ liệu & AI',
-]);
+function emailsMatchExactOrCorporateAlias(aRaw: string, bRaw: string): boolean {
+  const a = aRaw.trim().toLowerCase();
+  const b = bRaw.trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const atA = a.lastIndexOf('@');
+  const atB = b.lastIndexOf('@');
+  if (atA <= 0 || atB <= 0) return false;
+  const domA = a.slice(atA + 1);
+  const domB = b.slice(atB + 1);
+  return (
+    INTERNAL_CORP_DOMAINS.has(domA) &&
+    INTERNAL_CORP_DOMAINS.has(domB) &&
+    a.slice(0, atA) === b.slice(0, atB)
+  );
+}
 
 const MONTHLY_STATUS_CONFIG: Record<
   MonthlyAttendanceSummary['attendance_status'],
@@ -201,43 +227,37 @@ function formatCurrentHHmmss(date: Date): string {
 
 function resolveLoggedInEmployee(
   employees: Employee[],
-  role: RoleCode,
+  _role: RoleCode,
   profile: UserProfileOverride | null,
   email: string | null
 ): Employee | null {
   if (employees.length === 0) return null;
 
-  const explicitCode = profile?.employee_code?.trim();
-  const hasExplicitNonCandidateCode = Boolean(
-    explicitCode && !explicitCode.toUpperCase().startsWith('UV-')
-  );
-  if (explicitCode) {
+  const explicitCode = profile?.employee_code?.trim() || '';
+  if (explicitCode && !explicitCode.toUpperCase().startsWith('UV-')) {
+    const lowerCode = explicitCode.toLowerCase();
     const byCode = employees.find(
-      (e) => e.employee_code.trim().toLowerCase() === explicitCode.toLowerCase()
+      (e) =>
+        e.employee_code.trim().toLowerCase() === lowerCode ||
+        e.id.trim().toLowerCase() === lowerCode
     );
-    if (byCode) return byCode;
-    if (hasExplicitNonCandidateCode) return null;
+    return byCode ?? null;
   }
 
   const candidateEmail = (email || profile?.email || '').trim().toLowerCase();
   if (candidateEmail) {
     const exactEmail = employees.find(
       (e) =>
-        e.email.trim().toLowerCase() === candidateEmail ||
-        e.personal_email?.trim().toLowerCase() === candidateEmail
+        emailsMatchExactOrCorporateAlias(e.email, candidateEmail) ||
+        Boolean(
+          e.personal_email &&
+            e.personal_email.trim().toLowerCase() === candidateEmail
+        )
     );
-    if (exactEmail) return exactEmail;
-    return null;
+    return exactEmail ?? null;
   }
 
-  if (hasExplicitNonCandidateCode || profile?.fullName?.trim()) {
-    return null;
-  }
-
-  const fallbackCode = ROLE_FALLBACK_CODE[role];
-  return (
-    employees.find((e) => e.employee_code === fallbackCode) ?? employees[0] ?? null
-  );
+  return null;
 }
 
 function persistMonthlyAttendanceSummaries(items: MonthlyAttendanceSummary[]): void {
@@ -327,6 +347,31 @@ function parseAttendanceImportText(rawText: string): ParsedImportRow[] {
   return parsed;
 }
 
+const LiveDigitalClock = React.memo(function LiveDigitalClock() {
+  const [clockText, setClockText] = useState<string>(() =>
+    formatCurrentHHmmss(new Date())
+  );
+
+  useEffect(() => {
+    setClockText(formatCurrentHHmmss(new Date()));
+    const timer = window.setInterval(() => {
+      setClockText(formatCurrentHHmmss(new Date()));
+    }, 1000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  return (
+    <div
+      aria-live="off"
+      className="font-mono text-4xl font-bold tabular-nums tracking-wider text-ink sm:text-5xl"
+    >
+      {clockText}
+    </div>
+  );
+});
+
 export function AttendanceView() {
   const {
     role,
@@ -353,7 +398,7 @@ export function AttendanceView() {
     useState<DailyStatusFilter>('ALL');
 
   // Direct Check-in / Check-out widget state
-  const [clockText, setClockText] = useState<string>('08:30:00');
+  const [isNightAttendanceLocked, setIsNightAttendanceLocked] = useState<boolean>(false);
   const [punchDate, setPunchDate] = useState<string>(() => getDefaultPunchDate());
   const [customPunchTime, setCustomPunchTime] = useState<string>('');
   const [punchNote, setPunchNote] = useState<string>('');
@@ -376,6 +421,11 @@ export function AttendanceView() {
   const [deviceLabelInput, setDeviceLabelInput] = useState<string>('');
   const deviceLabelPrefilledForRef = useRef<string | null>(null);
   const [isEnrollingDevice, setIsEnrollingDevice] = useState<boolean>(false);
+
+  // Camera Face / Iris Liveness 1:1 state
+  const [faceProfiles, setFaceProfiles] = useState<FaceBiometricProfileDto[]>([]);
+  const [faceModalMode, setFaceModalMode] = useState<FaceLivenessModalMode | null>(null);
+  const [isDeletingFaceProfile, setIsDeletingFaceProfile] = useState<boolean>(false);
 
   // Import CSV modal state
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -440,17 +490,23 @@ export function AttendanceView() {
 
   useEffect(() => {
     let lastKnownToday = getTodayDateVN();
-    setClockText(formatCurrentHHmmss(new Date()));
-    setPunchDate(lastKnownToday);
-    const timer = window.setInterval(() => {
-      const now = new Date();
-      setClockText(formatCurrentHHmmss(now));
+    const checkDateAndNightWindow = () => {
       const todayVN = getTodayDateVN();
       if (todayVN !== lastKnownToday) {
         lastKnownToday = todayVN;
         setPunchDate(todayVN);
       }
-    }, 1000);
+      const nextNightLocked = isAttendanceNightLockWindow(
+        formatCurrentHHmmss(new Date()).slice(0, 5)
+      );
+      setIsNightAttendanceLocked((prev) =>
+        prev === nextNightLocked ? prev : nextNightLocked
+      );
+    };
+
+    setPunchDate(lastKnownToday);
+    checkDateAndNightWindow();
+    const timer = window.setInterval(checkDateAndNightWindow, 30_000);
     return () => {
       window.clearInterval(timer);
     };
@@ -467,21 +523,14 @@ export function AttendanceView() {
     [employees, role, currentUserProfile, currentUserEmail]
   );
 
-  const hasExplicitCustomIdentity = Boolean(
-    currentUserProfile?.employee_code?.trim() ||
-      (currentUserEmail || currentUserProfile?.email || '').trim() ||
-      currentUserProfile?.fullName?.trim()
-  );
-
-  const currentEmployeeCode =
-    currentUserProfile?.employee_code?.trim() ||
-    currentEmp?.employee_code ||
-    (hasExplicitCustomIdentity ? 'NV-CUSTOM-SELF' : ROLE_FALLBACK_CODE[role]);
+  const currentEmployeeCode = currentEmp?.employee_code ?? '';
   const currentEmployeeName =
-    currentUserProfile?.fullName?.trim() ||
-    currentEmp?.full_name ||
-    'Phạm Minh Tuấn';
+    currentEmp?.full_name ??
+    currentUserProfile?.fullName?.trim() ??
+    currentUserEmail?.trim() ??
+    '';
 
+  const isRestrictedEmployee = role === 'EMPLOYEE' || role === 'CANDIDATE';
   const canSelectActingEmployee =
     role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
 
@@ -535,6 +584,9 @@ export function AttendanceView() {
         setWifiStatus(netInfo.wifi);
         setHostPublicIpv4(netInfo.hostPublicIpv4);
         setHostWifiDetails(netInfo.hostWifiDetails);
+        if (Array.isArray(netInfo.faceProfiles)) {
+          setFaceProfiles(netInfo.faceProfiles);
+        }
         const empScopeKey = activeEmployee?.id ?? '__default__';
         if (deviceLabelPrefilledForRef.current !== empScopeKey) {
           deviceLabelPrefilledForRef.current = empScopeKey;
@@ -543,6 +595,12 @@ export function AttendanceView() {
       } catch {
         const support = await getBiometricSupportInfo();
         setBiometricSupport(support);
+        try {
+          const profiles = await fetchFaceBiometricProfiles(activeEmployee?.id);
+          setFaceProfiles(profiles);
+        } catch {
+          // ignore fallback error
+        }
       } finally {
         setIsCheckingWifi(false);
       }
@@ -554,11 +612,24 @@ export function AttendanceView() {
     void refreshWifiAndBiometric(false);
   }, [refreshWifiAndBiometric]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleSessionSynced = () => {
+      void refreshWifiAndBiometric(false);
+    };
+    window.addEventListener(HRM_SESSION_SYNCED_EVENT, handleSessionSynced);
+    return () => {
+      window.removeEventListener(HRM_SESSION_SYNCED_EVENT, handleSessionSynced);
+    };
+  }, [refreshWifiAndBiometric]);
+
   const myRegisteredCreds = useMemo(() => {
+    if (!activeEmployee && !activeEmployeeCode) return [];
     return biometricCreds.filter(
       (c) =>
-        c.employee_code === activeEmployeeCode ||
-        (activeEmployee && c.employee_id === activeEmployee.id)
+        (Boolean(activeEmployeeCode) &&
+          c.employee_code === activeEmployeeCode) ||
+        Boolean(activeEmployee && c.employee_id === activeEmployee.id)
     );
   }, [biometricCreds, activeEmployeeCode, activeEmployee]);
 
@@ -568,6 +639,17 @@ export function AttendanceView() {
       (typeof window !== 'undefined' ? window.location.hostname : 'localhost');
     return myRegisteredCreds.filter((c) => c.rp_id === host);
   }, [myRegisteredCreds, biometricSupport?.hostname]);
+
+  const myFaceProfile = useMemo(() => {
+    if (!activeEmployee && !activeEmployeeCode) return null;
+    return (
+      faceProfiles.find(
+        (p) =>
+          Boolean(activeEmployee && p.employee_id === activeEmployee.id) ||
+          Boolean(activeEmployeeCode && p.employee_code === activeEmployeeCode)
+      ) ?? null
+    );
+  }, [faceProfiles, activeEmployee, activeEmployeeCode]);
 
   const currentEmpShift = useMemo(() => {
     const code = activeEmployee?.work_shift_code || 'HC-08:30';
@@ -588,11 +670,13 @@ export function AttendanceView() {
   }, [activeEmployee, workShifts]);
 
   const myTodayRecord = useMemo(() => {
+    if (!activeEmployee && !activeEmployeeCode) return null;
     return (
       dailyRecords.find(
         (r) =>
-          (r.employee_code === activeEmployeeCode ||
-            (activeEmployee && r.employee_id === activeEmployee.id)) &&
+          ((Boolean(activeEmployeeCode) &&
+            r.employee_code === activeEmployeeCode) ||
+            Boolean(activeEmployee && r.employee_id === activeEmployee.id)) &&
           r.date === punchDate
       ) ?? null
     );
@@ -613,6 +697,7 @@ export function AttendanceView() {
   // Role scoping helper
   const isEmployeeInScope = useCallback(
     (empCode: string, deptName: string, empId?: string): boolean => {
+      if (!currentEmp || role === 'CANDIDATE') return false;
       if (
         role === 'SUPER_ADMIN' ||
         role === 'DIRECTOR' ||
@@ -622,26 +707,54 @@ export function AttendanceView() {
       }
       if (role === 'EMPLOYEE') {
         return (
-          empCode === currentEmployeeCode ||
-          Boolean(currentEmp && empId && empId === currentEmp.id)
+          (Boolean(currentEmployeeCode) && empCode === currentEmployeeCode) ||
+          Boolean(empId && empId === currentEmp.id)
         );
       }
       if (role === 'DEPT_MANAGER') {
-        if (empCode === currentEmployeeCode) return true;
-        if (currentEmp) {
-          const targetEmp = employees.find(
-            (e) => e.employee_code === empCode || (empId && e.id === empId)
-          );
-          if (targetEmp?.manager_id === currentEmp.id) return true;
-          if (
-            TECH_DIVISION_DEPARTMENTS.has(currentEmp.department_name) &&
-            TECH_DIVISION_DEPARTMENTS.has(deptName)
-          ) {
-            return true;
-          }
-          if (deptName === currentEmp.department_name) return true;
+        if (
+          empCode === currentEmp.employee_code ||
+          (empId && empId === currentEmp.id)
+        ) {
+          return true;
         }
-        return TECH_DIVISION_DEPARTMENTS.has(deptName);
+        const targetEmp = employees.find(
+          (e) => e.employee_code === empCode || (empId && e.id === empId)
+        );
+        if (
+          targetEmp &&
+          (currentEmp.manager_id === targetEmp.id ||
+            targetEmp.role_code === 'SUPER_ADMIN' ||
+            targetEmp.role_code === 'DIRECTOR')
+        ) {
+          return false;
+        }
+        if (targetEmp?.manager_id === currentEmp.id) return true;
+
+        const depts = getRuntimeDepartments();
+        const managedDeptIds = new Set(
+          depts.filter((d) => d.manager_id === currentEmp.id).map((d) => d.id)
+        );
+        const managedDeptNames = new Set(
+          depts
+            .filter((d) => d.manager_id === currentEmp.id)
+            .map((d) => d.department_name)
+        );
+        if (currentEmp.department_id) managedDeptIds.add(currentEmp.department_id);
+        if (currentEmp.department_name) {
+          managedDeptNames.add(currentEmp.department_name);
+        }
+
+        if (
+          targetEmp?.department_id &&
+          managedDeptIds.has(targetEmp.department_id)
+        ) {
+          return true;
+        }
+        if (deptName && managedDeptNames.has(deptName)) {
+          return true;
+        }
+        return false;
       }
       return false;
     },
@@ -902,9 +1015,6 @@ export function AttendanceView() {
   };
 
   const isBiometricBusy = isPunchingBiometric || isEnrollingDevice;
-  const isNightAttendanceLocked = isAttendanceNightLockWindow(
-    clockText.slice(0, 5)
-  );
 
   const handleBiometricPunch = async (
     action: 'CHECK_IN' | 'CHECK_OUT',
@@ -916,7 +1026,10 @@ export function AttendanceView() {
   ) => {
     if (isBiometricBusy && !resolvedOverride) return;
 
-    if (isNightAttendanceLocked) {
+    if (
+      isNightAttendanceLocked ||
+      isAttendanceNightLockWindow(formatCurrentHHmmss(new Date()).slice(0, 5))
+    ) {
       await alertSwal({
         title: 'Khung giờ khóa chấm công (22:00 – 06:00)',
         text: 'Hệ thống tạm khóa chấm công từ 22:00 đến 06:00 sáng hôm sau. Vui lòng thực hiện lại sau 06:00 hoặc gửi giải trình công nếu cần.',
@@ -1037,6 +1150,218 @@ export function AttendanceView() {
     }
   };
 
+  const handleOpenFacePunch = async () => {
+    if (
+      isNightAttendanceLocked ||
+      isAttendanceNightLockWindow(formatCurrentHHmmss(new Date()).slice(0, 5))
+    ) {
+      await alertSwal({
+        title: 'Khung giờ khóa chấm công (22:00 – 06:00)',
+        text: 'Hệ thống tạm khóa chấm công từ 22:00 đến 06:00 sáng hôm sau. Vui lòng thực hiện lại sau 06:00 hoặc gửi giải trình công nếu cần.',
+        icon: 'warning',
+      });
+      return;
+    }
+
+    if (!activeEmployee) {
+      await alertSwal({
+        title: 'Không tìm thấy hồ sơ chấm công',
+        text: 'Không xác định được mã nhân viên hiện tại trong danh sách nhân sự.',
+        icon: 'error',
+      });
+      return;
+    }
+
+    if (isPunchDateLocked) {
+      await alertSwal({
+        title: 'Kỳ công đã khóa sổ',
+        text: 'Bảng công tháng 11/2026 đã được chốt khóa, không thể ghi nhận thêm chấm công mới.',
+        icon: 'warning',
+      });
+      return;
+    }
+
+    setFaceModalMode('punch');
+  };
+
+  const handleFaceEnrolled = (
+    profiles: FaceBiometricProfileDto[],
+    meta?: FaceEnrolledMeta
+  ) => {
+    setFaceProfiles((prev) => {
+      if (profiles.length > 0) return profiles;
+      if (meta?.profile) {
+        return [
+          meta.profile,
+          ...prev.filter(
+            (p) =>
+              p.employee_id !== meta.profile.employee_id &&
+              p.employee_code !== meta.profile.employee_code
+          ),
+        ];
+      }
+      return prev;
+    });
+    if (meta?.wifi) {
+      setWifiStatus(meta.wifi);
+    }
+    const enrollWifiLabel =
+      meta?.wifi.verifiedIp && meta.wifi.verifiedIp !== 'verified-network'
+        ? `WiFi ${meta.wifi.verifiedIp}`
+        : 'WiFi Nội bộ';
+    showToast(
+      'Đã đăng ký mẫu Khuôn mặt',
+      meta
+        ? `${meta.profile.device_label} · Vector ${meta.profile.embedding_dim} chiều · ${enrollWifiLabel}`
+        : 'Mẫu sinh trắc học khuôn mặt đã sẵn sàng chấm công.',
+      'success'
+    );
+  };
+
+  const handleCloseFaceModal = useCallback(() => {
+    setFaceModalMode(null);
+    void fetchFaceBiometricProfiles(activeEmployee?.id)
+      .then((profiles) => {
+        setFaceProfiles(profiles);
+      })
+      .catch(() => {
+        // Bỏ qua lỗi mạng nền khi đồng bộ lại hồ sơ
+      });
+  }, [activeEmployee?.id]);
+
+  const handleFaceDeleted = (profiles: FaceBiometricProfileDto[]) => {
+    const removedLabel = myFaceProfile?.device_label || 'Camera Khuôn mặt';
+    setFaceProfiles(profiles);
+    showToast('Đã xóa mẫu Khuôn mặt', removedLabel, 'info');
+  };
+
+  const handleFacePunchVerified = async (res: FacePunchVerifiedPayload) => {
+    if (!activeEmployee) {
+      throw new Error('Không xác định được hồ sơ nhân viên chấm công.');
+    }
+
+    const todayVN = getTodayDateVN();
+    const effectivePunchDate =
+      punchDate && punchDate !== getDefaultPunchDate() && customPunchTime.trim()
+        ? punchDate
+        : todayVN;
+    if (effectivePunchDate !== punchDate) {
+      setPunchDate(effectivePunchDate);
+    }
+
+    const action: 'CHECK_IN' | 'CHECK_OUT' = myTodayRecord?.check_in
+      ? 'CHECK_OUT'
+      : 'CHECK_IN';
+    const rawEffectiveTime =
+      customPunchTime.trim() || formatCurrentHHmmss(new Date()).slice(0, 5) || '08:30';
+    const timing = await resolveCheckoutTiming(action, rawEffectiveTime);
+    if (!timing) {
+      throw new Error('Đã hủy ghi nhận chấm công do giờ ra ca chưa hợp lệ.');
+    }
+
+    const rawObservedIp = res.wifi.verifiedIp || res.wifi.clientObservedIp;
+    const resolvedIp =
+      rawObservedIp && rawObservedIp !== 'verified-network'
+        ? rawObservedIp
+        : undefined;
+    const savedRecord = checkInOutToday({
+      employeeId: activeEmployee.id,
+      date: effectivePunchDate,
+      action: timing.effectiveAction,
+      timeHHmm:
+        !canSelectActingEmployee || !customPunchTime.trim()
+          ? undefined
+          : timing.effectiveTime,
+      checkInTimeOverride: timing.checkInTimeOverride,
+      note: punchNote.trim() || undefined,
+      source: 'BIOMETRIC_FACE_IRIS',
+      authMethod: 'CAMERA_FACE_IRIS',
+      biometricModality: 'FACE_IRIS',
+      livenessScore: res.liveness,
+      faceMatchScore: res.similarity,
+      biometricDeviceLabel:
+        res.deviceLabel || 'Camera Khuôn mặt',
+      verifiedNetworkIp: resolvedIp,
+      wifiMatchMode:
+        res.wifi.mode === 'CELLULAR_BLOCKED' ||
+        res.wifi.mode === 'WIFI_MISMATCH'
+          ? undefined
+          : res.wifi.mode,
+    });
+
+    if (res.profile) {
+      const updatedProfile = res.profile;
+      setFaceProfiles((prev) => [
+        updatedProfile,
+        ...prev.filter(
+          (p) =>
+            p.id !== updatedProfile.id &&
+            p.employee_code !== updatedProfile.employee_code
+        ),
+      ]);
+    }
+    setWifiStatus(res.wifi);
+    setPunchNote('');
+    syncFromRuntime();
+
+    const similarityPct = (res.similarity * 100).toFixed(1);
+    const isCheckIn = timing.effectiveAction === 'CHECK_IN';
+    showToast(
+      'Đã chấm công thành công!',
+      isCheckIn
+        ? `Check-in lúc ${savedRecord.check_in} · Ca ${savedRecord.shift_code} · Khớp khuôn mặt ${similarityPct}% · WiFi ${resolvedIp || 'Nội bộ'}`
+        : `Vào ${savedRecord.check_in} — Ra ${savedRecord.check_out} · ${savedRecord.workday_value.toFixed(1)} công · Khớp ${similarityPct}% · WiFi ${resolvedIp || 'Nội bộ'}`,
+      'success'
+    );
+
+    return {
+      action: timing.effectiveAction,
+      checkIn: savedRecord.check_in,
+      checkOut: savedRecord.check_out,
+      shiftCode: savedRecord.shift_code,
+      workdayValue: savedRecord.workday_value,
+    };
+  };
+
+  const handleDeleteFaceProfile = async () => {
+    if (!myFaceProfile || !activeEmployee || isDeletingFaceProfile) return;
+    const confirmed = await confirmSwal({
+      title: 'Xóa mẫu Khuôn mặt?',
+      html: `Bạn có chắc chắn muốn xóa mẫu khuôn mặt của <b>${escapeSwalHtml(activeEmployee.full_name)}</b> (${escapeSwalHtml(myFaceProfile.device_label)})? Sau khi xóa, bạn sẽ cần đăng ký lại trước khi chấm công bằng khuôn mặt.`,
+      confirmText: 'Xóa mẫu',
+      cancelText: 'Hủy',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    setIsDeletingFaceProfile(true);
+    try {
+      const res = await deleteFaceBiometricProfile({
+        employee: activeEmployee,
+        role,
+        profileId: myFaceProfile.id,
+        employeeId: activeEmployee.id,
+      });
+      setFaceProfiles(res.faceProfiles);
+      showToast(
+        'Đã xóa mẫu Khuôn mặt',
+        myFaceProfile.device_label,
+        'info'
+      );
+    } catch (err) {
+      await alertSwal({
+        title: 'Không thể xóa mẫu khuôn mặt',
+        text:
+          err instanceof FaceBiometricFlowError || err instanceof Error
+            ? err.message
+            : 'Vui lòng thử lại.',
+        icon: 'error',
+      });
+    } finally {
+      setIsDeletingFaceProfile(false);
+    }
+  };
+
   const handleNavigateExplanation = (rec: DailyAttendanceRecord) => {
     navigateWithIntent('leaves', {
       subTab: 'explanation',
@@ -1064,6 +1389,7 @@ export function AttendanceView() {
 
   const handleConfirmImport = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditAttendance) return;
     if (parsedImportPreview.validRows.length === 0) {
       setImportError(
         'Không tìm thấy dòng dữ liệu hợp lệ khớp mã nhân viên. Nhấn "Tải dữ liệu mẫu thử nghiệm" để xem định dạng chuẩn.'
@@ -1110,6 +1436,7 @@ export function AttendanceView() {
   };
 
   const handleRecomputeMonth = () => {
+    if (isRestrictedEmployee) return;
     recomputeMonthlyAttendance(DEFAULT_PERIOD_MONTH);
     syncFromRuntime();
     showToast(
@@ -1120,6 +1447,7 @@ export function AttendanceView() {
   };
 
   const handleLockAttendance = async () => {
+    if (!canLockAttendance) return;
     const needsReviewRows = monthlyRecords.filter(
       (r) => r.attendance_status === 'NEEDS_REVIEW'
     ).length;
@@ -1164,6 +1492,7 @@ export function AttendanceView() {
   };
 
   const openEditModal = (row: MonthlyAttendanceSummary) => {
+    if (!canEditAttendance) return;
     if (row.attendance_status === 'LOCKED' && role !== 'SUPER_ADMIN') {
       void alertSwal({
         title: 'Bản ghi đã chốt khóa sổ',
@@ -1182,7 +1511,7 @@ export function AttendanceView() {
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingRecord) return;
+    if (!canEditAttendance || !editingRecord) return;
     const nextDays = Math.max(0, Number(editActualDays) || 0);
     const nextLate = Math.max(0, Math.round(Number(editLateCount) || 0));
     const nextOt = Math.max(0, Number(editOtHours) || 0);
@@ -1217,6 +1546,7 @@ export function AttendanceView() {
   };
 
   const handleExportExcel = () => {
+    if (isRestrictedEmployee) return;
     showToast(
       'Xuất dữ liệu chấm công thành công',
       activeTab === 'attendances'
@@ -1279,38 +1609,40 @@ export function AttendanceView() {
             Check-in/Check-out trực tuyến, đồng bộ máy vân tay, phát hiện Quên chấm công và chốt công tháng 11/2026.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={handleRecomputeMonth}>
-            <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
-            Tính lại công
-          </Button>
-          {canEditAttendance && (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setImportError('');
-                setIsImportOpen(true);
-              }}
-            >
-              <Upload className="h-4 w-4" strokeWidth={1.5} />
-              Import chấm công (CSV)
+        {!isRestrictedEmployee && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={handleRecomputeMonth}>
+              <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
+              Tính lại công
             </Button>
-          )}
-          <Button variant="outline" onClick={handleExportExcel}>
-            <Download className="h-4 w-4" strokeWidth={1.5} />
-            Xuất báo cáo
-          </Button>
-          {canLockAttendance && (
-            <Button
-              variant="primary"
-              onClick={handleLockAttendance}
-              disabled={isMonthLocked}
-            >
-              <Lock className="h-4 w-4" strokeWidth={1.5} />
-              {isMonthLocked ? 'Đã chốt bảng công tháng' : 'Chốt bảng công tháng'}
+            {canEditAttendance && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setImportError('');
+                  setIsImportOpen(true);
+                }}
+              >
+                <Upload className="h-4 w-4" strokeWidth={1.5} />
+                Import chấm công (CSV)
+              </Button>
+            )}
+            <Button variant="outline" onClick={handleExportExcel}>
+              <Download className="h-4 w-4" strokeWidth={1.5} />
+              Xuất báo cáo
             </Button>
-          )}
-        </div>
+            {canLockAttendance && (
+              <Button
+                variant="primary"
+                onClick={handleLockAttendance}
+                disabled={isMonthLocked}
+              >
+                <Lock className="h-4 w-4" strokeWidth={1.5} />
+                {isMonthLocked ? 'Đã chốt bảng công tháng' : 'Chốt bảng công tháng'}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Live Check-in / Check-out Widget */}
@@ -1384,12 +1716,7 @@ export function AttendanceView() {
 
             <div className="flex flex-col items-center text-center">
               {/* Live Digital Clock */}
-              <div
-                aria-live="off"
-                className="font-mono text-4xl font-bold tabular-nums tracking-wider text-ink sm:text-5xl"
-              >
-                {clockText}
-              </div>
+              <LiveDigitalClock />
 
               {/* Vietnamese Weekday & Date */}
               <p className="mt-1.5 text-sm font-medium text-ink-secondary">
@@ -1427,7 +1754,10 @@ export function AttendanceView() {
                     <span className="truncate max-w-[260px] sm:max-w-none">
                       {wifiStatus.allowed
                         ? `Chung WiFi · ${hostWifiDetails?.ssid || wifiPolicy.wifi_ssid_label}`
-                        : `Khác WiFi · Đã khóa chấm công (${wifiStatus.verifiedIp})`}
+                        : wifiStatus.verifiedIp &&
+                            wifiStatus.verifiedIp !== 'verified-network'
+                          ? `Khác WiFi · Đã khóa chấm công (${wifiStatus.verifiedIp})`
+                          : 'Khác WiFi · Đã khóa chấm công'}
                     </span>
                   </Badge>
                 ) : (
@@ -1477,7 +1807,7 @@ export function AttendanceView() {
               )}
 
               {/* Primary Biometric Punch Action */}
-              <div className="mt-5 flex w-full flex-col items-center justify-center gap-2.5 sm:flex-row">
+              <div className="mt-5 flex w-full flex-col items-center justify-center gap-2.5 sm:flex-row sm:flex-wrap">
                 <button
                   type="button"
                   disabled={
@@ -1504,6 +1834,21 @@ export function AttendanceView() {
                       ? 'Đang quét vân tay...'
                       : 'Chấm công bằng vân tay'}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    isPunchDateLocked ||
+                    isNightAttendanceLocked ||
+                    Boolean(wifiStatus && !wifiStatus.allowed)
+                  }
+                  title="Quét khuôn mặt để ghi nhận giờ vào/ra ca"
+                  onClick={() => void handleOpenFacePunch()}
+                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl border border-[#0F766E] bg-[#E8F3EF] px-6 py-3 text-sm font-semibold text-[#0B4F4A] shadow-sm transition-all hover:bg-[#CBE8E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F766E] focus-visible:ring-offset-2 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:min-w-[260px] dark:border-teal-500/50 dark:bg-teal-950/50 dark:text-teal-200 dark:hover:bg-teal-900/60 dark:focus-visible:ring-offset-zinc-950"
+                >
+                  <ScanFace className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                  <span>Chấm công bằng khuôn mặt</span>
                 </button>
 
                 {myTodayRecord?.status === 'MISSING_PUNCH' && (
@@ -1613,7 +1958,7 @@ export function AttendanceView() {
                     Văn phòng
                   </span>
                   <span className="font-mono text-[11px] font-medium text-ink-muted">
-                    {activeEmployeeCode}
+                    {activeEmployeeCode || 'Chưa cấp mã'}
                   </span>
                 </div>
 
@@ -1623,9 +1968,37 @@ export function AttendanceView() {
                       Lạc Việt HRM
                     </p>
                     <p className="mt-0.5 text-xs text-ink-muted">
-                      {activeEmployee?.department_name ?? 'Khối Công nghệ'} · {activeEmployeeName}
+                      {activeEmployee?.department_name ||
+                        currentUserProfile?.department ||
+                        'Chưa phân phòng ban'}{' '}
+                      · {activeEmployeeName || 'Chưa liên kết hồ sơ'}
                     </p>
                   </div>
+
+                  {role === 'SUPER_ADMIN' && activeEligibleEmployees.length > 0 && (
+                    <div>
+                      <label
+                        htmlFor="attendance-admin-employee-select"
+                        className="mb-1 block text-[11px] font-medium text-ink-muted"
+                      >
+                        Quản lý mẫu khuôn mặt nhân sự
+                      </label>
+                      <select
+                        id="attendance-admin-employee-select"
+                        value={activeEmployee?.id || actingEmployeeId}
+                        onChange={(e) => setActingEmployeeId(e.target.value)}
+                        aria-label="Chọn nhân sự quản lý mẫu khuôn mặt"
+                        className="min-h-[36px] w-full rounded-lg border border-[#C6D9D3] bg-white px-2.5 py-1.5 text-xs font-medium text-[#11221E] focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                      >
+                        {activeEligibleEmployees.map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.employee_code} — {emp.full_name}
+                            {emp.id === currentEmp?.id ? ' (Tôi)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between gap-2 border-t border-[#D5E3DF]/80 pt-2.5 text-xs dark:border-zinc-800/80">
                     <span className="text-ink-secondary">Ca làm việc</span>
@@ -1663,6 +2036,47 @@ export function AttendanceView() {
                   <ShieldCheck className="h-3 w-3 shrink-0" strokeWidth={1.75} />
                   <span>Quản lý ({myRegisteredCreds.length})</span>
                 </button>
+              </div>
+
+              <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-[#D5E3DF]/80 pt-2.5 dark:border-zinc-800/80">
+                <span
+                  className={`inline-flex min-w-0 items-center gap-1.5 text-xs font-medium ${
+                    myFaceProfile
+                      ? 'text-[#0F766E] dark:text-teal-400'
+                      : 'text-amber-700 dark:text-amber-400'
+                  }`}
+                >
+                  <ScanFace className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  <span className="truncate">
+                    {myFaceProfile ? 'Đã lưu mẫu khuôn mặt' : 'Chưa có mẫu khuôn mặt'}
+                  </span>
+                </span>
+
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {(!myFaceProfile || role === 'SUPER_ADMIN') && (
+                    <button
+                      type="button"
+                      disabled={!activeEmployee || isDeletingFaceProfile}
+                      onClick={() => setFaceModalMode('enroll')}
+                      className="inline-flex min-h-[28px] items-center gap-1 rounded-lg border border-[#0F766E]/30 bg-[#E8F3EF] px-2.5 py-1 text-[11px] font-medium text-[#0B4F4A] transition-colors hover:bg-[#CBE8E2] disabled:pointer-events-none disabled:opacity-50 dark:border-teal-500/30 dark:bg-teal-950/50 dark:text-teal-300 dark:hover:bg-teal-900/60"
+                    >
+                      <ScanFace className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+                      <span>Thiết lập</span>
+                    </button>
+                  )}
+
+                  {role === 'SUPER_ADMIN' && myFaceProfile && (
+                    <button
+                      type="button"
+                      disabled={isDeletingFaceProfile}
+                      onClick={() => void handleDeleteFaceProfile()}
+                      className="inline-flex min-h-[28px] items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:pointer-events-none disabled:opacity-50 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/50"
+                    >
+                      <Trash2 className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+                      <span>{isDeletingFaceProfile ? 'Đang xóa...' : 'Xóa dữ liệu'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1962,11 +2376,13 @@ export function AttendanceView() {
                               <div className="font-mono text-[11px] tabular-nums text-[#5C7871] dark:text-zinc-500">
                                 {rec.source === 'WEB_CLOCK'
                                   ? 'Web Clock'
-                                  : rec.source === 'BIOMETRIC_IMPORT'
-                                    ? 'Máy vân tay'
-                                    : rec.source === 'REQUEST_SYNC'
-                                      ? 'Đồng bộ đơn từ'
-                                      : 'Hệ thống'}
+                                  : rec.source === 'BIOMETRIC_FACE_IRIS'
+                                    ? 'Khuôn mặt'
+                                    : rec.source === 'BIOMETRIC_IMPORT'
+                                      ? 'Máy vân tay'
+                                      : rec.source === 'REQUEST_SYNC'
+                                        ? 'Đồng bộ đơn từ'
+                                        : 'Hệ thống'}
                               </div>
                             </td>
 
@@ -2110,6 +2526,21 @@ export function AttendanceView() {
                                     <Fingerprint className="h-3 w-3" strokeWidth={1.5} />
                                     <span>
                                       Vân tay · {rec.verified_network_ip || 'WiFi nội bộ'}
+                                    </span>
+                                  </Badge>
+                                )}
+
+                                {rec.source === 'BIOMETRIC_FACE_IRIS' && (
+                                  <Badge variant="teal" className="gap-1">
+                                    <ScanFace className="h-3 w-3" strokeWidth={1.5} />
+                                    <span>
+                                      Khuôn mặt
+                                      {typeof rec.face_match_score === 'number'
+                                        ? ` · ${(rec.face_match_score * 100).toFixed(0)}%`
+                                        : ''}
+                                      {rec.verified_network_ip
+                                        ? ` · ${rec.verified_network_ip}`
+                                        : ''}
                                     </span>
                                   </Badge>
                                 )}
@@ -2326,19 +2757,28 @@ export function AttendanceView() {
                     <th className="whitespace-nowrap px-4 py-3 text-right">
                       Ân hạn muộn
                     </th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">
-                      Nhân sự áp dụng
-                    </th>
+                    {!isRestrictedEmployee && (
+                      <th className="whitespace-nowrap px-4 py-3 text-right">
+                        Nhân sự áp dụng
+                      </th>
+                    )}
                     <th className="px-4 py-3">Phạm vi phòng ban</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                   {workShifts.map((shift) => {
-                    const assignedCount = employees.filter(
-                      (e) =>
-                        e.employment_status !== 'RESIGNED' &&
-                        e.work_shift_code === shift.shift_code
-                    ).length;
+                    const assignedCount = isRestrictedEmployee
+                      ? 0
+                      : employees.filter(
+                          (e) =>
+                            e.employment_status !== 'RESIGNED' &&
+                            e.work_shift_code === shift.shift_code &&
+                            isEmployeeInScope(
+                              e.employee_code,
+                              e.department_name,
+                              e.id
+                            )
+                        ).length;
                     return (
                       <tr
                         key={shift.id}
@@ -2367,9 +2807,11 @@ export function AttendanceView() {
                         <td className="whitespace-nowrap px-4 py-3 text-right font-mono tabular-nums text-[#415A54] dark:text-zinc-300">
                           {shift.late_grace_minutes} phút
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
-                          {assignedCount} NV
-                        </td>
+                        {!isRestrictedEmployee && (
+                          <td className="whitespace-nowrap px-4 py-3 text-right font-mono font-semibold tabular-nums text-[#0F766E] dark:text-teal-400">
+                            {assignedCount} NV
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-xs text-[#415A54] dark:text-zinc-400">
                           {shift.department_scope}
                         </td>
@@ -2744,86 +3186,95 @@ export function AttendanceView() {
                 </Button>
               </div>
               <p className="mt-2 text-xs text-[#415A54] dark:text-zinc-300">
-                {wifiStatus?.reason || 'Đang thu thập thông số WiFi...'}
+                {isRestrictedEmployee
+                  ? wifiStatus?.allowed
+                    ? `Đã xác thực kết nối mạng WiFi văn phòng (${hostWifiDetails?.ssid || wifiPolicy.wifi_ssid_label}).`
+                    : 'Thiết bị chưa kết nối vào mạng WiFi văn phòng được cấp phép.'
+                  : wifiStatus?.reason || 'Đang thu thập thông số WiFi...'}
               </p>
-              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 text-[11px] font-mono tabular-nums">
-                <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                  <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
-                    SSID &amp; BSSID
+              {!isRestrictedEmployee && (
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 text-[11px] font-mono tabular-nums">
+                  <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                      SSID &amp; BSSID
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
+                      {hostWifiDetails?.ssid || wifiPolicy.wifi_ssid_label}
+                    </div>
+                    <div className="truncate text-[#5C7871] dark:text-zinc-400">
+                      {hostWifiDetails?.bssid || '--'}
+                    </div>
                   </div>
-                  <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
-                    {hostWifiDetails?.ssid || wifiPolicy.wifi_ssid_label}
+                  <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                      Sóng &amp; Băng tần
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
+                      {hostWifiDetails?.signalPercent != null
+                        ? `${hostWifiDetails.signalPercent}%`
+                        : '--'}{' '}
+                      · {hostWifiDetails?.band || '--'}
+                    </div>
+                    <div className="truncate text-[#5C7871] dark:text-zinc-400">
+                      {hostWifiDetails?.radioType || '--'} · Kênh{' '}
+                      {hostWifiDetails?.channel ?? '--'}
+                    </div>
                   </div>
-                  <div className="truncate text-[#5C7871] dark:text-zinc-400">
-                    {hostWifiDetails?.bssid || '--'}
+                  <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                      Bảo mật &amp; Tốc độ
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
+                      {hostWifiDetails?.authentication || '--'}
+                      {hostWifiDetails?.cipher ? ` (${hostWifiDetails.cipher})` : ''}
+                    </div>
+                    <div className="truncate text-[#5C7871] dark:text-zinc-400">
+                      ↓{hostWifiDetails?.rxRateMbps ?? '--'}/↑
+                      {hostWifiDetails?.txRateMbps ?? '--'} Mbps
+                    </div>
+                  </div>
+                  <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                      IPv4 Máy chủ &amp; Subnet
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold text-[#0F766E] dark:text-teal-400">
+                      {hostWifiDetails?.ipv4Address || '--'}
+                    </div>
+                    <div className="truncate text-[#5C7871] dark:text-zinc-400">
+                      {hostWifiDetails?.cidr || '--'}
+                    </div>
+                  </div>
+                  <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                      Gateway &amp; DNS
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
+                      GW: {hostWifiDetails?.defaultGateway || '--'}
+                    </div>
+                    <div className="truncate text-[#5C7871] dark:text-zinc-400">
+                      DNS:{' '}
+                      {hostWifiDetails?.dnsServers?.length
+                        ? hostWifiDetails.dnsServers.join(', ')
+                        : '--'}
+                    </div>
+                  </div>
+                  <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
+                    <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
+                      WAN Public &amp; Thiết bị
+                    </div>
+                    <div className="mt-0.5 truncate font-semibold text-emerald-700 dark:text-emerald-400">
+                      WAN: {hostPublicIpv4 || '--'}
+                    </div>
+                    <div className="truncate text-[#5C7871] dark:text-zinc-400">
+                      {biometricSupport?.hostname || 'localhost'} · Bạn:{' '}
+                      {wifiStatus?.verifiedIp &&
+                      wifiStatus.verifiedIp !== 'verified-network'
+                        ? wifiStatus.verifiedIp
+                        : 'Nội bộ'}
+                    </div>
                   </div>
                 </div>
-                <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                  <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
-                    Sóng &amp; Băng tần
-                  </div>
-                  <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
-                    {hostWifiDetails?.signalPercent != null
-                      ? `${hostWifiDetails.signalPercent}%`
-                      : '--'}{' '}
-                    · {hostWifiDetails?.band || '--'}
-                  </div>
-                  <div className="truncate text-[#5C7871] dark:text-zinc-400">
-                    {hostWifiDetails?.radioType || '--'} · Kênh{' '}
-                    {hostWifiDetails?.channel ?? '--'}
-                  </div>
-                </div>
-                <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                  <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
-                    Bảo mật &amp; Tốc độ
-                  </div>
-                  <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
-                    {hostWifiDetails?.authentication || '--'}
-                    {hostWifiDetails?.cipher ? ` (${hostWifiDetails.cipher})` : ''}
-                  </div>
-                  <div className="truncate text-[#5C7871] dark:text-zinc-400">
-                    ↓{hostWifiDetails?.rxRateMbps ?? '--'}/↑
-                    {hostWifiDetails?.txRateMbps ?? '--'} Mbps
-                  </div>
-                </div>
-                <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                  <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
-                    IPv4 Máy chủ &amp; Subnet
-                  </div>
-                  <div className="mt-0.5 truncate font-semibold text-[#0F766E] dark:text-teal-400">
-                    {hostWifiDetails?.ipv4Address || '--'}
-                  </div>
-                  <div className="truncate text-[#5C7871] dark:text-zinc-400">
-                    {hostWifiDetails?.cidr || '--'}
-                  </div>
-                </div>
-                <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                  <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
-                    Gateway &amp; DNS
-                  </div>
-                  <div className="mt-0.5 truncate font-semibold text-[#11221E] dark:text-zinc-100">
-                    GW: {hostWifiDetails?.defaultGateway || '--'}
-                  </div>
-                  <div className="truncate text-[#5C7871] dark:text-zinc-400">
-                    DNS:{' '}
-                    {hostWifiDetails?.dnsServers?.length
-                      ? hostWifiDetails.dnsServers.join(', ')
-                      : '--'}
-                  </div>
-                </div>
-                <div className="min-w-0 rounded-lg border border-[#C6D9D3]/80 bg-[#FCFEFD] px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/50">
-                  <div className="font-sans text-[10px] font-medium uppercase tracking-wide text-[#5C7871] dark:text-zinc-400">
-                    WAN Public &amp; Thiết bị
-                  </div>
-                  <div className="mt-0.5 truncate font-semibold text-emerald-700 dark:text-emerald-400">
-                    WAN: {hostPublicIpv4 || '--'}
-                  </div>
-                  <div className="truncate text-[#5C7871] dark:text-zinc-400">
-                    {biometricSupport?.hostname || 'localhost'} · Bạn:{' '}
-                    {wifiStatus?.verifiedIp || '--'}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Enroll Current Device */}
@@ -2923,21 +3374,6 @@ export function AttendanceView() {
                 </div>
               )}
             </div>
-
-            {/* Dual Device Setup Guide */}
-            <div className="rounded-xl border border-[#C6D9D3] bg-[#F5FAF8] p-4 text-xs text-[#415A54] dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
-              <p className="font-semibold text-[#11221E] dark:text-zinc-100">
-                Hướng dẫn chấm công trên cả Laptop và Điện thoại chung WiFi:
-              </p>
-              <ul className="mt-1.5 list-disc space-y-1 pl-4">
-                <li>
-                  <b>Trên Laptop:</b> Truy cập <span className="font-mono">http://localhost:3000</span> rồi bấm <b>Chấm công bằng vân tay</b> để dùng cảm biến Windows Hello / Touch ID.
-                </li>
-                <li>
-                  <b>Trên Điện thoại:</b> Kết nối <b>cùng bộ phát WiFi</b> với Laptop (tắt 4G/5G), mở đường link <b>HTTPS DevTunnel</b> (vd <span className="font-mono">https://...-3000.jpe1.devtunnels.ms</span>) rồi đăng ký vân tay / Face ID trên điện thoại. Hệ thống tự đối chiếu trùng Public WiFi IPv4 giữa điện thoại và Laptop trước khi cho quét vân tay.
-                </li>
-              </ul>
-            </div>
           </div>
 
           <DialogFooter className="shrink-0 border-t border-[#C6D9D3] px-6 py-3 dark:border-zinc-800">
@@ -2947,6 +3383,23 @@ export function AttendanceView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {faceModalMode !== null && activeEmployee && (
+        <FaceLivenessAttendanceModal
+          open={true}
+          mode={faceModalMode}
+          punchKind={myTodayRecord?.check_in ? 'CHECK_OUT' : 'CHECK_IN'}
+          employee={activeEmployee}
+          role={role}
+          wifiStatus={wifiStatus}
+          existingProfile={myFaceProfile}
+          punchActionLabel="Chấm công"
+          onClose={handleCloseFaceModal}
+          onEnrolled={handleFaceEnrolled}
+          onPunchVerified={handleFacePunchVerified}
+          onDeleted={handleFaceDeleted}
+        />
+      )}
     </div>
   );
 }

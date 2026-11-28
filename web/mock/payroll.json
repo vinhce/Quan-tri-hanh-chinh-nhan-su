@@ -9,59 +9,49 @@
     "bhtn_employer_rate": 0.01,
     "union_fee_employer_rate": 0.02,
     "insurance_salary_cap_vnd": 46800000,
-    "personal_deduction_vnd": 11000000,
-    "dependent_deduction_vnd": 4400000,
-    "standard_work_days_per_month": 22
+    "personal_deduction_vnd": 15500000,
+    "dependent_deduction_vnd": 6200000,
+    "standard_work_days_per_month": 22,
+    "tax_year": 2026,
+    "effective_from": "2026-01-01",
+    "bracket_count": 5,
+    "legal_basis": "Nghị quyết 110/2025/UBTVQH15 & Luật Thuế TNCN 109/2025/QH15"
   },
   "PIT_TAX_BRACKETS": [
     {
       "level": 1,
-      "label": "Đến 5 triệu VND",
-      "max_taxable_vnd": 5000000,
+      "label": "Đến 10 triệu VND",
+      "max_taxable_vnd": 10000000,
       "rate_percent": 5,
       "quick_subtract_vnd": 0
     },
     {
       "level": 2,
-      "label": "Trên 5 đến 10 triệu VND",
-      "max_taxable_vnd": 10000000,
-      "rate_percent": 10,
-      "quick_subtract_vnd": 250000
+      "label": "Trên 10 đến 30 triệu VND",
+      "max_taxable_vnd": 30000000,
+      "rate_percent": 15,
+      "quick_subtract_vnd": 1000000
     },
     {
       "level": 3,
-      "label": "Trên 10 đến 18 triệu VND",
-      "max_taxable_vnd": 18000000,
-      "rate_percent": 15,
-      "quick_subtract_vnd": 750000
+      "label": "Trên 30 đến 60 triệu VND",
+      "max_taxable_vnd": 60000000,
+      "rate_percent": 25,
+      "quick_subtract_vnd": 4000000
     },
     {
       "level": 4,
-      "label": "Trên 18 đến 32 triệu VND",
-      "max_taxable_vnd": 32000000,
-      "rate_percent": 20,
-      "quick_subtract_vnd": 1650000
+      "label": "Trên 60 đến 100 triệu VND",
+      "max_taxable_vnd": 100000000,
+      "rate_percent": 30,
+      "quick_subtract_vnd": 7000000
     },
     {
       "level": 5,
-      "label": "Trên 32 đến 52 triệu VND",
-      "max_taxable_vnd": 52000000,
-      "rate_percent": 25,
-      "quick_subtract_vnd": 3250000
-    },
-    {
-      "level": 6,
-      "label": "Trên 52 đến 80 triệu VND",
-      "max_taxable_vnd": 80000000,
-      "rate_percent": 30,
-      "quick_subtract_vnd": 5850000
-    },
-    {
-      "level": 7,
-      "label": "Trên 80 triệu VND",
+      "label": "Trên 100 triệu VND",
       "max_taxable_vnd": null,
       "rate_percent": 35,
-      "quick_subtract_vnd": 9850000
+      "quick_subtract_vnd": 12000000
     }
   ],
   "MOCK_PAYROLL_RECORDS": [
@@ -94,11 +84,11 @@
       "bhyt_employee_vnd": 609000,
       "bhtn_employee_vnd": 406000,
       "total_insurance_employee_vnd": 4263000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 8800000,
-      "taxable_income_vnd": 30237000,
-      "pit_tax_vnd": 4397400,
-      "net_salary_vnd": 45639600,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 12400000,
+      "taxable_income_vnd": 22137000,
+      "pit_tax_vnd": 2320550,
+      "net_salary_vnd": 47716450,
       "employer_total_cost_vnd": 63841000
     },
     {
@@ -130,11 +120,11 @@
       "bhyt_employee_vnd": 441000,
       "bhtn_employee_vnd": 294000,
       "total_insurance_employee_vnd": 3087000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 4400000,
-      "taxable_income_vnd": 21113000,
-      "pit_tax_vnd": 2572600,
-      "net_salary_vnd": 33940400,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 6200000,
+      "taxable_income_vnd": 14813000,
+      "pit_tax_vnd": 1221950,
+      "net_salary_vnd": 35291050,
       "employer_total_cost_vnd": 46509000
     },
     {
@@ -166,11 +156,11 @@
       "bhyt_employee_vnd": 546000,
       "bhtn_employee_vnd": 364000,
       "total_insurance_employee_vnd": 3822000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 8800000,
-      "taxable_income_vnd": 24678000,
-      "pit_tax_vnd": 3285600,
-      "net_salary_vnd": 41192400,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 12400000,
+      "taxable_income_vnd": 16578000,
+      "pit_tax_vnd": 1486700,
+      "net_salary_vnd": 42991300,
       "employer_total_cost_vnd": 56854000
     },
     {
@@ -202,11 +192,11 @@
       "bhyt_employee_vnd": 342000,
       "bhtn_employee_vnd": 228000,
       "total_insurance_employee_vnd": 2394000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 4400000,
-      "taxable_income_vnd": 16856000,
-      "pit_tax_vnd": 1778400,
-      "net_salary_vnd": 30477600,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 6200000,
+      "taxable_income_vnd": 10556000,
+      "pit_tax_vnd": 583400,
+      "net_salary_vnd": 31672600,
       "employer_total_cost_vnd": 40008000
     },
     {
@@ -238,11 +228,11 @@
       "bhyt_employee_vnd": 472500,
       "bhtn_employee_vnd": 315000,
       "total_insurance_employee_vnd": 3307500,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 4400000,
-      "taxable_income_vnd": 24892500,
-      "pit_tax_vnd": 3328500,
-      "net_salary_vnd": 36964000,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 6200000,
+      "taxable_income_vnd": 18592500,
+      "pit_tax_vnd": 1788875,
+      "net_salary_vnd": 38503625,
       "employer_total_cost_vnd": 51002500
     },
     {
@@ -274,11 +264,11 @@
       "bhyt_employee_vnd": 399000,
       "bhtn_employee_vnd": 266000,
       "total_insurance_employee_vnd": 2793000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 8800000,
-      "taxable_income_vnd": 13007000,
-      "pit_tax_vnd": 1201050,
-      "net_salary_vnd": 31605950,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 12400000,
+      "taxable_income_vnd": 4907000,
+      "pit_tax_vnd": 245350,
+      "net_salary_vnd": 32561650,
       "employer_total_cost_vnd": 41851000
     },
     {
@@ -310,11 +300,11 @@
       "bhyt_employee_vnd": 195000,
       "bhtn_employee_vnd": 130000,
       "total_insurance_employee_vnd": 1365000,
-      "personal_deduction_vnd": 11000000,
+      "personal_deduction_vnd": 15500000,
       "dependent_deduction_vnd": 0,
-      "taxable_income_vnd": 4795000,
-      "pit_tax_vnd": 239750,
-      "net_salary_vnd": 15555250,
+      "taxable_income_vnd": 295000,
+      "pit_tax_vnd": 14750,
+      "net_salary_vnd": 15780250,
       "employer_total_cost_vnd": 20215000
     },
     {
@@ -346,11 +336,11 @@
       "bhyt_employee_vnd": 252000,
       "bhtn_employee_vnd": 168000,
       "total_insurance_employee_vnd": 1764000,
-      "personal_deduction_vnd": 11000000,
+      "personal_deduction_vnd": 15500000,
       "dependent_deduction_vnd": 0,
-      "taxable_income_vnd": 8922364,
-      "pit_tax_vnd": 642236,
-      "net_salary_vnd": 19280128,
+      "taxable_income_vnd": 4422364,
+      "pit_tax_vnd": 221118,
+      "net_salary_vnd": 19701246,
       "employer_total_cost_vnd": 25634364
     }
   ],
@@ -383,11 +373,11 @@
     "bhyt_employee_vnd": 342000,
     "bhtn_employee_vnd": 228000,
     "total_insurance_employee_vnd": 2394000,
-    "personal_deduction_vnd": 11000000,
-    "dependent_deduction_vnd": 4400000,
-    "taxable_income_vnd": 16856000,
-    "pit_tax_vnd": 1778400,
-    "net_salary_vnd": 30477600,
+    "personal_deduction_vnd": 15500000,
+    "dependent_deduction_vnd": 6200000,
+    "taxable_income_vnd": 10556000,
+    "pit_tax_vnd": 583400,
+    "net_salary_vnd": 31672600,
     "employer_total_cost_vnd": 40008000
   },
   "mockPayrollFormula": {
@@ -400,59 +390,49 @@
     "bhtn_employer_rate": 0.01,
     "union_fee_employer_rate": 0.02,
     "insurance_salary_cap_vnd": 46800000,
-    "personal_deduction_vnd": 11000000,
-    "dependent_deduction_vnd": 4400000,
-    "standard_work_days_per_month": 22
+    "personal_deduction_vnd": 15500000,
+    "dependent_deduction_vnd": 6200000,
+    "standard_work_days_per_month": 22,
+    "tax_year": 2026,
+    "effective_from": "2026-01-01",
+    "bracket_count": 5,
+    "legal_basis": "Nghị quyết 110/2025/UBTVQH15 & Luật Thuế TNCN 109/2025/QH15"
   },
   "pitTaxBrackets": [
     {
       "level": 1,
-      "label": "Đến 5 triệu VND",
-      "max_taxable_vnd": 5000000,
+      "label": "Đến 10 triệu VND",
+      "max_taxable_vnd": 10000000,
       "rate_percent": 5,
       "quick_subtract_vnd": 0
     },
     {
       "level": 2,
-      "label": "Trên 5 đến 10 triệu VND",
-      "max_taxable_vnd": 10000000,
-      "rate_percent": 10,
-      "quick_subtract_vnd": 250000
+      "label": "Trên 10 đến 30 triệu VND",
+      "max_taxable_vnd": 30000000,
+      "rate_percent": 15,
+      "quick_subtract_vnd": 1000000
     },
     {
       "level": 3,
-      "label": "Trên 10 đến 18 triệu VND",
-      "max_taxable_vnd": 18000000,
-      "rate_percent": 15,
-      "quick_subtract_vnd": 750000
+      "label": "Trên 30 đến 60 triệu VND",
+      "max_taxable_vnd": 60000000,
+      "rate_percent": 25,
+      "quick_subtract_vnd": 4000000
     },
     {
       "level": 4,
-      "label": "Trên 18 đến 32 triệu VND",
-      "max_taxable_vnd": 32000000,
-      "rate_percent": 20,
-      "quick_subtract_vnd": 1650000
+      "label": "Trên 60 đến 100 triệu VND",
+      "max_taxable_vnd": 100000000,
+      "rate_percent": 30,
+      "quick_subtract_vnd": 7000000
     },
     {
       "level": 5,
-      "label": "Trên 32 đến 52 triệu VND",
-      "max_taxable_vnd": 52000000,
-      "rate_percent": 25,
-      "quick_subtract_vnd": 3250000
-    },
-    {
-      "level": 6,
-      "label": "Trên 52 đến 80 triệu VND",
-      "max_taxable_vnd": 80000000,
-      "rate_percent": 30,
-      "quick_subtract_vnd": 5850000
-    },
-    {
-      "level": 7,
-      "label": "Trên 80 triệu VND",
+      "label": "Trên 100 triệu VND",
       "max_taxable_vnd": null,
       "rate_percent": 35,
-      "quick_subtract_vnd": 9850000
+      "quick_subtract_vnd": 12000000
     }
   ],
   "mockPayrollRecords": [
@@ -485,11 +465,11 @@
       "bhyt_employee_vnd": 609000,
       "bhtn_employee_vnd": 406000,
       "total_insurance_employee_vnd": 4263000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 8800000,
-      "taxable_income_vnd": 30237000,
-      "pit_tax_vnd": 4397400,
-      "net_salary_vnd": 45639600,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 12400000,
+      "taxable_income_vnd": 22137000,
+      "pit_tax_vnd": 2320550,
+      "net_salary_vnd": 47716450,
       "employer_total_cost_vnd": 63841000
     },
     {
@@ -521,11 +501,11 @@
       "bhyt_employee_vnd": 441000,
       "bhtn_employee_vnd": 294000,
       "total_insurance_employee_vnd": 3087000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 4400000,
-      "taxable_income_vnd": 21113000,
-      "pit_tax_vnd": 2572600,
-      "net_salary_vnd": 33940400,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 6200000,
+      "taxable_income_vnd": 14813000,
+      "pit_tax_vnd": 1221950,
+      "net_salary_vnd": 35291050,
       "employer_total_cost_vnd": 46509000
     },
     {
@@ -557,11 +537,11 @@
       "bhyt_employee_vnd": 546000,
       "bhtn_employee_vnd": 364000,
       "total_insurance_employee_vnd": 3822000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 8800000,
-      "taxable_income_vnd": 24678000,
-      "pit_tax_vnd": 3285600,
-      "net_salary_vnd": 41192400,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 12400000,
+      "taxable_income_vnd": 16578000,
+      "pit_tax_vnd": 1486700,
+      "net_salary_vnd": 42991300,
       "employer_total_cost_vnd": 56854000
     },
     {
@@ -593,11 +573,11 @@
       "bhyt_employee_vnd": 342000,
       "bhtn_employee_vnd": 228000,
       "total_insurance_employee_vnd": 2394000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 4400000,
-      "taxable_income_vnd": 16856000,
-      "pit_tax_vnd": 1778400,
-      "net_salary_vnd": 30477600,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 6200000,
+      "taxable_income_vnd": 10556000,
+      "pit_tax_vnd": 583400,
+      "net_salary_vnd": 31672600,
       "employer_total_cost_vnd": 40008000
     },
     {
@@ -629,11 +609,11 @@
       "bhyt_employee_vnd": 472500,
       "bhtn_employee_vnd": 315000,
       "total_insurance_employee_vnd": 3307500,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 4400000,
-      "taxable_income_vnd": 24892500,
-      "pit_tax_vnd": 3328500,
-      "net_salary_vnd": 36964000,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 6200000,
+      "taxable_income_vnd": 18592500,
+      "pit_tax_vnd": 1788875,
+      "net_salary_vnd": 38503625,
       "employer_total_cost_vnd": 51002500
     },
     {
@@ -665,11 +645,11 @@
       "bhyt_employee_vnd": 399000,
       "bhtn_employee_vnd": 266000,
       "total_insurance_employee_vnd": 2793000,
-      "personal_deduction_vnd": 11000000,
-      "dependent_deduction_vnd": 8800000,
-      "taxable_income_vnd": 13007000,
-      "pit_tax_vnd": 1201050,
-      "net_salary_vnd": 31605950,
+      "personal_deduction_vnd": 15500000,
+      "dependent_deduction_vnd": 12400000,
+      "taxable_income_vnd": 4907000,
+      "pit_tax_vnd": 245350,
+      "net_salary_vnd": 32561650,
       "employer_total_cost_vnd": 41851000
     },
     {
@@ -701,11 +681,11 @@
       "bhyt_employee_vnd": 195000,
       "bhtn_employee_vnd": 130000,
       "total_insurance_employee_vnd": 1365000,
-      "personal_deduction_vnd": 11000000,
+      "personal_deduction_vnd": 15500000,
       "dependent_deduction_vnd": 0,
-      "taxable_income_vnd": 4795000,
-      "pit_tax_vnd": 239750,
-      "net_salary_vnd": 15555250,
+      "taxable_income_vnd": 295000,
+      "pit_tax_vnd": 14750,
+      "net_salary_vnd": 15780250,
       "employer_total_cost_vnd": 20215000
     },
     {
@@ -737,11 +717,11 @@
       "bhyt_employee_vnd": 252000,
       "bhtn_employee_vnd": 168000,
       "total_insurance_employee_vnd": 1764000,
-      "personal_deduction_vnd": 11000000,
+      "personal_deduction_vnd": 15500000,
       "dependent_deduction_vnd": 0,
-      "taxable_income_vnd": 8922364,
-      "pit_tax_vnd": 642236,
-      "net_salary_vnd": 19280128,
+      "taxable_income_vnd": 4422364,
+      "pit_tax_vnd": 221118,
+      "net_salary_vnd": 19701246,
       "employer_total_cost_vnd": 25634364
     }
   ],
@@ -774,11 +754,11 @@
     "bhyt_employee_vnd": 342000,
     "bhtn_employee_vnd": 228000,
     "total_insurance_employee_vnd": 2394000,
-    "personal_deduction_vnd": 11000000,
-    "dependent_deduction_vnd": 4400000,
-    "taxable_income_vnd": 16856000,
-    "pit_tax_vnd": 1778400,
-    "net_salary_vnd": 30477600,
+    "personal_deduction_vnd": 15500000,
+    "dependent_deduction_vnd": 6200000,
+    "taxable_income_vnd": 10556000,
+    "pit_tax_vnd": 583400,
+    "net_salary_vnd": 31672600,
     "employer_total_cost_vnd": 40008000
   }
 }

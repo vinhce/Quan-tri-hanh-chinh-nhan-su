@@ -14,6 +14,7 @@ import {
   AUDIT_UPDATED_EVENT,
   getRuntimeAuditLogs,
 } from '@/lib/audit-logger';
+import { HRM_RUNTIME_EVENT } from '@/lib/runtime-store';
 import { fetchAdminMock } from '@/lib/mock-fetcher';
 import type { AuditLogEntry } from '@/mock/types';
 import { Badge } from '@/components/ui/badge';
@@ -101,6 +102,9 @@ const ACTION_LABELS: Record<string, string> = {
   MANAGER_REASSIGN: 'Chuyển giao Quản lý kế nhiệm',
   CLEARANCE_SIGNOFF: 'Đối soát thu hồi & Thanh lý',
   FINAL_SETTLEMENT: 'Quyết toán kỳ cuối & Khóa TK',
+  COPILOT_RBAC_BLOCKED: 'Chặn Copilot vượt phân quyền (RBAC)',
+  COPILOT_SECURITY_BLOCKED: 'Chặn tấn công / rò rỉ dữ liệu Copilot',
+  COPILOT_LEAVE_CREATED: 'Tạo đơn từ qua Trợ lý Lạc Việt',
 };
 
 function formatTimestamp(iso: string): string {
@@ -134,7 +138,31 @@ export function AdminAuditView() {
     try {
       const data = await fetchAdminMock({ bypassCache });
       setBaseLogs(data.MOCK_AUDIT_LOGS);
-      setRuntimeLogs(getRuntimeAuditLogs());
+      const localLogs = getRuntimeAuditLogs();
+      try {
+        const syncRes = await fetch('/api/hrm/sync', { cache: 'no-store' });
+        if (syncRes.ok) {
+          const syncJson = (await syncRes.json()) as {
+            stores?: { hrm_runtime_audit_logs?: unknown };
+          };
+          const serverLogs = syncJson?.stores?.hrm_runtime_audit_logs;
+          if (Array.isArray(serverLogs)) {
+            const seenIds = new Set<string>();
+            const merged: AuditLogEntry[] = [];
+            for (const entry of [...(serverLogs as AuditLogEntry[]), ...localLogs]) {
+              if (entry && typeof entry.id === 'string' && !seenIds.has(entry.id)) {
+                seenIds.add(entry.id);
+                merged.push(entry);
+              }
+            }
+            setRuntimeLogs(merged);
+            return;
+          }
+        }
+      } catch {
+        // Fallback silently to local runtime logs when sync endpoint is unavailable
+      }
+      setRuntimeLogs(localLogs);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Không thể tải nhật ký bảo mật.');
     } finally {
@@ -151,7 +179,13 @@ export function AdminAuditView() {
       setRuntimeLogs(getRuntimeAuditLogs());
     };
     window.addEventListener(AUDIT_UPDATED_EVENT, handleAuditUpdate);
-    return () => window.removeEventListener(AUDIT_UPDATED_EVENT, handleAuditUpdate);
+    window.addEventListener(HRM_RUNTIME_EVENT, handleAuditUpdate);
+    window.addEventListener('storage', handleAuditUpdate);
+    return () => {
+      window.removeEventListener(AUDIT_UPDATED_EVENT, handleAuditUpdate);
+      window.removeEventListener(HRM_RUNTIME_EVENT, handleAuditUpdate);
+      window.removeEventListener('storage', handleAuditUpdate);
+    };
   }, []);
 
   const auditLogs = useMemo(() => [...runtimeLogs, ...baseLogs], [runtimeLogs, baseLogs]);
@@ -194,11 +228,11 @@ export function AdminAuditView() {
       const matchRole = roleFilter === 'ALL' || log.actor_role === roleFilter;
       const matchQuery =
         !q ||
-        log.target_entity.toLowerCase().includes(q) ||
-        log.ip_address.toLowerCase().includes(q) ||
-        log.actor_name.toLowerCase().includes(q) ||
-        log.actor_employee_code.toLowerCase().includes(q) ||
-        log.detail.toLowerCase().includes(q);
+        (log.target_entity ?? '').toLowerCase().includes(q) ||
+        (log.ip_address ?? '').toLowerCase().includes(q) ||
+        (log.actor_name ?? '').toLowerCase().includes(q) ||
+        (log.actor_employee_code ?? '').toLowerCase().includes(q) ||
+        (log.detail ?? '').toLowerCase().includes(q);
 
       return matchAction && matchRole && matchQuery;
     });
@@ -382,6 +416,9 @@ export function AdminAuditView() {
                   { label: 'Tính / Xuất bảng lương', value: 'EXPORT_PAYROLL' },
                   { label: 'Cập nhật phân quyền', value: 'UPDATE_PERMISSION' },
                   { label: 'AI chấm điểm CV', value: 'AI_CV_SCREEN' },
+                  { label: 'Copilot: Tạo đơn từ', value: 'COPILOT_LEAVE_CREATED' },
+                  { label: 'Copilot: Chặn phân quyền (RBAC)', value: 'COPILOT_RBAC_BLOCKED' },
+                  { label: 'Copilot: Chặn tấn công / rò rỉ', value: 'COPILOT_SECURITY_BLOCKED' },
                   { label: 'Đăng nhập thất bại / Bị chặn', value: 'FAILED_LOGIN' },
                 ]}
               />
@@ -399,6 +436,7 @@ export function AdminAuditView() {
                   { label: 'Trưởng phòng Nhân sự', value: 'HR_MANAGER' },
                   { label: 'Trưởng bộ phận', value: 'DEPT_MANAGER' },
                   { label: 'Nhân viên chính thức', value: 'EMPLOYEE' },
+                  { label: 'Ứng viên', value: 'CANDIDATE' },
                 ]}
               />
             </div>
@@ -421,7 +459,7 @@ export function AdminAuditView() {
               </thead>
               <tbody className="divide-y divide-[#D5E3DF] dark:divide-zinc-800/70">
                 {filteredLogs.map((log) => {
-                  const statusMeta = STATUS_BADGE[log.status];
+                  const statusMeta = STATUS_BADGE[log.status] ?? STATUS_BADGE.WARNING;
                   return (
                     <tr
                       key={log.id}
@@ -496,7 +534,7 @@ export function AdminAuditView() {
             <div className="mt-4 space-y-4 text-sm">
               <div
                 className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3.5 ${
-                  STATUS_BLOCK_STYLE[selectedLog.status]
+                  STATUS_BLOCK_STYLE[selectedLog.status] ?? STATUS_BLOCK_STYLE.WARNING
                 }`}
               >
                 <div>
@@ -511,8 +549,8 @@ export function AdminAuditView() {
                     {formatTimestamp(selectedLog.timestamp)}
                   </p>
                 </div>
-                <Badge variant={STATUS_BADGE[selectedLog.status].variant}>
-                  {STATUS_BADGE[selectedLog.status].label}
+                <Badge variant={(STATUS_BADGE[selectedLog.status] ?? STATUS_BADGE.WARNING).variant}>
+                  {(STATUS_BADGE[selectedLog.status] ?? STATUS_BADGE.WARNING).label}
                 </Badge>
               </div>
 

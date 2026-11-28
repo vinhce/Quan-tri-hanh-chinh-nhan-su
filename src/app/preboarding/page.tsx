@@ -1673,7 +1673,7 @@ function PreboardingPortalContent() {
                         className="font-mono tabular-nums"
                       />
                       <p className="mt-1 text-xs text-[#5C7871] dark:text-zinc-400">
-                        Mức giảm trừ chuẩn: <span className="font-mono tabular-nums">4.400.000 đ/người/tháng</span> (khi có hồ sơ chứng minh hợp lệ).
+                        Mức giảm trừ chuẩn (từ 2026): <span className="font-mono tabular-nums">6.200.000 đ/người/tháng</span> (khi có hồ sơ chứng minh hợp lệ).
                       </p>
                     </div>
                   </div>

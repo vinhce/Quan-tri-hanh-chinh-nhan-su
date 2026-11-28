@@ -32,9 +32,21 @@ function exportMockJson() {
       'utf8'
     );
 
+    const configSrc = fs.readFileSync(path.join(projectRoot, 'src', 'lib', 'hrm', 'config.ts'), 'utf8');
+    const configTranspiled = ts.transpileModule(configSrc, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+        esModuleInterop: true,
+      },
+      fileName: 'config.ts',
+    });
+    fs.writeFileSync(path.join(tempDir, 'hrm-config.js'), configTranspiled.outputText, 'utf8');
+
     for (const fileName of sourceFiles) {
       const srcPath = path.join(mockSrcDir, fileName);
-      const sourceText = fs.readFileSync(srcPath, 'utf8');
+      let sourceText = fs.readFileSync(srcPath, 'utf8');
+      sourceText = sourceText.replace(/@\/lib\/hrm\/config/g, './hrm-config');
       const transpiled = ts.transpileModule(sourceText, {
         compilerOptions: {
           module: ts.ModuleKind.CommonJS,

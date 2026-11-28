@@ -15,6 +15,7 @@ import {
   FilePlus2,
   FileText,
   History,
+  Lock,
   Network,
   Pencil,
   Plus,
@@ -24,7 +25,7 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
-import { useApp } from '@/context/app-context';
+import { ROLE_DEFAULT_PROFILES, useApp } from '@/context/app-context';
 import { recordAuditLog } from '@/lib/audit-logger';
 import { fetchEmployeesMock } from '@/lib/mock-fetcher';
 import {
@@ -126,17 +127,25 @@ const DEPT_SUGGESTED_SALARY: Record<string, string> = {
   'dept-sales': '15500000',
 };
 
-const DEPT_MANAGER_SCOPE_IDS = new Set(['dept-tech', 'dept-tech-swe', 'dept-tech-data']);
-
-function extractDeptBranch(nodes: Department[], targetId: string): Department[] {
+function pruneDeptTreeForScope(
+  nodes: Department[],
+  allowedIds: Set<string>
+): Department[] {
+  const result: Department[] = [];
   for (const node of nodes) {
-    if (node.id === targetId) return [node];
-    if (node.children && node.children.length > 0) {
-      const found = extractDeptBranch(node.children, targetId);
-      if (found.length > 0) return found;
+    const prunedChildren = node.children
+      ? pruneDeptTreeForScope(node.children, allowedIds)
+      : [];
+    if (allowedIds.has(node.id)) {
+      result.push({
+        ...node,
+        children: prunedChildren.length > 0 ? prunedChildren : undefined,
+      });
+    } else if (prunedChildren.length > 0) {
+      result.push(...prunedChildren);
     }
   }
-  return [];
+  return result;
 }
 
 function hydrateDeptTreeWithRuntime(
@@ -184,14 +193,19 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   const {
     role,
     currentUserProfile,
+    currentUserEmail,
     showToast,
     navIntent,
     clearNavIntent,
     navigateWithIntent,
+    setActiveNav,
   } = useApp();
 
+  const isAccessDenied = role === 'EMPLOYEE' || role === 'CANDIDATE';
   const isDeptManager = role === 'DEPT_MANAGER';
-  const canManageHr = role === 'SUPER_ADMIN' || role === 'HR_MANAGER';
+  const canManageHr =
+    role === 'SUPER_ADMIN' || role === 'DIRECTOR' || role === 'HR_MANAGER';
+  const canApproveHighSalary = role === 'SUPER_ADMIN' || role === 'DIRECTOR';
   const canViewContracts =
     role === 'SUPER_ADMIN' || role === 'HR_MANAGER' || role === 'DIRECTOR';
   const canViewOrgChart =
@@ -201,8 +215,10 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     role === 'DEPT_MANAGER';
   const hideSalary = isDeptManager;
 
-  const actorName = currentUserProfile?.fullName ?? 'Trần Thị Bích Ngọc';
-  const actorCode = currentUserProfile?.employee_code ?? 'NV-2024-002';
+  const actorName =
+    currentUserProfile?.fullName ?? ROLE_DEFAULT_PROFILES[role]?.fullName ?? 'Người dùng';
+  const actorCode =
+    currentUserProfile?.employee_code ?? ROLE_DEFAULT_PROFILES[role]?.employee_code ?? '';
 
   const [activeTab, setActiveTab] = useState<CoreHrTab>(defaultTab);
   useEffect(() => {
@@ -408,10 +424,112 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     };
   }, [syncRuntimeAll]);
 
+  const actorEmployee = useMemo(() => {
+    if (isAccessDenied) return null;
+    const explicitCode = currentUserProfile?.employee_code?.trim();
+    if (explicitCode && !explicitCode.toUpperCase().startsWith('UV-')) {
+      const byCode = employees.find(
+        (e) => e.employee_code.toLowerCase() === explicitCode.toLowerCase()
+      );
+      if (byCode) return byCode;
+    }
+    const rawEmail = (currentUserProfile?.email || currentUserEmail || '')
+      .trim()
+      .toLowerCase();
+    if (rawEmail) {
+      const byEmail = employees.find(
+        (e) =>
+          e.email.toLowerCase() === rawEmail ||
+          (e.personal_email && e.personal_email.toLowerCase() === rawEmail)
+      );
+      if (byEmail) return byEmail;
+      if (
+        rawEmail.endsWith('@lacviethrm.vn') ||
+        rawEmail.endsWith('@hrm-enterprise.vn')
+      ) {
+        const local = rawEmail.split('@')[0];
+        const byLocal = employees.find(
+          (e) => e.email.toLowerCase().split('@')[0] === local
+        );
+        if (byLocal) return byLocal;
+      }
+    }
+    if (!explicitCode && !rawEmail) {
+      const defCode = ROLE_DEFAULT_PROFILES[role]?.employee_code;
+      if (defCode && !defCode.startsWith('UV-')) {
+        return employees.find((e) => e.employee_code === defCode) ?? null;
+      }
+    }
+    return null;
+  }, [isAccessDenied, currentUserProfile, currentUserEmail, employees, role]);
+
+  const managerDeptIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!isDeptManager) return ids;
+    const explicitDeptId = currentUserProfile?.department_id?.trim();
+    if (explicitDeptId) {
+      ids.add(explicitDeptId);
+    }
+    if (
+      actorEmployee &&
+      (!explicitDeptId || actorEmployee.department_id === explicitDeptId)
+    ) {
+      if (actorEmployee.department_id) ids.add(actorEmployee.department_id);
+      for (const d of departments) {
+        if (d.manager_id === actorEmployee.id) {
+          ids.add(d.id);
+        }
+      }
+    }
+    return ids;
+  }, [isDeptManager, currentUserProfile?.department_id, actorEmployee, departments]);
+
+  const departmentTree = useMemo(
+    () => hydrateDeptTreeWithRuntime(baseDepartmentTree, departments),
+    [baseDepartmentTree, departments]
+  );
+
+  const scopedDepartments = useMemo(
+    () =>
+      isDeptManager
+        ? departments.filter((d) => managerDeptIds.has(d.id))
+        : departments,
+    [departments, isDeptManager, managerDeptIds]
+  );
+
+  const scopedEmployees = useMemo(
+    () =>
+      isDeptManager
+        ? employees.filter(
+            (emp) =>
+              managerDeptIds.has(emp.department_id) &&
+              (emp.role_code === 'EMPLOYEE' || emp.id === actorEmployee?.id)
+          )
+        : employees,
+    [employees, isDeptManager, managerDeptIds, actorEmployee]
+  );
+
+  const scopedDepartmentTree = useMemo(
+    () =>
+      isDeptManager
+        ? pruneDeptTreeForScope(departmentTree, managerDeptIds)
+        : departmentTree,
+    [departmentTree, isDeptManager, managerDeptIds]
+  );
+
+  const scopedPositions = useMemo(
+    () =>
+      isDeptManager
+        ? positions.filter((pos) => managerDeptIds.has(pos.department_id))
+        : positions,
+    [positions, isDeptManager, managerDeptIds]
+  );
+
   // Handle cross-module deep link intent
   useEffect(() => {
     if (
       isLoading ||
+      isAccessDenied ||
       !navIntent ||
       !['core-hr', 'employees', 'contracts'].includes(navIntent.navId)
     ) {
@@ -428,7 +546,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
     const eid = navIntent.entityId?.trim();
     if (eid) {
-      const targetEmp = employees.find(
+      const targetEmp = scopedEmployees.find(
         (e) =>
           e.id.toLowerCase() === eid.toLowerCase() ||
           e.employee_code.toLowerCase() === eid.toLowerCase()
@@ -441,53 +559,13 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     clearNavIntent();
   }, [
     isLoading,
+    isAccessDenied,
     navIntent,
-    employees,
+    scopedEmployees,
     canViewContracts,
     canViewOrgChart,
     clearNavIntent,
   ]);
-
-  const departmentTree = useMemo(
-    () => hydrateDeptTreeWithRuntime(baseDepartmentTree, departments),
-    [baseDepartmentTree, departments]
-  );
-
-  const scopedDepartments = useMemo(
-    () =>
-      isDeptManager
-        ? departments.filter((d) => DEPT_MANAGER_SCOPE_IDS.has(d.id))
-        : departments,
-    [departments, isDeptManager]
-  );
-
-  const scopedEmployees = useMemo(
-    () =>
-      isDeptManager
-        ? employees.filter(
-            (emp) =>
-              DEPT_MANAGER_SCOPE_IDS.has(emp.department_id) &&
-              emp.role_code === 'EMPLOYEE'
-          )
-        : employees,
-    [employees, isDeptManager]
-  );
-
-  const scopedDepartmentTree = useMemo(
-    () =>
-      isDeptManager
-        ? extractDeptBranch(departmentTree, 'dept-tech')
-        : departmentTree,
-    [departmentTree, isDeptManager]
-  );
-
-  const scopedPositions = useMemo(
-    () =>
-      isDeptManager
-        ? positions.filter((pos) => DEPT_MANAGER_SCOPE_IDS.has(pos.department_id))
-        : positions,
-    [positions, isDeptManager]
-  );
 
   const filteredEmployees = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -610,6 +688,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageHr) return;
     if (!newEmpName.trim() || !newEmpEmail.trim()) {
       showToast(
         'Thiếu thông tin bắt buộc',
@@ -623,6 +702,14 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     if (!dept) return;
 
     const salaryNum = Number(newEmpSalary) || 22000000;
+    if (!canApproveHighSalary && salaryNum > 50_000_000) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Hồ sơ / Hợp đồng có mức lương trên 50.000.000 VNĐ vượt thẩm quyền HR Manager — cần Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     const probPct = Math.min(100, Math.max(50, Number(newEmpProbationPct) || 85));
 
     if (addMode === 'PREBOARDING') {
@@ -830,6 +917,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
   const handleSaveEditEmployee = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageHr) return;
     if (!selectedEmployee || !editEmpName.trim()) {
       showToast('Thiếu họ và tên', 'Vui lòng nhập họ tên nhân viên.', 'warning');
       return;
@@ -837,6 +925,14 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
     const dept = departments.find((d) => d.id === editEmpDeptId) ?? departments[0];
     const nextSalary = Number(editEmpSalary) || selectedEmployee.base_salary_vnd;
+    if (!canApproveHighSalary && nextSalary > 50_000_000) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Cập nhật mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
     const parsedDep = Math.max(0, Number.parseInt(editDependents, 10) || 0);
 
     const updated: Employee = {
@@ -928,6 +1024,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
   };
 
   const handleRenewContract = async (contract: EmploymentContract) => {
+    if (!canManageHr) return;
     const nextEndDate = addYearsToIsoDate(contract.end_date, 1);
     const nextType: ContractType =
       contract.contract_type === 'PROBATION_2M'
@@ -937,6 +1034,17 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       contract.contract_type === 'PROBATION_2M' && contract.official_salary_vnd
         ? contract.official_salary_vnd
         : contract.base_salary_vnd;
+    if (
+      !canApproveHighSalary &&
+      (nextSalary > 50_000_000 || (contract.official_salary_vnd ?? 0) > 50_000_000)
+    ) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Gia hạn hợp đồng có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
 
     const ok = await confirmSwal({
       title: 'Gia hạn Hợp đồng lao động thêm 12 tháng?',
@@ -998,6 +1106,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
 
   const handleCreateContract = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageHr) return;
     const emp = employees.find((item) => item.id === newContractEmpId);
     if (!emp) return;
 
@@ -1011,6 +1120,17 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
       newContractType === 'PROBATION_2M'
         ? Math.round((fullSalary * pct) / 100)
         : fullSalary;
+    if (
+      !canApproveHighSalary &&
+      (fullSalary > 50_000_000 || effectiveBase > 50_000_000)
+    ) {
+      showToast(
+        'Cần Giám đốc phê duyệt',
+        'Tạo Hợp đồng / Phụ lục có mức lương trên 50.000.000 VNĐ yêu cầu Giám đốc (DIRECTOR) hoặc Quản trị hệ thống phê duyệt.',
+        'warning'
+      );
+      return;
+    }
 
     const isAddendum = newContractType === 'ADDENDUM';
     const endDate =
@@ -1199,6 +1319,36 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     );
   };
 
+  if (isAccessDenied) {
+    return (
+      <div className="mx-auto max-w-xl py-16">
+        <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/15">
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+              <Lock className="h-6 w-6" strokeWidth={1.75} />
+            </div>
+            <div className="space-y-1.5">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                Không đủ quyền truy cập Hồ sơ &amp; Tổ chức (403)
+              </h2>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Phân hệ Quản trị Hồ sơ Nhân sự &amp; Hợp đồng lao động chỉ dành cho Ban Giám đốc, Quản trị Nhân sự và Trưởng bộ phận.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setActiveNav('dashboard')}
+            >
+              Quay về Bảng điều khiển
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -1212,6 +1362,10 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
     );
   }
 
+  const managerPrimaryDept =
+    scopedDepartments.find((d) => d.id === actorEmployee?.department_id) ??
+    scopedDepartments[0];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1221,7 +1375,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
           </h1>
           <p className="mt-1 text-sm text-[#415A54] dark:text-zinc-400">
             {isDeptManager
-              ? 'Phạm vi: Khối Công nghệ — Danh bạ nhân sự, cơ cấu phòng ban và chức vụ trực thuộc'
+              ? `Phạm vi: ${managerPrimaryDept?.department_name ?? 'Phòng ban phụ trách'} — Danh bạ nhân sự, cơ cấu phòng ban và chức vụ trực thuộc`
               : 'Quản lý vòng đời hồ sơ pháp lý, cổng Pre-boarding, sơ đồ tổ chức và hợp đồng lao động'}
           </p>
         </div>
@@ -1301,12 +1455,12 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
           {(() => {
             const targetDept =
               deptFilter !== 'ALL'
-                ? departments.find((d) => d.id === deptFilter)
+                ? scopedDepartments.find((d) => d.id === deptFilter)
                 : isDeptManager
-                  ? departments.find((d) => d.id === 'dept-tech')
+                  ? managerPrimaryDept
                   : undefined;
             if (!targetDept) return null;
-            const childNames = departments
+            const childNames = scopedDepartments
               .filter((d) => d.parent_id === targetDept.id)
               .map((d) => d.department_name);
             return (
@@ -1921,14 +2075,21 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                                     Xét chính thức
                                   </Button>
                                 ) : contract.end_date && !isAddendum ? (
-                                  <Button
-                                    variant={isExpiring ? 'primary' : 'outline'}
-                                    size="sm"
-                                    onClick={() => void handleRenewContract(contract)}
-                                  >
-                                    <CalendarPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                                    Gia hạn +1 năm
-                                  </Button>
+                                  !canApproveHighSalary &&
+                                  ((contract.official_salary_vnd ?? contract.base_salary_vnd) >
+                                    50_000_000 ||
+                                    contract.base_salary_vnd > 50_000_000) ? (
+                                    <Badge variant="warning">Cần Giám đốc duyệt</Badge>
+                                  ) : (
+                                    <Button
+                                      variant={isExpiring ? 'primary' : 'outline'}
+                                      size="sm"
+                                      onClick={() => void handleRenewContract(contract)}
+                                    >
+                                      <CalendarPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                      Gia hạn +1 năm
+                                    </Button>
+                                  )
                                 ) : (
                                   <span className="text-xs text-[#5C7871] dark:text-zinc-400">
                                     Đang lưu hành
@@ -2350,7 +2511,8 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                 ) : (
                   <div className="space-y-4">
                     {/* Pre-boarding Link Banner if applicable */}
-                    {(selectedEmployeeInvite || selectedEmployee.preboarding_token) && (
+                    {!isDeptManager &&
+                      (selectedEmployeeInvite || selectedEmployee.preboarding_token) && (
                       <div className="flex flex-col gap-2 rounded-xl border border-[#0F766E]/30 bg-[#CBE8E2]/45 p-3.5 text-xs dark:border-teal-400/25 dark:bg-teal-950/25 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <div className="flex flex-wrap items-center gap-2 font-semibold text-[#0B4F4A] dark:text-teal-300">
@@ -2552,7 +2714,7 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                         </div>
                         <Badge variant="outline" className="text-[11px]">
                           <ShieldCheck className="h-3 w-3" strokeWidth={1.5} />
-                          Append-Only Audit
+                          Lưu vết lịch sử
                         </Badge>
                       </div>
 
@@ -2636,14 +2798,16 @@ export function CoreHrView({ defaultTab = 'employees' }: CoreHrViewProps) {
                     </div>
 
                     {/* AI Retention Insight */}
-                    <div className="rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/45 p-3 text-xs dark:border-teal-400/20 dark:bg-teal-950/30">
-                      <div className="font-semibold text-[#0B4F4A] dark:text-teal-300">
-                        Đánh giá AI Retention
+                    {!isDeptManager && (
+                      <div className="rounded-xl border border-[#0F766E]/25 bg-[#CBE8E2]/45 p-3 text-xs dark:border-teal-400/20 dark:bg-teal-950/30">
+                        <div className="font-semibold text-[#0B4F4A] dark:text-teal-300">
+                          Đánh giá AI Retention
+                        </div>
+                        <p className="mt-1 text-[#11221E] dark:text-zinc-300">
+                          {selectedEmployee.ai_retention_note}
+                        </p>
                       </div>
-                      <p className="mt-1 text-[#11221E] dark:text-zinc-300">
-                        {selectedEmployee.ai_retention_note}
-                      </p>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>

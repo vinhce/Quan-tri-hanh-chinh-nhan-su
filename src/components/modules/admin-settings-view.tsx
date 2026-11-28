@@ -1097,9 +1097,9 @@ export function AdminSettingsView() {
 
         <Card className="overflow-hidden rounded-[12px] border-[#C6D9D3] bg-[#FCFEFD] shadow-[0_1px_3px_rgba(17,34,30,0.05)] dark:border-zinc-800/80 dark:bg-zinc-900 lg:col-span-7">
           <CardHeader className="border-b border-[#C6D9D3] pb-4 dark:border-zinc-800/80">
-            <CardTitle>Biểu thuế TNCN lũy tiến từng phần (7 bậc)</CardTitle>
+            <CardTitle>Biểu thuế TNCN lũy tiến từng phần ({pitBrackets.length} bậc)</CardTitle>
             <CardDescription>
-              Tham chiếu tự động khi chạy bảng lương và xuất phiếu lương cá nhân.
+              Từ kỳ 2026: 5 bậc (NQ 110/2025/UBTVQH15 &amp; Luật 109/2025/QH15). Kỳ &lt;= 2025 giữ nguyên 7 bậc. Tham chiếu tự động theo kỳ lương.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">

@@ -46,6 +46,11 @@ try {
   const { can } = require(path.join(tempDir, 'permissions.js'));
   const { transitionProposal, transitionApplicationStage, transitionInterview } = require(path.join(tempDir, 'workflow.js'));
   const { validateCvFile } = require(path.join(tempDir, 'files.js'));
+  const {
+    getPitTaxConfigForPeriod,
+    calculateProgressivePitByPeriod,
+    computePitBreakdownByPeriod,
+  } = require(path.join(tempDir, 'config.js'));
 
   let passedTests = 0;
   let failedTests = 0;
@@ -414,6 +419,66 @@ try {
     assert.strictEqual(canWithdrawApplication('OFFER'), false);
     assert.strictEqual(canWithdrawApplication('ONBOARDED'), false);
     assert.strictEqual(canWithdrawApplication('REJECTED'), false);
+  });
+
+  // 10. Period-Based PIT Tax Rules (<= 2025 vs >= 2026 NQ 110/2025/UBTVQH15 & Law 109/2025/QH15)
+  it('PIT 2026 vs 2025: deductions, 5-bracket vs 7-bracket, boundaries & zero/negative income', () => {
+    const cfg2026 = getPitTaxConfigForPeriod('2026-03');
+    assert.strictEqual(cfg2026.tax_year, 2026);
+    assert.strictEqual(cfg2026.personal_deduction_vnd, 15_500_000);
+    assert.strictEqual(cfg2026.personal_deduction_annual_vnd, 186_000_000);
+    assert.strictEqual(cfg2026.dependent_deduction_vnd, 6_200_000);
+    assert.strictEqual(cfg2026.bracket_count, 5);
+
+    const cfg2025 = getPitTaxConfigForPeriod('2025-11');
+    assert.strictEqual(cfg2025.tax_year, 2025);
+    assert.strictEqual(cfg2025.personal_deduction_vnd, 11_000_000);
+    assert.strictEqual(cfg2025.dependent_deduction_vnd, 4_400_000);
+    assert.strictEqual(cfg2025.bracket_count, 7);
+
+    // Case 2026 #1: 40.000.000 - BH 10.5% (4.200.000) - 15.500.000 = 20.300.000 -> 2.045.000
+    const taxable2026A = 40_000_000 - 4_200_000 - cfg2026.personal_deduction_vnd;
+    assert.strictEqual(taxable2026A, 20_300_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(taxable2026A, '2026-03'), 2_045_000);
+
+    // Case 2026 #2: after BH 22.400.000, 1 dep -> 22.400.000 - 21.700.000 = 700.000 -> 35.000
+    const taxable2026B =
+      22_400_000 - cfg2026.personal_deduction_vnd - 1 * cfg2026.dependent_deduction_vnd;
+    assert.strictEqual(taxable2026B, 700_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(taxable2026B, '2026-06'), 35_000);
+
+    // Same 2 inputs under <= 2025 rules (11M / 4.4M, 7 brackets)
+    const taxable2025A = 40_000_000 - 4_200_000 - cfg2025.personal_deduction_vnd;
+    assert.strictEqual(taxable2025A, 24_800_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(taxable2025A, '2025-11'), 3_310_000);
+
+    const taxable2025B =
+      22_400_000 - cfg2025.personal_deduction_vnd - 1 * cfg2025.dependent_deduction_vnd;
+    assert.strictEqual(taxable2025B, 7_000_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(taxable2025B, '2025-11'), 450_000);
+
+    // Boundaries on 2026 5-bracket schedule (10M / 30M / 60M / 100M / >100M)
+    assert.strictEqual(calculateProgressivePitByPeriod(10_000_000, 2026), 500_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(30_000_000, 2026), 3_500_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(60_000_000, 2026), 11_000_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(100_000_000, 2026), 23_000_000);
+    assert.strictEqual(calculateProgressivePitByPeriod(120_000_000, 2026), 30_000_000);
+
+    // Zero or negative taxable income -> 0
+    assert.strictEqual(calculateProgressivePitByPeriod(0, 2026), 0);
+    assert.strictEqual(calculateProgressivePitByPeriod(-1_000_000, 2026), 0);
+    assert.strictEqual(calculateProgressivePitByPeriod(0, 2025), 0);
+
+    // Breakdown rows preserve period schedule
+    const bd2026 = computePitBreakdownByPeriod(20_300_000, '2026-11');
+    assert.strictEqual(bd2026.schedule.bracket_count, 5);
+    assert.strictEqual(bd2026.rows.length, 2);
+    assert.strictEqual(bd2026.total_tax_vnd, 2_045_000);
+
+    const bd2025 = computePitBreakdownByPeriod(24_800_000, '2025-12');
+    assert.strictEqual(bd2025.schedule.bracket_count, 7);
+    assert.strictEqual(bd2025.rows.length, 4);
+    assert.strictEqual(bd2025.total_tax_vnd, 3_310_000);
   });
 
   console.log(`\nTEST RESULTS: ${passedTests} passed, ${failedTests} failed.`);

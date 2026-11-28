@@ -1,33 +1,162 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+const ALLOWED_ROLES = new Set([
+  'SUPER_ADMIN',
+  'DIRECTOR',
+  'HR_MANAGER',
+  'DEPT_MANAGER',
+  'EMPLOYEE',
+  'CANDIDATE',
+]);
+
+const MIN_SECRET_LENGTH = 32;
+
+interface MiddlewareSessionPayload {
+  jti: string;
+  role: string;
+  exp: number;
+}
+
+function decodeBase64UrlToBytes(b64url: string): Uint8Array | null {
+  try {
+    const base64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (base64.length % 4)) % 4;
+    const binary = atob(base64 + '='.repeat(padLen));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+async function verifyHmacSha256Edge(
+  encodedPayload: string,
+  sigBytes: Uint8Array,
+  secret: string
+): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sigBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(encodedPayload));
+    const expectedBytes = new Uint8Array(sigBuffer);
+    if (expectedBytes.length !== sigBytes.length) {
+      return false;
+    }
+    let diff = 0;
+    for (let i = 0; i < expectedBytes.length; i += 1) {
+      diff |= expectedBytes[i] ^ sigBytes[i];
+    }
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+
+async function verifyMiddlewareSession(
+  request: NextRequest
+): Promise<MiddlewareSessionPayload | null> {
+  const rawSession = request.cookies.get('hrm_session')?.value?.trim();
+  if (!rawSession || rawSession.length > 4096) {
+    return null;
+  }
+
+  const parts = rawSession.split('.');
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [encodedPayload, sigB64Url] = parts;
+  if (
+    !encodedPayload ||
+    !sigB64Url ||
+    !/^[A-Za-z0-9_-]+$/.test(encodedPayload) ||
+    !/^[A-Za-z0-9_-]+$/.test(sigB64Url)
+  ) {
+    return null;
+  }
+
+  const payloadBytes = decodeBase64UrlToBytes(encodedPayload);
+  const sigBytes = decodeBase64UrlToBytes(sigB64Url);
+  if (!payloadBytes || !sigBytes) {
+    return null;
+  }
+
+  const envSecret = (process.env.HRM_SESSION_SECRET || '').trim();
+  if (envSecret.length < MIN_SECRET_LENGTH) {
+    return null;
+  }
+  const validSig = await verifyHmacSha256Edge(encodedPayload, sigBytes, envSecret);
+  if (!validSig) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    const jsonStr = new TextDecoder('utf-8', { fatal: true }).decode(payloadBytes);
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return null;
+  }
+
+  const rec = parsed as Record<string, unknown>;
+  const jti = typeof rec.jti === 'string' ? rec.jti.trim() : '';
+  const role = typeof rec.role === 'string' ? rec.role.trim() : '';
+  const exp = typeof rec.exp === 'number' ? rec.exp : Number.NaN;
+
+  if (!jti || jti.length < 8 || jti.length > 128) {
+    return null;
+  }
+  if (!ALLOWED_ROLES.has(role)) {
+    return null;
+  }
+  if (!Number.isFinite(exp) || exp <= Date.now()) {
+    return null;
+  }
+
+  return { jti, role, exp };
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hrmRole = request.cookies.get('hrm_role')?.value;
-  const hrmToken = request.cookies.get('hrm_token')?.value;
   const hrmActive = request.cookies.get('hrm_active')?.value;
-  const isAuthenticated = Boolean(hrmRole && hrmToken);
 
   // Immediately revoke session if account was marked inactive/locked (hrm_active === '0')
   if (hrmActive === '0') {
     const lockedLoginUrl = new URL('/login', request.url);
     lockedLoginUrl.searchParams.set('locked', '1');
     const response = NextResponse.redirect(lockedLoginUrl);
+    response.cookies.delete('hrm_session');
     response.cookies.delete('hrm_role');
     response.cookies.delete('hrm_token');
     response.cookies.delete('hrm_active');
     return response;
   }
 
+  const session = await verifyMiddlewareSession(request);
+  const isAuthenticated = Boolean(session);
+
   // Protected /app route (internal management portal)
   if (pathname.startsWith('/app')) {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !session) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    if (hrmRole === 'CANDIDATE') {
+    if (session.role === 'CANDIDATE') {
       // 403 Forbidden for candidate attempting to access internal administration portal
       return new NextResponse(
         `<!DOCTYPE html>

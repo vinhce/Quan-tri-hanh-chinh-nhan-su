@@ -1,4 +1,10 @@
+import {
+  calculateProgressivePitByPeriod,
+  getPitTaxConfigForPeriod,
+} from '@/lib/hrm/config';
 import { PayrollFormulaConfig, PayrollRecord } from './types';
+
+const CURRENT_PIT_CONFIG = getPitTaxConfigForPeriod('2026-11');
 
 export const MOCK_PAYROLL_FORMULA: PayrollFormulaConfig = {
   bhxh_employee_rate: 0.08,
@@ -10,30 +16,22 @@ export const MOCK_PAYROLL_FORMULA: PayrollFormulaConfig = {
   bhtn_employer_rate: 0.01,
   union_fee_employer_rate: 0.02,
   insurance_salary_cap_vnd: 46800000,
-  personal_deduction_vnd: 11000000,
-  dependent_deduction_vnd: 4400000,
+  personal_deduction_vnd: CURRENT_PIT_CONFIG.personal_deduction_vnd,
+  dependent_deduction_vnd: CURRENT_PIT_CONFIG.dependent_deduction_vnd,
   standard_work_days_per_month: 22,
+  tax_year: CURRENT_PIT_CONFIG.tax_year,
+  effective_from: CURRENT_PIT_CONFIG.effective_from,
+  bracket_count: CURRENT_PIT_CONFIG.bracket_count,
+  legal_basis: CURRENT_PIT_CONFIG.legal_basis,
 };
 
-export const PIT_TAX_BRACKETS = [
-  { level: 1, label: 'Đến 5 triệu VND', max_taxable_vnd: 5000000, rate_percent: 5, quick_subtract_vnd: 0 },
-  { level: 2, label: 'Trên 5 đến 10 triệu VND', max_taxable_vnd: 10000000, rate_percent: 10, quick_subtract_vnd: 250000 },
-  { level: 3, label: 'Trên 10 đến 18 triệu VND', max_taxable_vnd: 18000000, rate_percent: 15, quick_subtract_vnd: 750000 },
-  { level: 4, label: 'Trên 18 đến 32 triệu VND', max_taxable_vnd: 32000000, rate_percent: 20, quick_subtract_vnd: 1650000 },
-  { level: 5, label: 'Trên 32 đến 52 triệu VND', max_taxable_vnd: 52000000, rate_percent: 25, quick_subtract_vnd: 3250000 },
-  { level: 6, label: 'Trên 52 đến 80 triệu VND', max_taxable_vnd: 80000000, rate_percent: 30, quick_subtract_vnd: 5850000 },
-  { level: 7, label: 'Trên 80 triệu VND', max_taxable_vnd: null, rate_percent: 35, quick_subtract_vnd: 9850000 },
-];
+export const PIT_TAX_BRACKETS = CURRENT_PIT_CONFIG.brackets.map((b) => ({ ...b }));
 
-export function calculateProgressivePitVnd(taxableIncomeVnd: number): number {
-  if (taxableIncomeVnd <= 0) return 0;
-  if (taxableIncomeVnd <= 5000000) return Math.round(taxableIncomeVnd * 0.05);
-  if (taxableIncomeVnd <= 10000000) return Math.round(taxableIncomeVnd * 0.1 - 250000);
-  if (taxableIncomeVnd <= 18000000) return Math.round(taxableIncomeVnd * 0.15 - 750000);
-  if (taxableIncomeVnd <= 32000000) return Math.round(taxableIncomeVnd * 0.2 - 1650000);
-  if (taxableIncomeVnd <= 52000000) return Math.round(taxableIncomeVnd * 0.25 - 3250000);
-  if (taxableIncomeVnd <= 80000000) return Math.round(taxableIncomeVnd * 0.3 - 5850000);
-  return Math.round(taxableIncomeVnd * 0.35 - 9850000);
+export function calculateProgressivePitVnd(
+  taxableIncomeVnd: number,
+  periodOrYear: string | number = '2026-01'
+): number {
+  return calculateProgressivePitByPeriod(taxableIncomeVnd, periodOrYear);
 }
 
 function buildPayrollRecord(params: {
@@ -79,9 +77,10 @@ function buildPayrollRecord(params: {
   const bhtn_employee_vnd = Math.round(insurance_base_vnd * MOCK_PAYROLL_FORMULA.bhtn_employee_rate);
   const total_insurance_employee_vnd = bhxh_employee_vnd + bhyt_employee_vnd + bhtn_employee_vnd;
 
-  const personal_deduction_vnd = MOCK_PAYROLL_FORMULA.personal_deduction_vnd;
+  const pitConfig = getPitTaxConfigForPeriod(params.period_month);
+  const personal_deduction_vnd = pitConfig.personal_deduction_vnd;
   const dependent_deduction_vnd =
-    params.dependents_count * MOCK_PAYROLL_FORMULA.dependent_deduction_vnd;
+    params.dependents_count * pitConfig.dependent_deduction_vnd;
 
   const raw_taxable =
     gross_salary_vnd -
@@ -89,7 +88,7 @@ function buildPayrollRecord(params: {
     personal_deduction_vnd -
     dependent_deduction_vnd;
   const taxable_income_vnd = Math.max(0, raw_taxable);
-  const pit_tax_vnd = calculateProgressivePitVnd(taxable_income_vnd);
+  const pit_tax_vnd = calculateProgressivePitByPeriod(taxable_income_vnd, params.period_month);
   const net_salary_vnd = gross_salary_vnd - total_insurance_employee_vnd - pit_tax_vnd;
 
   const employer_insurance_vnd = Math.round(insurance_base_vnd * 0.235);

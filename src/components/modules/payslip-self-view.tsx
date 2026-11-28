@@ -54,10 +54,10 @@ import { alertSwal, confirmSwal } from '@/lib/swal';
 import { formatDateVN } from '@/lib/utils';
 import { MOCK_LEAVE_OVERTIME_REQUESTS } from '@/mock/attendance';
 import {
-  calculateProgressivePitVnd,
-  MOCK_PAYROLL_FORMULA,
-  PIT_TAX_BRACKETS,
-} from '@/mock/payroll';
+  calculateProgressivePitByPeriod,
+  getPitTaxConfigForPeriod,
+} from '@/lib/hrm/config';
+import { MOCK_PAYROLL_FORMULA } from '@/mock/payroll';
 import type {
   AnnualLeaveBalance,
   ApprovalStep,
@@ -93,15 +93,6 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function normalizeVietnamese(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
-}
-
 function formatVnd(amount: number, masked: boolean): string {
   if (masked) return '•••\u00A0•••\u00A0•••\u00A0đ';
   return `${new Intl.NumberFormat('vi-VN').format(Math.round(amount))}\u00A0đ`;
@@ -119,14 +110,24 @@ function formatTimeNow(date: Date): string {
     .replace(/^24:/, '00:');
 }
 
-const ROLE_DEFAULT_EMPLOYEE_CODE: Record<RoleCode, string> = {
-  SUPER_ADMIN: 'NV-2024-001',
-  DIRECTOR: 'NV-2024-000',
-  HR_MANAGER: 'NV-2024-002',
-  DEPT_MANAGER: 'NV-2024-003',
-  EMPLOYEE: 'NV-2024-004',
-  CANDIDATE: 'NV-2024-004',
-};
+const INTERNAL_CORP_DOMAINS = new Set(['lacviethrm.vn', 'hrm-enterprise.vn']);
+
+function emailsMatchExactOrCorporateAlias(aRaw: string, bRaw: string): boolean {
+  const a = aRaw.trim().toLowerCase();
+  const b = bRaw.trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const atA = a.lastIndexOf('@');
+  const atB = b.lastIndexOf('@');
+  if (atA <= 0 || atB <= 0) return false;
+  const domA = a.slice(atA + 1);
+  const domB = b.slice(atB + 1);
+  return (
+    INTERNAL_CORP_DOMAINS.has(domA) &&
+    INTERNAL_CORP_DOMAINS.has(domB) &&
+    a.slice(0, atA) === b.slice(0, atB)
+  );
+}
 
 const EMPLOYMENT_STATUS_BADGE: Record<
   EmploymentStatus,
@@ -176,12 +177,16 @@ interface PitBracketSlice {
   taxVnd: number;
 }
 
-function computePitBreakdown(taxableIncomeVnd: number): PitBracketSlice[] {
+function computePitBreakdown(
+  taxableIncomeVnd: number,
+  periodMonth?: string
+): PitBracketSlice[] {
   if (taxableIncomeVnd <= 0) return [];
   const items: PitBracketSlice[] = [];
   let prevMax = 0;
+  const brackets = getPitTaxConfigForPeriod(periodMonth).brackets;
 
-  for (const bracket of PIT_TAX_BRACKETS) {
+  for (const bracket of brackets) {
     const upper = bracket.max_taxable_vnd ?? Infinity;
     const slice = Math.max(0, Math.min(taxableIncomeVnd, upper) - prevMax);
     if (slice > 0) {
@@ -321,14 +326,15 @@ function buildLiveFallbackPayslip(emp: Employee, periodMonth = '2026-11'): Payro
     : Math.round(insuranceBaseVnd * MOCK_PAYROLL_FORMULA.bhtn_employee_rate);
   const totalInsuranceVnd = bhxhVnd + bhytVnd + bhtnVnd;
 
-  const personalDeduction = MOCK_PAYROLL_FORMULA.personal_deduction_vnd;
+  const pitConfig = getPitTaxConfigForPeriod(periodMonth);
+  const personalDeduction = pitConfig.personal_deduction_vnd;
   const dependentDeduction =
-    emp.dependents_count * MOCK_PAYROLL_FORMULA.dependent_deduction_vnd;
+    emp.dependents_count * pitConfig.dependent_deduction_vnd;
   const taxableIncomeVnd = Math.max(
     0,
     grossSalaryVnd - totalInsuranceVnd - personalDeduction - dependentDeduction
   );
-  const pitTaxVnd = calculateProgressivePitVnd(taxableIncomeVnd);
+  const pitTaxVnd = calculateProgressivePitByPeriod(taxableIncomeVnd, periodMonth);
   const netSalaryVnd = Math.max(0, grossSalaryVnd - totalInsuranceVnd - pitTaxVnd);
   const employerTotalCostVnd =
     grossSalaryVnd + (isProbation ? 0 : Math.round(insuranceBaseVnd * 0.235));
@@ -381,7 +387,7 @@ function buildLiveFallbackPayslip(emp: Employee, periodMonth = '2026-11'): Payro
 
 function resolveLoggedInEmployee(
   allEmployees: Employee[],
-  role: RoleCode,
+  _role: RoleCode,
   currentUserEmail: string | null,
   currentUserProfile: UserProfileOverride | null
 ): Employee | null {
@@ -395,9 +401,11 @@ function resolveLoggedInEmployee(
 
   if (hasExplicitEmployeeCode && profileCode) {
     const byCode = allEmployees.find(
-      (e) => e.employee_code.trim().toLowerCase() === profileCode
+      (e) =>
+        e.employee_code.trim().toLowerCase() === profileCode ||
+        e.id.trim().toLowerCase() === profileCode
     );
-    if (byCode) return byCode;
+    return byCode ?? null;
   }
 
   const emailCandidate = (currentUserEmail || currentUserProfile?.email || '')
@@ -406,94 +414,16 @@ function resolveLoggedInEmployee(
   if (emailCandidate) {
     const exactByEmail = allEmployees.find(
       (e) =>
-        e.email.trim().toLowerCase() === emailCandidate ||
-        e.personal_email?.trim().toLowerCase() === emailCandidate
+        emailsMatchExactOrCorporateAlias(e.email, emailCandidate) ||
+        Boolean(
+          e.personal_email &&
+            e.personal_email.trim().toLowerCase() === emailCandidate
+        )
     );
-    if (exactByEmail) return exactByEmail;
+    return exactByEmail ?? null;
   }
 
-  if (hasExplicitEmployeeCode && rawProfileCode) {
-    const fullName = currentUserProfile?.fullName?.trim() || rawProfileCode;
-    const words = fullName.split(/\s+/).filter(Boolean);
-    const initials =
-      words.length >= 2
-        ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
-        : fullName.slice(0, 2).toUpperCase();
-
-    return {
-      id: `emp-dynamic-${rawProfileCode.toLowerCase()}`,
-      employee_code: rawProfileCode,
-      full_name: fullName,
-      email:
-        currentUserProfile?.email ||
-        currentUserEmail ||
-        `${rawProfileCode.toLowerCase()}@lacviethrm.vn`,
-      personal_email: currentUserEmail || currentUserProfile?.email,
-      phone: '-',
-      gender: 'Nam',
-      date_of_birth: '1998-01-01',
-      national_id: '-',
-      tax_code: '-',
-      social_insurance_no: '-',
-      department_id: currentUserProfile?.department_id || 'dept-tech',
-      department_name: currentUserProfile?.department || 'Khối Công nghệ',
-      position_id: 'pos-dynamic',
-      position_name: currentUserProfile?.title || 'Nhân viên mới',
-      manager_id: 'emp-003',
-      manager_name: 'Lê Hoàng Nam',
-      role_code: role,
-      join_date: '2026-11-22',
-      employment_status: 'PROBATION',
-      contract_type: 'PROBATION_2M',
-      contract_start_date: '2026-11-22',
-      contract_end_date: '2027-01-22',
-      contract_status: 'ACTIVE',
-      base_salary_vnd: 0,
-      allowance_meal_vnd: 0,
-      allowance_transport_vnd: 0,
-      allowance_position_vnd: 0,
-      dependents_count: 0,
-      bank_account_no: '-',
-      bank_name: 'Vietcombank',
-      work_shift_code: 'HC-08:30',
-      kpi_completion_rate: 85,
-      burnout_risk_score: 15,
-      burnout_risk_level: 'LOW',
-      turnover_risk_score: 10,
-      turnover_risk_level: 'LOW',
-      ai_retention_note: 'Nhân sự mới nhận việc đang trong giai đoạn thử việc.',
-      avatar_initials: initials || 'NV',
-    };
-  }
-
-  if (emailCandidate && emailCandidate.includes('@')) {
-    const localPart = emailCandidate.split('@')[0];
-    const byLocalPart = allEmployees.find(
-      (e) => e.email.split('@')[0].toLowerCase() === localPart
-    );
-    if (byLocalPart) return byLocalPart;
-  }
-
-  const profileName = currentUserProfile?.fullName?.trim();
-  if (profileName) {
-    const normName = normalizeVietnamese(profileName);
-    const byName = allEmployees.find(
-      (e) => normalizeVietnamese(e.full_name) === normName
-    );
-    if (byName) return byName;
-  }
-
-  const fallbackCode = ROLE_DEFAULT_EMPLOYEE_CODE[role].toLowerCase();
-  const byFallbackCode = allEmployees.find(
-    (e) => e.employee_code.toLowerCase() === fallbackCode
-  );
-  if (byFallbackCode) return byFallbackCode;
-
-  return (
-    allEmployees.find((e) => e.role_code === role) ??
-    allEmployees.find((e) => e.employee_code === 'NV-2024-001') ??
-    allEmployees[0]
-  );
+  return null;
 }
 
 type QuickRequestMode = 'ANNUAL_LEAVE' | 'OVERTIME' | 'LATE_EXPLANATION';
@@ -549,6 +479,11 @@ export function PayslipSelfView() {
     setEmployee(resolvedEmp);
 
     if (!resolvedEmp) {
+      setLeaveBalance(null);
+      setEmpPayrolls([]);
+      setSelectedPayslipId('');
+      setEmpAttendances([]);
+      setBiometricCreds([]);
       setIsLoading(false);
       return;
     }
@@ -585,11 +520,12 @@ export function PayslipSelfView() {
     setBiometricCreds(getBiometricCredentials(resolvedEmp.id));
     setWifiPolicy(getWifiAttendancePolicy());
 
-    // 3. Live Payroll Records (prioritize final settlement & latest period)
+    // 3. Live Payroll Records (strictly own employee_id or employee_code)
     const allPayrolls = getPayrollRecords().filter(
       (p) =>
-        p.employee_id === resolvedEmp.id ||
-        p.employee_code === resolvedEmp.employee_code
+        (Boolean(resolvedEmp.id) && p.employee_id === resolvedEmp.id) ||
+        (Boolean(resolvedEmp.employee_code) &&
+          p.employee_code === resolvedEmp.employee_code)
     );
     const sortedPayrolls = [...allPayrolls].sort((a, b) => {
       if (Boolean(a.is_final_settlement) !== Boolean(b.is_final_settlement)) {
@@ -601,10 +537,13 @@ export function PayslipSelfView() {
     const effectivePayrolls =
       sortedPayrolls.length > 0
         ? sortedPayrolls
-        : [buildLiveFallbackPayslip(resolvedEmp, '2026-11')];
+        : resolvedEmp.base_salary_vnd > 0
+          ? [buildLiveFallbackPayslip(resolvedEmp, '2026-11')]
+          : [];
 
     setEmpPayrolls(effectivePayrolls);
     setSelectedPayslipId((prevId) => {
+      if (effectivePayrolls.length === 0) return '';
       if (prevId && effectivePayrolls.some((p) => p.id === prevId)) {
         return prevId;
       }
@@ -704,7 +643,7 @@ export function PayslipSelfView() {
 
   const pitBreakdown = useMemo(() => {
     if (!payslip) return [];
-    return computePitBreakdown(payslip.taxable_income_vnd);
+    return computePitBreakdown(payslip.taxable_income_vnd, payslip.period_month);
   }, [payslip]);
 
   const handleEnrollEssBiometric = async (): Promise<boolean> => {
@@ -910,7 +849,7 @@ export function PayslipSelfView() {
     const nextRequestCode = `REQ-202611-${String(maxCodeNum + 1).padStart(3, '0')}`;
 
     const isDeptMgr = employee.role_code === 'DEPT_MANAGER' || role === 'DEPT_MANAGER';
-    const needsDirector = isAnnualLeave && numericDuration >= 3;
+    const needsDirector = isAnnualLeave && numericDuration > 3;
     const steps: ApprovalStep[] = [
       {
         step_order: 1,
@@ -932,7 +871,7 @@ export function PayslipSelfView() {
       steps.push({
         step_order: 3,
         role: 'DIRECTOR',
-        label: 'Cấp 3 · Giám đốc phê duyệt (>= 3 ngày)',
+        label: 'Cấp 3 · Giám đốc phê duyệt (> 3 ngày)',
         status: 'PENDING',
         actor_name: 'Trần Quốc Việt',
       });
@@ -1049,12 +988,18 @@ export function PayslipSelfView() {
 
   if (!employee || !leaveBalance || !payslip) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">
-            Không tìm thấy dữ liệu hồ sơ nhân viên tự phục vụ.
+      <Card className="border-[#C6D9D3] bg-[#FCFEFD] dark:border-zinc-800 dark:bg-[#121214]">
+        <CardContent className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#C6D9D3] bg-[#F2F7F5] text-[#0F766E] dark:border-zinc-800 dark:bg-zinc-900 dark:text-teal-400">
+            <User className="h-5 w-5" strokeWidth={1.75} />
+          </div>
+          <p className="text-sm font-semibold text-[#11221E] dark:text-zinc-100">
+            Chưa có dữ liệu hồ sơ &amp; phiếu lương cá nhân
           </p>
-          <Button variant="outline" onClick={syncFromRuntimeStore}>
+          <p className="max-w-md text-xs leading-relaxed text-[#5C7871] dark:text-zinc-400">
+            Tài khoản hiện tại chưa được liên kết với mã nhân sự hoặc chưa phát sinh kỳ lương chính thức trên hệ thống. Vui lòng liên hệ Phòng Nhân sự để cập nhật hồ sơ.
+          </p>
+          <Button variant="outline" size="sm" onClick={syncFromRuntimeStore}>
             Tải lại dữ liệu
           </Button>
         </CardContent>
@@ -1743,7 +1688,9 @@ export function PayslipSelfView() {
                     </span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="min-w-0 text-[#415A54] dark:text-zinc-400">Thuế TNCN (7 bậc)</span>
+                    <span className="min-w-0 text-[#415A54] dark:text-zinc-400">
+                      Thuế TNCN ({getPitTaxConfigForPeriod(payslip.period_month).bracket_count} bậc)
+                    </span>
                     <span className="shrink-0 whitespace-nowrap text-right font-mono tabular-nums text-[#11221E] dark:text-zinc-100">
                       -{formatVnd(payslip.pit_tax_vnd, maskSalary)}
                     </span>
@@ -1777,12 +1724,12 @@ export function PayslipSelfView() {
               </div>
             </div>
 
-            {/* 7-Bracket Progressive PIT Breakdown */}
+            {/* Progressive PIT Breakdown */}
             <div className="space-y-2.5 rounded-xl border border-[#C6D9D3] bg-[#FCFEFD] p-3.5 dark:border-zinc-800/80 dark:bg-transparent">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-[#5C7871] dark:text-zinc-400">
                   <FileSpreadsheet className="h-3.5 w-3.5 text-[#0F766E] dark:text-teal-400" strokeWidth={1.5} />
-                  Diễn giải Thuế TNCN lũy tiến 7 bậc
+                  Diễn giải Thuế TNCN lũy tiến {getPitTaxConfigForPeriod(payslip.period_month).bracket_count} bậc
                 </p>
                 <span className="text-xs text-[#415A54] dark:text-zinc-400">
                   Thu nhập tính thuế:{' '}

@@ -74,6 +74,12 @@ module.exports = { NextResponse: MockNextResponse };
     'utf8'
   );
 
+  const runtimeFiles = fs
+    .readdirSync(path.join(projectRoot, 'src/lib/runtime'))
+    .filter((f) => f.endsWith('.ts'))
+    .sort()
+    .map((f) => ({ src: `src/lib/runtime/${f}`, dest: `runtime/${f.replace(/\.ts$/, '.js')}` }));
+
   const filesToTranspile = [
     { src: 'src/mock/types.ts', dest: 'types.js' },
     { src: 'src/mock/payroll.ts', dest: 'payroll.js' },
@@ -83,13 +89,18 @@ module.exports = { NextResponse: MockNextResponse };
     { src: 'src/mock/admin.ts', dest: 'admin.js' },
     { src: 'src/mock/onboarding.ts', dest: 'onboarding.js' },
     { src: 'src/mock/ats.ts', dest: 'ats.js' },
+    { src: 'src/mock/work-items.ts', dest: 'work-items.js' },
     { src: 'src/lib/audit-logger.ts', dest: 'audit-logger.js' },
     { src: 'src/lib/hrm/types.ts', dest: 'hrm-types.js' },
     { src: 'src/lib/hrm/config.ts', dest: 'config.js' },
+    { src: 'src/lib/hrm/salary-band.ts', dest: 'salary-band.js' },
+    { src: 'src/lib/hrm/work-items-store.ts', dest: 'work-items-store.js' },
+    { src: 'src/lib/hrm/work-handover-bridge.ts', dest: 'work-handover-bridge.js' },
     { src: 'src/lib/hrm/permissions.ts', dest: 'hrm-permissions.js' },
     { src: 'src/lib/hrm/workflow.ts', dest: 'hrm-workflow.js' },
     { src: 'src/lib/hrm/ids.ts', dest: 'hrm-ids.js' },
     { src: 'src/lib/hrm/format.ts', dest: 'hrm-format.js' },
+    ...runtimeFiles,
     { src: 'src/lib/runtime-store.ts', dest: 'runtime-store.js' },
     { src: 'src/app/api/hrm/lifecycle/route.ts', dest: 'lifecycle-route.js' },
   ];
@@ -98,25 +109,35 @@ module.exports = { NextResponse: MockNextResponse };
     const filePath = path.join(projectRoot, src);
     assert.ok(fs.existsSync(filePath), `Missing required source file: ${src}`);
     let code = fs.readFileSync(filePath, 'utf8');
+    const rootPrefix = dest.includes('/') ? '../' : './';
 
     // Remap path aliases for sandbox execution
     code = code.replace(/next\/server/g, './next-server-shim');
-    code = code.replace(/@\/mock\/types/g, './types');
-    code = code.replace(/@\/mock\/ats/g, './ats');
-    code = code.replace(/@\/mock\/employees/g, './employees');
-    code = code.replace(/@\/mock\/onboarding/g, './onboarding');
-    code = code.replace(/@\/mock\/attendance/g, './attendance');
-    code = code.replace(/@\/mock\/payroll/g, './payroll');
-    code = code.replace(/@\/mock\/admin/g, './admin');
-    code = code.replace(/@\/mock\/copilot/g, './copilot');
-    code = code.replace(/@\/lib\/hrm\/config/g, './config');
-    code = code.replace(/@\/lib\/hrm\/ids/g, './hrm-ids');
-    code = code.replace(/@\/lib\/hrm\/permissions/g, './hrm-permissions');
-    code = code.replace(/@\/lib\/hrm\/types/g, './hrm-types');
-    code = code.replace(/\.\/config/g, './config');
-    code = code.replace(/\.\/ids/g, './hrm-ids');
-    code = code.replace(/\.\/format/g, './hrm-format');
-    code = code.replace(/\.\/permissions/g, './hrm-permissions');
+    code = code.replace(/\.\.\/\.\.\/mock\/types/g, `${rootPrefix}types`);
+    code = code.replace(/\.\.\/\.\.\/mock\/work-items/g, `${rootPrefix}work-items`);
+    code = code.replace(/@\/mock\/types/g, `${rootPrefix}types`);
+    code = code.replace(/@\/mock\/ats/g, `${rootPrefix}ats`);
+    code = code.replace(/@\/mock\/employees/g, `${rootPrefix}employees`);
+    code = code.replace(/@\/mock\/onboarding/g, `${rootPrefix}onboarding`);
+    code = code.replace(/@\/mock\/attendance/g, `${rootPrefix}attendance`);
+    code = code.replace(/@\/mock\/payroll/g, `${rootPrefix}payroll`);
+    code = code.replace(/@\/mock\/admin/g, `${rootPrefix}admin`);
+    code = code.replace(/@\/mock\/copilot/g, `${rootPrefix}copilot`);
+    code = code.replace(/@\/mock\/work-items/g, `${rootPrefix}work-items`);
+    code = code.replace(/@\/lib\/audit-logger/g, `${rootPrefix}audit-logger`);
+    code = code.replace(/@\/lib\/hrm\/config/g, `${rootPrefix}config`);
+    code = code.replace(/@\/lib\/hrm\/salary-band/g, `${rootPrefix}salary-band`);
+    code = code.replace(/@\/lib\/hrm\/work-items-store/g, `${rootPrefix}work-items-store`);
+    code = code.replace(/@\/lib\/hrm\/work-handover-bridge/g, `${rootPrefix}work-handover-bridge`);
+    code = code.replace(/@\/lib\/hrm\/ids/g, `${rootPrefix}hrm-ids`);
+    code = code.replace(/@\/lib\/hrm\/permissions/g, `${rootPrefix}hrm-permissions`);
+    code = code.replace(/@\/lib\/hrm\/types/g, `${rootPrefix}hrm-types`);
+    if (!dest.startsWith('runtime/')) {
+      code = code.replace(/\.\/config/g, './config');
+      code = code.replace(/\.\/ids/g, './hrm-ids');
+      code = code.replace(/\.\/format/g, './hrm-format');
+      code = code.replace(/\.\/permissions/g, './hrm-permissions');
+    }
 
     if (src.endsWith('lifecycle/route.ts')) {
       code = code.replace(
@@ -133,7 +154,9 @@ module.exports = { NextResponse: MockNextResponse };
       },
       fileName: path.basename(src),
     });
-    fs.writeFileSync(path.join(tempDir, dest), transpiled.outputText, 'utf8');
+    const outPath = path.join(tempDir, dest);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, transpiled.outputText, 'utf8');
   }
 
   // Global browser mocks for runtime-store & audit-logger in Node.js
@@ -854,11 +877,10 @@ module.exports = { NextResponse: MockNextResponse };
     assert.strictEqual(offPayroll.insurance_base_vnd, 24_000_000);
     assert.strictEqual(offPayroll.total_insurance_employee_vnd, Math.round(24_000_000 * 0.105)); // 2,520,000đ
     assert.ok(offPayroll.overtime_pay_vnd > 0, 'Phải cộng tiền làm thêm giờ OT');
-    assert.strictEqual(offPayroll.dependent_deduction_vnd, 4_400_000); // 1 người phụ thuộc
+    assert.strictEqual(offPayroll.dependent_deduction_vnd, 6_200_000); // 1 người phụ thuộc (kỳ 2026)
 
-    const expectedTax = payrollMock.calculateProgressivePitVnd(offPayroll.taxable_income_vnd);
-    assert.strictEqual(offPayroll.pit_tax_vnd, expectedTax, 'Thuế TNCN phải khớp biểu lũy tiến 7 bậc');
-    assert.ok(offPayroll.pit_tax_vnd > 0, 'Mức thu nhập chịu thuế > 0 phải phát sinh thuế TNCN');
+    const expectedTax = payrollMock.calculateProgressivePitVnd(offPayroll.taxable_income_vnd, '2026-11');
+    assert.strictEqual(offPayroll.pit_tax_vnd, expectedTax, 'Thuế TNCN phải khớp biểu lũy tiến 5 bậc kỳ 2026');
     assert.strictEqual(offPayroll.mid_month_split, null, 'Chưa thăng chức giữa tháng 11 nên mid_month_split = null');
   });
 

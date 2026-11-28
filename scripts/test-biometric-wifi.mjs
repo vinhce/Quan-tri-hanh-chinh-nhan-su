@@ -122,42 +122,60 @@ module.exports = { NextResponse: MockNextResponse };
     ['src/mock/payroll.ts', 'payroll.js'],
     ['src/mock/admin.ts', 'admin.js'],
     ['src/mock/copilot.ts', 'copilot.js'],
+    ['src/mock/work-items.ts', 'work-items.js'],
     ['src/lib/hrm/config.ts', 'config.js'],
     ['src/lib/hrm/ids.ts', 'hrm-ids.js'],
     ['src/lib/hrm/format.ts', 'hrm-format.js'],
     ['src/lib/hrm/permissions.ts', 'hrm-permissions.js'],
     ['src/lib/hrm/types.ts', 'hrm-types.js'],
+    ['src/lib/hrm/salary-band.ts', 'salary-band.js'],
+    ['src/lib/hrm/work-items-store.ts', 'work-items-store.js'],
+    ['src/lib/hrm/work-handover-bridge.ts', 'work-handover-bridge.js'],
     ['src/lib/hrm/biometric-server.ts', 'biometric-server.js'],
     ['src/lib/audit-logger.ts', 'audit-logger.js'],
+    ...fs
+      .readdirSync(path.join(projectRoot, 'src/lib/runtime'))
+      .filter((f) => f.endsWith('.ts'))
+      .sort()
+      .map((f) => [`src/lib/runtime/${f}`, `runtime/${f.replace(/\.ts$/, '.js')}`]),
     ['src/lib/runtime-store.ts', 'runtime-store.js'],
     ['src/app/api/hrm/attendance/biometric/route.ts', 'biometric-route.js'],
   ];
 
   for (const [src, dest] of filesToTranspile) {
     let code = fs.readFileSync(path.join(projectRoot, src), 'utf8');
+    const rootPrefix = dest.includes('/') ? '../' : './';
 
     code = code.replace(/next\/server/g, './next-server-shim');
-    code = code.replace(/@\/mock\/types/g, './types');
-    code = code.replace(/@\/mock\/ats/g, './ats');
-    code = code.replace(/@\/mock\/employees/g, './employees');
-    code = code.replace(/@\/mock\/onboarding/g, './onboarding');
-    code = code.replace(/@\/mock\/attendance/g, './attendance');
-    code = code.replace(/@\/mock\/payroll/g, './payroll');
-    code = code.replace(/@\/mock\/admin/g, './admin');
-    code = code.replace(/@\/mock\/copilot/g, './copilot');
-    code = code.replace(/@\/lib\/hrm\/config/g, './config');
-    code = code.replace(/@\/lib\/hrm\/ids/g, './hrm-ids');
-    code = code.replace(/@\/lib\/hrm\/format/g, './hrm-format');
-    code = code.replace(/@\/lib\/hrm\/permissions/g, './hrm-permissions');
-    code = code.replace(/@\/lib\/hrm\/types/g, './hrm-types');
-    code = code.replace(/@\/lib\/hrm\/biometric-server/g, './biometric-server');
-    code = code.replace(/@\/lib\/audit-logger/g, './audit-logger');
-    code = code.replace(/@\/lib\/runtime-store/g, './runtime-store');
-    code = code.replace(/\.\/config/g, './config');
-    code = code.replace(/\.\/ids/g, './hrm-ids');
-    code = code.replace(/\.\/format/g, './hrm-format');
-    code = code.replace(/\.\/permissions/g, './hrm-permissions');
-    code = code.replace(/\.\/audit-logger/g, './audit-logger');
+    code = code.replace(/@\/mock\/types/g, `${rootPrefix}types`);
+    code = code.replace(/@\/mock\/ats/g, `${rootPrefix}ats`);
+    code = code.replace(/@\/mock\/employees/g, `${rootPrefix}employees`);
+    code = code.replace(/@\/mock\/onboarding/g, `${rootPrefix}onboarding`);
+    code = code.replace(/@\/mock\/attendance/g, `${rootPrefix}attendance`);
+    code = code.replace(/@\/mock\/payroll/g, `${rootPrefix}payroll`);
+    code = code.replace(/@\/mock\/admin/g, `${rootPrefix}admin`);
+    code = code.replace(/@\/mock\/copilot/g, `${rootPrefix}copilot`);
+    code = code.replace(/@\/mock\/work-items/g, `${rootPrefix}work-items`);
+    code = code.replace(/\.\.\/\.\.\/mock\/types/g, `${rootPrefix}types`);
+    code = code.replace(/\.\.\/\.\.\/mock\/work-items/g, `${rootPrefix}work-items`);
+    code = code.replace(/@\/lib\/hrm\/config/g, `${rootPrefix}config`);
+    code = code.replace(/@\/lib\/hrm\/ids/g, `${rootPrefix}hrm-ids`);
+    code = code.replace(/@\/lib\/hrm\/format/g, `${rootPrefix}hrm-format`);
+    code = code.replace(/@\/lib\/hrm\/permissions/g, `${rootPrefix}hrm-permissions`);
+    code = code.replace(/@\/lib\/hrm\/types/g, `${rootPrefix}hrm-types`);
+    code = code.replace(/@\/lib\/hrm\/salary-band/g, `${rootPrefix}salary-band`);
+    code = code.replace(/@\/lib\/hrm\/work-items-store/g, `${rootPrefix}work-items-store`);
+    code = code.replace(/@\/lib\/hrm\/work-handover-bridge/g, `${rootPrefix}work-handover-bridge`);
+    code = code.replace(/@\/lib\/hrm\/biometric-server/g, `${rootPrefix}biometric-server`);
+    code = code.replace(/@\/lib\/audit-logger/g, `${rootPrefix}audit-logger`);
+    code = code.replace(/@\/lib\/runtime-store/g, `${rootPrefix}runtime-store`);
+    if (!dest.startsWith('runtime/')) {
+      code = code.replace(/\.\/config/g, './config');
+      code = code.replace(/\.\/ids/g, './hrm-ids');
+      code = code.replace(/\.\/format/g, './hrm-format');
+      code = code.replace(/\.\/permissions/g, './hrm-permissions');
+      code = code.replace(/\.\/audit-logger/g, './audit-logger');
+    }
 
     if (src.endsWith('biometric/route.ts')) {
       code = code.replace(
@@ -174,7 +192,9 @@ module.exports = { NextResponse: MockNextResponse };
       },
       fileName: path.basename(src),
     });
-    fs.writeFileSync(path.join(tempDir, dest), transpiled.outputText, 'utf8');
+    const outPath = path.join(tempDir, dest);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, transpiled.outputText, 'utf8');
   }
 
   // Global browser storage + event shims

@@ -40,6 +40,12 @@ fs.writeFileSync(
   'utf8'
 );
 
+const runtimeFiles = fs
+  .readdirSync(path.join(projectRoot, 'src/lib/runtime'))
+  .filter((f) => f.endsWith('.ts'))
+  .sort()
+  .map((f) => ({ src: `src/lib/runtime/${f}`, dest: `runtime/${f.replace(/\.ts$/, '.js')}` }));
+
 const filesToTranspile = [
   { src: 'src/mock/types.ts', dest: 'types.js' },
   { src: 'src/mock/payroll.ts', dest: 'payroll.js' },
@@ -49,12 +55,18 @@ const filesToTranspile = [
   { src: 'src/mock/admin.ts', dest: 'admin.js' },
   { src: 'src/mock/onboarding.ts', dest: 'onboarding.js' },
   { src: 'src/mock/ats.ts', dest: 'ats.js' },
+  { src: 'src/mock/work-items.ts', dest: 'work-items.js' },
   { src: 'src/lib/audit-logger.ts', dest: 'audit-logger.js' },
   { src: 'src/lib/hrm/types.ts', dest: 'hrm-types.js' },
+  { src: 'src/lib/hrm/config.ts', dest: 'config.js' },
+  { src: 'src/lib/hrm/salary-band.ts', dest: 'salary-band.js' },
+  { src: 'src/lib/hrm/work-items-store.ts', dest: 'work-items-store.js' },
+  { src: 'src/lib/hrm/work-handover-bridge.ts', dest: 'work-handover-bridge.js' },
   { src: 'src/lib/hrm/permissions.ts', dest: 'hrm-permissions.js' },
   { src: 'src/lib/hrm/workflow.ts', dest: 'hrm-workflow.js' },
   { src: 'src/lib/hrm/ids.ts', dest: 'hrm-ids.js' },
   { src: 'src/lib/hrm/format.ts', dest: 'hrm-format.js' },
+  ...runtimeFiles,
   { src: 'src/lib/runtime-store.ts', dest: 'runtime-store.js' },
 ];
 
@@ -62,21 +74,32 @@ for (const { src, dest } of filesToTranspile) {
   const filePath = path.join(projectRoot, src);
   if (!fs.existsSync(filePath)) continue;
   let code = fs.readFileSync(filePath, 'utf8');
+  const rootPrefix = dest.includes('/') ? '../' : './';
 
   // Remap module aliases for CJS execution in tempDir
-  code = code.replace(/@\/mock\/types/g, './types');
-  code = code.replace(/@\/mock\/ats/g, './ats');
-  code = code.replace(/@\/mock\/employees/g, './employees');
-  code = code.replace(/@\/mock\/onboarding/g, './onboarding');
-  code = code.replace(/@\/mock\/attendance/g, './attendance');
-  code = code.replace(/@\/mock\/payroll/g, './payroll');
-  code = code.replace(/@\/mock\/admin/g, './admin');
-  code = code.replace(/@\/mock\/copilot/g, './copilot');
-  code = code.replace(/\.\/types/g, './types');
-  code = code.replace(/\.\/config/g, './config');
-  code = code.replace(/\.\/ids/g, './hrm-ids');
-  code = code.replace(/\.\/format/g, './hrm-format');
-  code = code.replace(/\.\/permissions/g, './hrm-permissions');
+  code = code.replace(/\.\.\/\.\.\/mock\/types/g, `${rootPrefix}types`);
+  code = code.replace(/\.\.\/\.\.\/mock\/work-items/g, `${rootPrefix}work-items`);
+  code = code.replace(/@\/mock\/types/g, `${rootPrefix}types`);
+  code = code.replace(/@\/mock\/ats/g, `${rootPrefix}ats`);
+  code = code.replace(/@\/mock\/employees/g, `${rootPrefix}employees`);
+  code = code.replace(/@\/mock\/onboarding/g, `${rootPrefix}onboarding`);
+  code = code.replace(/@\/mock\/attendance/g, `${rootPrefix}attendance`);
+  code = code.replace(/@\/mock\/payroll/g, `${rootPrefix}payroll`);
+  code = code.replace(/@\/mock\/admin/g, `${rootPrefix}admin`);
+  code = code.replace(/@\/mock\/copilot/g, `${rootPrefix}copilot`);
+  code = code.replace(/@\/mock\/work-items/g, `${rootPrefix}work-items`);
+  code = code.replace(/@\/lib\/audit-logger/g, `${rootPrefix}audit-logger`);
+  code = code.replace(/@\/lib\/hrm\/config/g, `${rootPrefix}config`);
+  code = code.replace(/@\/lib\/hrm\/salary-band/g, `${rootPrefix}salary-band`);
+  code = code.replace(/@\/lib\/hrm\/work-items-store/g, `${rootPrefix}work-items-store`);
+  code = code.replace(/@\/lib\/hrm\/work-handover-bridge/g, `${rootPrefix}work-handover-bridge`);
+  if (!dest.startsWith('runtime/')) {
+    code = code.replace(/\.\/types/g, './types');
+    code = code.replace(/\.\/config/g, './config');
+    code = code.replace(/\.\/ids/g, './hrm-ids');
+    code = code.replace(/\.\/format/g, './hrm-format');
+    code = code.replace(/\.\/permissions/g, './hrm-permissions');
+  }
 
   const transpiled = ts.transpileModule(code, {
     compilerOptions: {
@@ -86,7 +109,9 @@ for (const { src, dest } of filesToTranspile) {
     },
     fileName: path.basename(src),
   });
-  fs.writeFileSync(path.join(tempDir, dest), transpiled.outputText, 'utf8');
+  const outPath = path.join(tempDir, dest);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, transpiled.outputText, 'utf8');
 }
 
 // Global browser mocks for runtime store in Node.js
@@ -118,6 +143,7 @@ const { createRequire } = await import('node:module');
 const sandboxRequire = createRequire(import.meta.url);
 
 const payrollModule = sandboxRequire(path.join(tempDir, 'payroll.js'));
+const hrmConfigModule = sandboxRequire(path.join(tempDir, 'config.js'));
 const copilotModule = sandboxRequire(path.join(tempDir, 'copilot.js'));
 const attendanceModule = sandboxRequire(path.join(tempDir, 'attendance.js'));
 const employeesModule = sandboxRequire(path.join(tempDir, 'employees.js'));
@@ -348,46 +374,50 @@ async function runAll() {
     assert.strictEqual(insuranceDeduction, 4914000, 'Trần bảo hiểm 10.5% trên 46.8tr phải là 4.914.000 ₫');
   });
 
-  await testStep('2.3: Giảm trừ gia cảnh: Bản thân 11tr/tháng, Phụ thuộc 4.4tr/người/tháng', async () => {
-    assert.strictEqual(MOCK_PAYROLL_FORMULA.personal_deduction_vnd, 11000000);
-    assert.strictEqual(MOCK_PAYROLL_FORMULA.dependent_deduction_vnd, 4400000);
+  await testStep('2.3: Giảm trừ gia cảnh theo kỳ: 2026 (15.5tr / 6.2tr) & giữ nguyên <= 2025 (11tr / 4.4tr)', async () => {
+    assert.strictEqual(MOCK_PAYROLL_FORMULA.personal_deduction_vnd, 15500000);
+    assert.strictEqual(MOCK_PAYROLL_FORMULA.dependent_deduction_vnd, 6200000);
 
     const dependents = 2;
-    const totalDeduction =
+    const totalDeduction2026 =
       MOCK_PAYROLL_FORMULA.personal_deduction_vnd +
       dependents * MOCK_PAYROLL_FORMULA.dependent_deduction_vnd;
-    assert.strictEqual(totalDeduction, 19800000);
+    assert.strictEqual(totalDeduction2026, 27900000);
+
+    const cfg2025 = hrmConfigModule.getPitTaxConfigForPeriod('2025-11');
+    assert.strictEqual(cfg2025.personal_deduction_vnd, 11000000);
+    assert.strictEqual(cfg2025.dependent_deduction_vnd, 4400000);
+    assert.strictEqual(cfg2025.bracket_count, 7);
+    assert.strictEqual(
+      cfg2025.personal_deduction_vnd + dependents * cfg2025.dependent_deduction_vnd,
+      19800000
+    );
   });
 
-  await testStep('2.4: Thuế TNCN lũy tiến 7 bậc chuẩn xác qua calculateProgressivePitVnd', async () => {
+  await testStep('2.4: Thuế TNCN theo kỳ: 2026 (5 bậc NQ 110/2025) & <= 2025 (7 bậc) qua calculateProgressivePitVnd', async () => {
     assert.strictEqual(calculateProgressivePitVnd(0), 0);
     assert.strictEqual(calculateProgressivePitVnd(-5000000), 0);
 
-    // Bậc 1: <= 5tr (5%)
-    assert.strictEqual(calculateProgressivePitVnd(4000000), 200000);
-    assert.strictEqual(calculateProgressivePitVnd(5000000), 250000);
+    // Kỳ 2026 (5 bậc): 10M (5%), 30M (15%), 60M (25%), 100M (30%), >100M (35%)
+    assert.strictEqual(calculateProgressivePitVnd(700000), 35000);
+    assert.strictEqual(calculateProgressivePitVnd(10000000), 500000);
+    // Kiểm tra phiếu lương mẫu PS-202611-004 (Gross 34.65M - BH 2.394M - 15.5M - 6.2M = 10.556M)
+    assert.strictEqual(calculateProgressivePitVnd(10556000), 583400);
+    // Kiểm tra ca chuẩn kỳ 2026: 40M - BH 4.2M - 15.5M = 20.3M -> 2.045M
+    assert.strictEqual(calculateProgressivePitVnd(20300000), 2045000);
+    assert.strictEqual(calculateProgressivePitVnd(30000000), 3500000);
+    assert.strictEqual(calculateProgressivePitVnd(45000000), 7250000);
+    assert.strictEqual(calculateProgressivePitVnd(60000000), 11000000);
+    assert.strictEqual(calculateProgressivePitVnd(100000000), 23000000);
+    assert.strictEqual(calculateProgressivePitVnd(120000000), 30000000);
 
-    // Bậc 2: > 5tr đến 10tr (10% - 250k)
-    assert.strictEqual(calculateProgressivePitVnd(8000000), 550000);
-    assert.strictEqual(calculateProgressivePitVnd(10000000), 750000);
-
-    // Bậc 3: > 10tr đến 18tr (15% - 750k)
-    assert.strictEqual(calculateProgressivePitVnd(15000000), 1500000);
-    // Kiểm tra trường hợp thực tế trên phiếu lương mẫu PS-202611-004
-    assert.strictEqual(calculateProgressivePitVnd(16856000), 1778400);
-    assert.strictEqual(calculateProgressivePitVnd(18000000), 1950000);
-
-    // Bậc 4: > 18tr đến 32tr (20% - 1.65tr)
-    assert.strictEqual(calculateProgressivePitVnd(25000000), 3350000);
-
-    // Bậc 5: > 32tr đến 52tr (25% - 3.25tr)
-    assert.strictEqual(calculateProgressivePitVnd(40000000), 6750000);
-
-    // Bậc 6: > 52tr đến 80tr (30% - 5.85tr)
-    assert.strictEqual(calculateProgressivePitVnd(60000000), 12150000);
-
-    // Bậc 7: > 80tr (35% - 9.85tr)
-    assert.strictEqual(calculateProgressivePitVnd(100000000), 25150000);
+    // Kỳ <= 2025 (7 bậc) được bảo toàn nguyên vẹn
+    assert.strictEqual(calculateProgressivePitVnd(0, '2025-11'), 0);
+    assert.strictEqual(calculateProgressivePitVnd(5000000, '2025-11'), 250000);
+    assert.strictEqual(calculateProgressivePitVnd(7000000, '2025-11'), 450000);
+    assert.strictEqual(calculateProgressivePitVnd(16856000, '2025-11'), 1778400);
+    assert.strictEqual(calculateProgressivePitVnd(24800000, '2025-11'), 3310000);
+    assert.strictEqual(calculateProgressivePitVnd(100000000, '2025-11'), 25150000);
   });
 
   await testStep('2.5: Toàn vẹn dữ liệu bảng lương mẫu: Gross - Insurance - PIT = Net', async () => {

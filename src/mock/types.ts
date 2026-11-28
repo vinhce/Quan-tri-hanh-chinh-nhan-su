@@ -47,6 +47,19 @@ export interface Department {
   children?: Department[];
 }
 
+export type SalaryGradeStepCode = 'S1' | 'S2' | 'S3' | 'S4';
+
+export type PositionQualificationLevel =
+  | 'COLLEGE_OR_HIGHER'
+  | 'INTERMEDIATE_VOCATIONAL'
+  | 'OTHER';
+
+export interface PositionSalaryGradeStep {
+  step: SalaryGradeStepCode;
+  label: string;
+  salary_vnd: number;
+}
+
 export interface Position {
   id: string;
   position_code: string;
@@ -55,6 +68,9 @@ export interface Position {
   level: 'INTERN' | 'JUNIOR' | 'MID' | 'SENIOR' | 'LEAD' | 'MANAGER' | 'DIRECTOR';
   salary_band_min_vnd: number;
   salary_band_max_vnd: number;
+  allowance_position_vnd?: number;
+  grade_steps?: PositionSalaryGradeStep[];
+  qualification_level?: PositionQualificationLevel;
 }
 
 export interface Employee {
@@ -109,6 +125,8 @@ export interface Employee {
   official_salary_vnd?: number;
   probation_end_date?: string | null;
   official_date?: string | null;
+  grade_step?: SalaryGradeStepCode;
+  next_review_date?: string | null;
   approved_last_day?: string | null;
   resigned_date?: string | null;
   is_rehireable?: boolean;
@@ -306,6 +324,10 @@ export interface PayrollFormulaConfig {
   personal_deduction_vnd: number;
   dependent_deduction_vnd: number;
   standard_work_days_per_month: number;
+  tax_year?: number;
+  effective_from?: string;
+  bracket_count?: number;
+  legal_basis?: string;
 }
 
 export interface MidMonthSalarySplit {
@@ -849,6 +871,19 @@ export interface BiometricCredentialRecord {
   created_at: string;
 }
 
+export interface FaceBiometricProfileDto {
+  id: string;
+  employee_id: string;
+  employee_code: string;
+  device_label: string;
+  embedding_dim: number;
+  registered_by_role: RoleCode;
+  created_at: string;
+  last_used_at: string | null;
+  has_periocular_template?: boolean;
+  supported_modalities?: Array<'FACE_FULL' | 'PERIOCULAR'>;
+}
+
 export interface WifiAttendancePolicy {
   id: string;
   wifi_ssid_label: string;
@@ -921,11 +956,15 @@ export interface DailyAttendanceRecord {
   source:
     | 'WEB_CLOCK'
     | 'BIOMETRIC_FINGERPRINT'
+    | 'BIOMETRIC_FACE_IRIS'
     | 'BIOMETRIC_IMPORT'
     | 'REQUEST_SYNC'
     | 'SEED';
-  auth_method?: 'WEBAUTHN_FINGERPRINT' | 'MANUAL_WEB' | 'CSV_IMPORT';
+  auth_method?: 'WEBAUTHN_FINGERPRINT' | 'CAMERA_FACE_IRIS' | 'MANUAL_WEB' | 'CSV_IMPORT';
   biometric_device_label?: string;
+  biometric_modality?: 'FINGERPRINT' | 'FACE_IRIS';
+  liveness_score?: number;
+  face_match_score?: number;
   verified_network_ip?: string;
   wifi_match_mode?: WifiMatchMode;
 }
@@ -1078,6 +1117,23 @@ export interface ResignationRequest {
   created_at: string;
 }
 
+export type WorkItemStatus = 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE';
+
+export interface WorkItem {
+  id: string;
+  owner_employee_id: string;
+  owner_employee_code?: string;
+  department_id?: string;
+  title: string;
+  weight: number;
+  due_date: string;
+  status: WorkItemStatus;
+  progress_percent: number;
+  deliverable_url: string;
+  handoff_checkpoint?: string;
+  updated_at?: string;
+}
+
 export type HandoverItemCategory =
   | 'PROJECT'
   | 'DOCUMENT'
@@ -1088,12 +1144,17 @@ export type HandoverItemCategory =
 export interface HandoverItem {
   id: string;
   resignation_id: string;
+  source_type?: 'RESIGNATION' | 'DEPARTMENT_TRANSFER';
+  work_item_id?: string | null;
   employee_id: string;
   employee_code: string;
   employee_name: string;
   category: HandoverItemCategory;
   title: string;
   description: string;
+  progress_percent?: number;
+  handoff_checkpoint?: string;
+  deliverable_url?: string;
   receiver_employee_id: string | null;
   receiver_employee_code?: string | null;
   receiver_name: string | null;
